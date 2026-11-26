@@ -57,6 +57,84 @@ def check_citations(answer: str, fragments: list[Fragment]) -> CitationCheck:
     return CitationCheck(ok=not problems, problems=problems)
 
 
+class CitationFix(BaseModel):
+    old: str
+    new: str
+    claim: str
+
+
+class CitationFixes(BaseModel):
+    text: str
+    fixes: list[CitationFix]
+
+
+def fix_citations(answer: str, fragments: list[Fragment]) -> CitationFixes:
+    """Ссылка на страницу без цифры → ссылка на страницу ЭТОГО хода, где цифра дословно есть.
+
+    Исправляем однозначный случай: во фразе одна ссылка, и все её цифры без подтверждения есть на
+    одной и той же другой странице из fragments. Иначе фразу не трогаем: её вырежет sanitize_answer.
+    """
+    sources = [
+        (
+            fragment.manual,
+            fragment.pdf_page,
+            _designation(fragment.manual),
+            _claim_keys(fragment.text),
+        )
+        for fragment in fragments
+    ]
+    fixes: list[CitationFix] = []
+    out: list[str] = []
+    cursor = 0
+    for sentence in split_sentences(answer):
+        start = answer.find(sentence, cursor)
+        if start < 0:
+            continue
+        out.append(answer[cursor:start])
+        out.append(_fix_sentence(sentence, sources, fixes))
+        cursor = start + len(sentence)
+    out.append(answer[cursor:])
+    return CitationFixes(text="".join(out), fixes=fixes)
+
+
+def _fix_sentence(
+    sentence: str,
+    sources: list[tuple[str, int, str, set[tuple[float, str]]]],
+    fixes: list[CitationFix],
+) -> str:
+    citations = list(CITATION_RE.finditer(sentence))
+    claims = list(CLAIM_RE.finditer(sentence))
+    if len(citations) != 1 or not claims:
+        return sentence
+    citation = citations[0]
+    cited = (_designation(citation.group(1)), int(citation.group(2)))
+    cited_keys = set().union(*(keys for _, page, desig, keys in sources if (desig, page) == cited))
+    missing = [
+        claim for claim in claims if _claim_key(claim.group(1), claim.group(2)) not in cited_keys
+    ]
+    if not missing:
+        return sentence
+    candidates: list[tuple[str, int]] | None = None
+    for claim in missing:
+        key = _claim_key(claim.group(1), claim.group(2))
+        pages = [
+            (manual, page)
+            for manual, page, desig, keys in sources
+            if key in keys and (desig, page) != cited
+        ]
+        candidates = pages if candidates is None else [p for p in candidates if p in pages]
+    if not candidates:
+        return sentence
+    manual, page = candidates[0]
+    new = f"[{manual}, стр. {page}]"
+    fixes.append(CitationFix(old=citation.group(0), new=new, claim=missing[0].group(0)))
+    return sentence[: citation.start()] + new + sentence[citation.end() :]
+
+
+def _claim_keys(text: str) -> set[tuple[float, str]]:
+    return {_claim_key(number, unit) for number, unit in CLAIM_RE.findall(text)}
+
+
 def unsupported_claims(text: str, fragments: list[Fragment]) -> list[str]:
     """Цифры с единицей из текста, которых нет ни в одном фрагменте (для черновика заявки)."""
     known = {

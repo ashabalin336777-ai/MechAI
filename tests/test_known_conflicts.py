@@ -1,7 +1,7 @@
 """Известные противоречия руководств (правило заказчика X01): обе формулировки, безопасное правило.
 
-Код не выбирает верную формулировку. Ответ с противоречием обязан назвать его, дать обе ссылки
-и безопасное правило; если модель этого не сделала, блок дописывается кодом.
+Код не выбирает верную формулировку. Блок противоречия собирает код дословно из правила: все
+страницы со ссылками, безопасное правило, совет специалиста. Фразы модели о трактовке убираются.
 """
 
 import pymupdf
@@ -63,8 +63,8 @@ def _page_fragments(designation: str, page: int) -> list[Fragment]:
             "по окончании обкатки, но не ранее, чем через 15 мин после остановки двигателя."
         ),
         (RK_269, 276): (
-            "Проверку зазоров в клапанном механизме производить на холодном двигателе или не "
-            "ранее, чем через 15 минут после его остановки."
+            "Примечание - Проверку регулировки зазоров в клапанном механизме производить на "
+            "холодном двигателе или не ранее, чем через 15 минут после его остановки."
         ),
     }
     text = texts.get((designation, page))
@@ -176,35 +176,39 @@ def test_search_adds_both_formulations_and_marks_the_conflict() -> None:
     assert "в документации противоречие" in conflicts[0]["instruction"].lower()
 
 
-def test_answer_without_conflict_elements_gets_the_block_appended() -> None:
+def test_answer_gets_the_verbatim_block_with_all_three_references() -> None:
     services = _services("Регулировать на холодном двигателе. Уточните у специалиста.")
     events = _run(services)
 
     answer = next(data["text"] for name, data in events if name == "answer_final")
     assert "В документации противоречие" in answer
-    assert f"[{RE_31}, стр. 31]" in answer
-    assert f"[{RK_269}, стр. 269]" in answer
-    assert "на холодном двигателе" in answer
+    rule = _conflict()
+    for ref in rule.refs:
+        assert f"- «{ref.quote}» [{ref.manual}, стр. {ref.pdf_page}]" in answer
+    assert "Безопасное правило: на холодном двигателе." in answer
+    assert "Уточните у специалиста или производителя" in answer
     assert any(
-        step.name == "conflict_notice"
+        step.name == "conflict_notice" and step.kind == "guardrail"
         for step in services.journal.steps
-        if step.kind == "guardrail"
     )
 
 
-def test_answer_with_all_elements_is_left_as_is() -> None:
+def test_model_paraphrase_of_the_conflict_is_replaced_by_the_block() -> None:
     answer = (
-        "В документации противоречие. Формулировки: «на холодном двигателе или менее чем через "
-        f"15 минут» [{RE_31}, стр. 31]; «не ранее чем через 15 мин» [{RK_269}, стр. 269]; "
-        f"«на холодном двигателе или не ранее, чем через 15 минут» [{RK_269}, стр. 276]. "
-        "Безопасное правило: на холодном двигателе. Уточните у специалиста."
+        "Регулировать на холодном двигателе.\n"
+        "Формулировки не взаимоисключающие: одна про холодный двигатель, другая про 15 минут "
+        f"[{RE_31}, стр. 31].\n"
+        "Уточните у специалиста."
     )
     services = _services(answer)
     events = _run(services)
 
     final = next(data["text"] for name, data in events if name == "answer_final")
-    assert final == answer
-    assert not any(step.name == "conflict_notice" for step in services.journal.steps)
+    assert "взаимоисключ" not in final.lower()
+    assert final.startswith("Регулировать на холодном двигателе.")
+    assert "- «Тепловые зазоры регулировать на холодном двигателе" in final
+    step = next(step for step in services.journal.steps if step.name == "conflict_notice")
+    assert any("взаимоисключ" in line.lower() for line in step.output["removed"])
 
 
 def test_single_formulation_is_not_reported_as_conflict() -> None:
@@ -272,3 +276,47 @@ def test_real_pages_give_both_oil_pressure_formulations() -> None:
     assert quote_for_ref(conflict, conflict.refs[0], page_12) == conflict.refs[0].quote
     quote_267 = quote_for_ref(conflict, conflict.refs[1], page_267)
     assert quote_267 is not None and "400-700 кПа" in quote_267
+
+
+def test_verbatim_quote_is_refused_when_the_page_says_something_else() -> None:
+    conflict = _conflict()
+    fragment = Fragment(
+        manual_id="x",
+        manual=RE_31,
+        pdf_page=31,
+        section=None,
+        text="Тепловые зазоры регулировать на холодном двигателе или менее чем через 20 минут "
+        "после его остановки.",
+        score=1.0,
+    )
+    assert quote_for_ref(conflict, conflict.refs[0], fragment) is None
+
+
+def test_verbatim_quote_survives_line_breaks_and_hyphenation_of_the_page() -> None:
+    conflict = _conflict()
+    fragment = Fragment(
+        manual_id="x",
+        manual=RK_269,
+        pdf_page=269,
+        section=None,
+        text="6.4.1 Проверить и подрегулировать тепловые зазоры клапанного меха-\n"
+        "низма перед началом и по окончании обкатки, но не ранее, чем через 15 мин\n"
+        "после остановки двигателя.",
+        score=1.0,
+    )
+    assert quote_for_ref(conflict, conflict.refs[1], fragment) == conflict.refs[1].quote
+
+
+def test_real_pages_contain_the_verbatim_quotes_of_the_rule() -> None:
+    conflict = _conflict()
+    pages = {
+        (RE_31, 31): ("yamz-236_re_2010.pdf", RE_31),
+        (RK_269, 269): ("yamz-236_rk_2014.pdf", RK_269),
+        (RK_269, 276): ("yamz-236_rk_2014.pdf", RK_269),
+    }
+    for ref in conflict.refs:
+        file_name, designation = pages[(ref.manual, ref.pdf_page)]
+        page = _real_page_fragment(file_name, designation, ref.pdf_page)
+        if page is None:
+            pytest.skip("руководство ЯМЗ-236М2 не найдено в data/manuals")
+        assert quote_for_ref(conflict, ref, page) == ref.quote, (ref.manual, ref.pdf_page)

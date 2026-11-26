@@ -4,6 +4,7 @@ from typing import Any
 
 from app.agent.guards import UNCONFIRMED_MARK
 from app.agent.runner import TurnRequest, load_base_prompt, run_turn
+from app.rag.search import Fragment
 from tests.agent_helpers import (
     DIAG_SESSION,
     DIAG_VEHICLE,
@@ -213,3 +214,43 @@ def test_search_manual_is_limited_to_three_calls_per_turn() -> None:
 
     searches = [s for s in services.journal.steps if s.name == "search_manual"]
     assert [s.error for s in searches] == [None, None, None, "tool_refused"]
+
+
+def test_number_on_another_page_of_this_turn_moves_the_citation_and_is_logged() -> None:
+    page_268 = Fragment(
+        manual_id="yamz236_rk",
+        manual=YAMZ236_RK,
+        pdf_page=268,
+        section=None,
+        text="Давление масла на холостом ходу не менее 100 кПа.",
+        score=0.9,
+    )
+    answer = f"Минимальное давление масла 100 кПа [{YAMZ236_RK}, стр. 267]."
+    llm = ScriptedChat(
+        [
+            reply(
+                calls=[
+                    (
+                        "search_manual",
+                        {
+                            "query": "давление масла холостой ход",
+                            "vehicle_id": DIAG_VEHICLE,
+                            "top_k": 3,
+                        },
+                    )
+                ]
+            ),
+            reply(content=answer),
+        ]
+    )
+    services = make_services(llm)
+    services.deps.search = lambda query, engine, top_k: [manual_fragment(), page_268]
+
+    events = _run(services, _turn(DIAG_VEHICLE, DIAG_SESSION))
+
+    final = next(data for name, data in events if name == "answer_final")
+    assert final["text"] == f"Минимальное давление масла 100 кПа [{YAMZ236_RK}, стр. 268]."
+    fixes = [s for s in services.journal.steps if s.name == "citation_fixed"]
+    assert len(fixes) == 1
+    assert fixes[0].output["fixes"][0]["claim"] == "100 кПа"
+    assert len(llm.calls) == 2

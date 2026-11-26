@@ -1,6 +1,6 @@
 """Проверка цитат: цифра без ссылки, ссылка на неполученную страницу, нормализация единиц."""
 
-from app.rag.citations import check_citations, unsupported_claims
+from app.rag.citations import check_citations, fix_citations, unsupported_claims
 from app.rag.search import Fragment
 
 DESIGNATION = "536.01.02 РК"
@@ -82,3 +82,50 @@ def test_each_sentence_needs_its_own_citation() -> None:
     result = check_citations(answer, fragments)
     assert not result.ok
     assert len(result.problems) == 1
+
+
+def test_citation_moves_to_the_page_of_this_turn_that_has_the_number() -> None:
+    fragments = [
+        _fragment("Давление 300 кПа при номинальной частоте.", page=19, manual="РЭ 1"),
+        _fragment("Не менее 100 кПа при минимальной частоте.", page=267, manual="РК 2"),
+    ]
+    answer = "Минимальное давление 100 кПа [РЭ 1, стр. 19]."
+    fixed = fix_citations(answer, fragments)
+    assert fixed.text == "Минимальное давление 100 кПа [РК 2, стр. 267]."
+    assert [(fix.old, fix.new, fix.claim) for fix in fixed.fixes] == [
+        ("[РЭ 1, стр. 19]", "[РК 2, стр. 267]", "100 кПа")
+    ]
+    assert check_citations(fixed.text, fragments).ok
+
+
+def test_number_found_nowhere_in_this_turn_is_not_moved() -> None:
+    fragments = [_fragment("Зазор 0,25 мм.", page=19, manual="РЭ 1")]
+    answer = "Зазор 0,77 мм [РЭ 1, стр. 19]."
+    fixed = fix_citations(answer, fragments)
+    assert fixed.text == answer
+    assert fixed.fixes == []
+    assert not check_citations(answer, fragments).ok
+
+
+def test_sentence_with_two_citations_is_not_guessed() -> None:
+    fragments = [
+        _fragment("Не менее 100 кПа.", page=267, manual="РК 2"),
+        _fragment("Другое.", page=19, manual="РЭ 1"),
+    ]
+    answer = "Давление 100 кПа [РЭ 1, стр. 19] и [РЭ 1, стр. 7]."
+    fixed = fix_citations(answer, fragments)
+    assert fixed.text == answer
+    assert fixed.fixes == []
+
+
+def test_fix_changes_only_its_sentence() -> None:
+    fragments = [
+        _fragment("Зазор 0,15 мм.", page=45, manual=DESIGNATION),
+        _fragment("Не менее 100 кПа.", page=46, manual=DESIGNATION),
+    ]
+    answer = "Зазор 0,15 мм [536.01.02 РК, стр. 45].\nМинимум 100 кПа [536.01.02 РК, стр. 99]."
+    fixed = fix_citations(answer, fragments)
+    assert fixed.text == (
+        "Зазор 0,15 мм [536.01.02 РК, стр. 45].\nМинимум 100 кПа [536.01.02 РК, стр. 46]."
+    )
+    assert len(fixed.fixes) == 1

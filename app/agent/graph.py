@@ -18,9 +18,8 @@ from langgraph.graph.message import add_messages
 from pydantic import ValidationError
 
 from app.agent.guards import (
-    append_conflict_notice,
+    apply_conflict_block,
     check_answer,
-    conflict_notice_problems,
     find_injection_markers,
     redact_injection,
     sanitize_answer,
@@ -28,6 +27,7 @@ from app.agent.guards import (
 )
 from app.agent.llm import ChatModel
 from app.obs.journal import Journal, StepRecord
+from app.rag.citations import fix_citations
 from app.rag.search import Fragment
 from app.tools.registry import ToolSpec, openai_tools
 from app.tools.runtime import Runtime, ToolDeps, TurnContext
@@ -184,6 +184,20 @@ def build_graph(deps: AgentDeps, checkpointer: Any) -> Any:
         text = str(last.content)
         check = check_answer(text, deps.turn.fetched_now)
         if not check.ok:
+            fixed = fix_citations(text, deps.turn.fetched_now)
+            if fixed.fixes:
+                text = fixed.text
+                deps.record(
+                    StepRecord(
+                        run_id=deps.run_id,
+                        n=deps.next_step(),
+                        kind="guardrail",
+                        name="citation_fixed",
+                        output={"fixes": [fix.model_dump() for fix in fixed.fixes]},
+                    )
+                )
+                check = check_answer(text, deps.turn.fetched_now)
+        if not check.ok:
             text = _regenerate(deps, state, check.problems)
             check = check_answer(text, deps.turn.fetched_now)
         if not check.ok:
@@ -197,16 +211,19 @@ def build_graph(deps: AgentDeps, checkpointer: Any) -> Any:
                 output={"ok": check.ok, "problems": check.problems},
             )
         )
-        notice_problems = conflict_notice_problems(text, deps.turn.conflicts)
-        if notice_problems:
-            text = append_conflict_notice(text, deps.turn.conflicts)
+        if deps.turn.conflicts:
+            block = apply_conflict_block(text, deps.turn.conflicts)
+            text = block.text
             deps.record(
                 StepRecord(
                     run_id=deps.run_id,
                     n=deps.next_step(),
                     kind="guardrail",
                     name="conflict_notice",
-                    output={"problems": notice_problems},
+                    output={
+                        "notices": [notice.id for notice in deps.turn.conflicts],
+                        "removed": block.removed,
+                    },
                 )
             )
         return {"messages": [AIMessage(id=last.id, content=text)]}

@@ -6,6 +6,7 @@
 
 import re
 from pathlib import Path
+from typing import Literal
 
 import yaml
 from pydantic import BaseModel, Field
@@ -14,14 +15,16 @@ from app.rag.search import Fragment
 
 # Переносы строк PDF внутри предложения не границы: иначе цитата обрывается на полуслове.
 SENTENCE_SPLIT_RE = re.compile(r"(?<=[.;])\s+")
+HYPHEN_BREAK_RE = re.compile(r"-\n")
 
 
 class ConflictRef(BaseModel):
     manual: str = Field(min_length=3)
     pdf_page: int = Field(ge=1)
-    # Цитата, заданная правилом (для повёрнутых таблиц, где текст страницы перевёрнут).
-    # Проверяется не побуквенно, а по числам: каждое число цитаты должно быть на странице.
+    # Цитата, заданная правилом. verbatim: должна быть дословно на странице (после склейки строк).
+    # numbers: для повёрнутых таблиц, где текст страницы не совпадает побуквенно; проверяются числа.
     quote: str | None = Field(default=None, min_length=3)
+    check: Literal["verbatim", "numbers"] = "verbatim"
 
 
 class KnownConflict(BaseModel):
@@ -77,15 +80,25 @@ NUMBER_RE = re.compile(r"\d+(?:[-,.]\d+)*")
 
 
 def quote_for_ref(conflict: KnownConflict, ref: ConflictRef, fragment: Fragment) -> str | None:
-    """Цитата для одной ссылки правила: заданная в правиле (если все её числа есть на странице)
-    или предложение из фрагмента."""
+    """Цитата для одной ссылки правила.
+
+    Заданная в правиле цитата отдаётся, только если она подтверждена страницей (check). Без цитаты
+    в правиле — предложение из фрагмента. Нет подтверждения — None: ссылку не показываем.
+    """
     if ref.quote is None:
         return quote_for(conflict, fragment)
+    if ref.check == "verbatim":
+        return ref.quote if _flat(ref.quote) in _flat(fragment.text) else None
     page_text = re.sub(r"\s+", "", fragment.text)
     numbers = NUMBER_RE.findall(ref.quote)
     if numbers and all(number in page_text for number in numbers):
         return ref.quote
     return None
+
+
+def _flat(text: str) -> str:
+    """Текст одной строкой: перенос слова по дефису склеиваем, пробелы сводим к одному."""
+    return " ".join(HYPHEN_BREAK_RE.sub("", text).split())
 
 
 def quote_for(conflict: KnownConflict, fragment: Fragment) -> str | None:

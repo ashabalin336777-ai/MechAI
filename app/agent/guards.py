@@ -133,34 +133,51 @@ def _norm(value: str) -> str:
     return " ".join(value.lower().split())
 
 
-CONFLICT_CLAUSE_RE = re.compile(r"уточн|специалист|производител", re.IGNORECASE)
+# Фразы, в которых модель трактует противоречие вместо того, чтобы показать его формулировки.
+CONFLICT_TALK_RE = re.compile(
+    r"противореч|взаимоисключ|не конфликт|можно понимать|следует понимать|на самом деле|фактически",
+    re.IGNORECASE,
+)
 
 
-def conflict_notice_problems(answer: str, notices: list[ConflictNotice]) -> list[str]:
-    """Ответ с противоречием обязан: назвать противоречие, дать обе ссылки и безопасное правило."""
-    if not notices:
-        return []
-    lowered = answer.lower()
-    problems: list[str] = []
-    if "противореч" not in lowered:
-        problems.append("нет слов «в документации противоречие»")
+class ConflictBlock(BaseModel):
+    text: str
+    removed: list[str]
+
+
+def render_conflict_block(notices: list[ConflictNotice]) -> str:
+    """Блок противоречия: формулировки из правила (дословно), ссылки, безопасное правило.
+
+    Текст собирает код, модель его не переписывает. Формулировки берутся из known_conflicts.yaml
+    и проверены по страницам при поиске (quote_for_ref).
+    """
+    blocks = []
     for notice in notices:
-        for quote in notice.quotes:
-            if f"[{quote.manual}, стр. {quote.pdf_page}]" not in answer:
-                problems.append(f"нет ссылки [{quote.manual}, стр. {quote.pdf_page}]")
-        if notice.safe_rule.lower() not in lowered:
-            problems.append(f"нет безопасного правила «{notice.safe_rule}»")
-    if not CONFLICT_CLAUSE_RE.search(answer):
-        problems.append("нет рекомендации уточнить у специалиста или производителя")
-    return problems
-
-
-def append_conflict_notice(answer: str, notices: list[ConflictNotice]) -> str:
-    """Дописываем обе формулировки, если модель их не дала: механик обязан их увидеть."""
-    lines = ["**В документации противоречие.** Формулировки руководства:"]
-    for notice in notices:
+        lines = [f"**В документации противоречие.** Тема: {notice.topic}."]
         for quote in notice.quotes:
             lines.append(f"- «{quote.quote}» [{quote.manual}, стр. {quote.pdf_page}]")
         lines.append(f"Безопасное правило: {notice.safe_rule}.")
-    lines.append("Уточните у специалиста или производителя до регулировки.")
-    return f"{answer.rstrip()}\n\n" + "\n".join(lines)
+        lines.append(
+            "Причину расхождения не определяем. "
+            "Уточните у специалиста или производителя до регулировки."
+        )
+        blocks.append("\n".join(lines))
+    return "\n\n".join(blocks)
+
+
+def apply_conflict_block(answer: str, notices: list[ConflictNotice]) -> ConflictBlock:
+    """Ответ с противоречием: строки модели о трактовке убираем, блок кода ставим в конец."""
+    if not notices:
+        return ConflictBlock(text=answer, removed=[])
+    kept: list[str] = []
+    removed: list[str] = []
+    for line in answer.split("\n"):
+        if CONFLICT_TALK_RE.search(line):
+            if line.strip():
+                removed.append(line.strip())
+        else:
+            kept.append(line)
+    body = "\n".join(kept).strip()
+    block = render_conflict_block(notices)
+    text = f"{body}\n\n{block}" if body else block
+    return ConflictBlock(text=text, removed=removed)
