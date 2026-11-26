@@ -14,7 +14,7 @@ FastAPI, Jinja2, HTMX/Alpine.js (мобильное PWA), LangGraph с чекп�
 
 ## Статус
 
-Готово в коде (`pytest`: 359 тестов проходят, 18 пропускаются без `TEST_DATABASE_URL`):
+Готово в коде (`pytest`: 369 тестов проходят, 18 пропускаются без `TEST_DATABASE_URL`):
 - **Фазы 01–02:** каркас, клиенты Mock ML и Mock ТОиР по OpenAPI, парк ТС из `mock/data/vehicles.json`, `GET /health` и `GET /ready`, PostgreSQL с миграциями (pgvector), запасной режим `MOUNT_MOCKS=1`. Развёрнуто на Timeweb App Platform.
 - **Фаза 03:** ингест руководств, гибридный поиск (pgvector + полнотекст + реранк) с порогом `RAG_MIN_SCORE`, фильтр по двигателю в SQL, известные противоречия руководств (`data/known_conflicts.yaml`).
 - **Фаза 04:** агент LangGraph и инструменты `get_vehicle`, `get_diagnosis`, `search_manual`, `get_history`, `draft_ticket`, `create_ticket` (отправка только по одноразовому токену), журнал ходов `agent_runs` / `agent_steps` с шагами `error` и `retry` (класс и текст ошибки без секретов). Таймаут вызова модели не меньше 15 с, один повтор при 5xx, таймауте и обрыве (`97cb0f7`).
