@@ -15,6 +15,17 @@ from app.main import create_app
 from tests.helpers import STUB_BASE, VEHICLES_PATH
 
 
+@pytest.fixture(autouse=True)
+def isolate_settings(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Тесты не читают боевые значения из локального .env: БД и режимы сбрасываются явно.
+
+    Переменные окружения приоритетнее файла .env в pydantic-settings, поэтому пустые значения
+    здесь перекрывают любой .env. Тесты, которым нужна БД, задают URL сами.
+    """
+    monkeypatch.setenv("DATABASE_URL", "")
+    monkeypatch.setenv("MOUNT_MOCKS", "0")
+
+
 @pytest.fixture
 def ml_client() -> MlClient:
     return MlClient(STUB_BASE, http=TestClient(ml_stub))

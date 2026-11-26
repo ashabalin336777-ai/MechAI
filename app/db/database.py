@@ -1,12 +1,14 @@
 """PostgreSQL: проверка доступности и применение SQL-миграций при старте.
 
-Пароль и DATABASE_URL в логи и ответы не попадают: в журнал пишем только класс ошибки.
+Пароль и DATABASE_URL в логи и ответы не попадают: в журнал пишем класс ошибки и её текст
+с вырезанными секретами (см. describe_error).
 """
 
 import logging
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Literal
+from urllib.parse import unquote, urlsplit
 
 import psycopg
 
@@ -25,6 +27,20 @@ class DatabaseStatus:
     migrations_applied: int = 0
 
 
+def describe_error(exc: psycopg.Error, database_url: str) -> str:
+    """Имя класса ошибки и первая строка её текста. Пароль и строка подключения вырезаются."""
+    lines = str(exc).strip().splitlines()
+    text = lines[0] if lines else ""
+    parts = urlsplit(database_url) if database_url else None
+    secrets = {database_url}
+    if parts is not None and parts.password:
+        secrets.update({parts.password, unquote(parts.password)})
+    for secret in sorted(secrets, key=len, reverse=True):
+        if secret:
+            text = text.replace(secret, "***")
+    return f"{type(exc).__name__}: {text[:300]}"
+
+
 def check_database(database_url: str) -> DatabaseState:
     """SELECT 1 с коротким таймаутом. Пустой URL — «не настроена», это не ошибка."""
     if not database_url:
@@ -33,7 +49,7 @@ def check_database(database_url: str) -> DatabaseState:
         with psycopg.connect(database_url, connect_timeout=CONNECT_TIMEOUT_S) as conn:
             conn.execute("SELECT 1")
     except psycopg.Error as exc:
-        logger.warning("БД недоступна: %s", type(exc).__name__)
+        logger.warning("БД недоступна: %s", describe_error(exc, database_url))
         return "unavailable"
     return "ok"
 
@@ -49,7 +65,7 @@ def apply_migrations(database_url: str) -> DatabaseStatus:
     try:
         conn = psycopg.connect(database_url, connect_timeout=CONNECT_TIMEOUT_S, autocommit=True)
     except psycopg.Error as exc:
-        logger.warning("БД недоступна при миграциях: %s", type(exc).__name__)
+        logger.warning("БД недоступна при миграциях: %s", describe_error(exc, database_url))
         return DatabaseStatus("unavailable")
     applied = 0
     try:
@@ -69,7 +85,7 @@ def apply_migrations(database_url: str) -> DatabaseStatus:
             applied += 1
             logger.info("миграция применена: %s", path.name)
     except psycopg.Error as exc:
-        logger.error("миграция не применена: %s", type(exc).__name__)
+        logger.error("миграция не применена: %s", describe_error(exc, database_url))
         return DatabaseStatus("migration_failed", applied)
     finally:
         conn.execute("SELECT pg_advisory_unlock(%s)", (MIGRATION_LOCK_KEY,))
