@@ -1,0 +1,237 @@
+{
+  "schema_version": "1.1.0",
+  "meta": {
+    "synthetic": true,
+    "scenario_id": "S1",
+    "note": "СИНТЕТИЧЕСКИЕ ДАННЫЕ. Критический сценарий: стук шатунного подшипника цил. 3, зона D, пробег 268 000 км (применим СБ-ISF28-ДЕМО-01)."
+  },
+  "analysis": {
+    "analysis_id": "e3a55b90-41c8-4a6f-b2d1-0c9f77a1d2f1",
+    "analyzed_at": "2026-11-18T09:42:10+07:00",
+    "model_id": "engine-acoustics-clf",
+    "model_version": "2026.11-hackathon-stub-v1.1",
+    "pipeline": [
+      "spectral_features",
+      "anomaly_detector",
+      "fault_classifier",
+      "severity_zone_mapper"
+    ],
+    "trigger": "driver_complaint"
+  },
+  "vehicle": {
+    "vehicle_id": "LCV-NSK-0112",
+    "vin": "X96A21R22K0000112",
+    "fleet_id": "FLEET-CARGO-NSK-02",
+    "usage": "lcv",
+    "make": "Синтетический парк",
+    "model": "LCV-3.5t",
+    "generation": null,
+    "year": 2021,
+    "license_plate": "В112КМ 154",
+    "engine": {
+      "id": "ENG-ISF28-0112",
+      "code": "ISF2.8s4R148",
+      "family": "ISF2.8",
+      "fuel": "diesel",
+      "displacement_l": 2.8,
+      "cylinders": 4,
+      "configuration": "inline",
+      "rated_power_kw": 110,
+      "aspiration": "turbo"
+    },
+    "mileage_km": 268000,
+    "operating_hours": 5860
+  },
+  "recording": {
+    "recorded_at": "2026-11-18T09:38:45+07:00",
+    "duration_s": 25,
+    "sample_rate_hz": 25600,
+    "channels": 1,
+    "sensor_type": "accelerometer",
+    "sensor_position": "block_below_cylinder_3_oil_pan_area",
+    "audio_ref": "rec://demo/S1/LCV-NSK-0112/2026-11-18T09-38-45.wav",
+    "conditions": {
+      "engine_state": "off_idle",
+      "engine_speed_rpm": 1450,
+      "engine_load_pct": 0,
+      "coolant_temp_c": 88,
+      "oil_temp_c": 97,
+      "vehicle_speed_kph": 0,
+      "gear": "N",
+      "ambient_temp_c": -6,
+      "environment": "depot"
+    },
+    "quality": {
+      "status": "ok",
+      "snr_db": 24.8,
+      "rms_dbfs": -21.4,
+      "silence_ratio": 0.02,
+      "clipping_ratio": 0.002,
+      "warnings": []
+    }
+  },
+  "overall": {
+    "verdict": "anomaly",
+    "anomaly_score": 0.93,
+    "severity": "critical",
+    "severity_zone": "D",
+    "severity_standard": "ISO_10816-6_inspired_class5_reciprocating_gt_100kW",
+    "urgency": "do_not_operate",
+    "confidence": 0.86,
+    "requires_rerecord": false,
+    "overall_vibration": {
+      "rms_velocity_mm_s": 13.9,
+      "peak_acceleration_g": 4.4,
+      "frequency_range_hz": [
+        2,
+        1000
+      ]
+    }
+  },
+  "faults": [
+    {
+      "code": "conrod_bearing_knock",
+      "name_ru": "Стук шатунного подшипника",
+      "probability": 0.82,
+      "confidence": 0.86,
+      "component": "connecting_rod_bearing",
+      "location": {
+        "bank": 1,
+        "cylinder": 3,
+        "side": null
+      },
+      "frequency_bands": [
+        {
+          "f_low_hz": 300,
+          "f_high_hz": 2500,
+          "peak_hz": 724,
+          "amplitude": 9.8,
+          "unit": "mm/s",
+          "shaft_order": 1.0
+        }
+      ],
+      "severity": "critical",
+      "severity_zone": "D",
+      "related_dtcs": [
+        "P1A31"
+      ],
+      "recommended_checks": [
+        "Остановить эксплуатацию, не нагружать двигатель",
+        "Замерить давление масла механическим манометром на прогретом двигателе на 800 и 1 500 об/мин",
+        "Прослушать нижнюю часть блока стетоскопом, сравнить цилиндры",
+        "Проверить уровень и запах масла (подозрение на разжижение топливом)"
+      ]
+    },
+    {
+      "code": "injector_fault",
+      "name_ru": "Неисправность форсунки",
+      "probability": 0.1,
+      "confidence": 0.52,
+      "component": "injector",
+      "location": {
+        "bank": 1,
+        "cylinder": 3,
+        "side": null
+      },
+      "frequency_bands": [
+        {
+          "f_low_hz": 3000,
+          "f_high_hz": 9000,
+          "peak_hz": 5400,
+          "amplitude": 1.2,
+          "unit": "g",
+          "shaft_order": 0.5
+        }
+      ],
+      "severity": "warning",
+      "severity_zone": "C",
+      "related_dtcs": [],
+      "recommended_checks": [
+        "Проверить утечку форсунки цилиндра 3 в обратку и баланс цилиндров — после проверки подшипников"
+      ]
+    },
+    {
+      "code": "main_bearing_knock",
+      "name_ru": "Стук коренного подшипника",
+      "probability": 0.05,
+      "confidence": 0.4,
+      "component": "main_bearing",
+      "location": {
+        "bank": 1,
+        "cylinder": null,
+        "side": null
+      },
+      "frequency_bands": [
+        {
+          "f_low_hz": 150,
+          "f_high_hz": 800,
+          "peak_hz": 310,
+          "amplitude": 3.1,
+          "unit": "mm/s",
+          "shaft_order": 0.5
+        }
+      ],
+      "severity": "attention",
+      "severity_zone": "B",
+      "related_dtcs": [],
+      "recommended_checks": [
+        "Проверить осевой зазор коленчатого вала при дефектовке"
+      ]
+    }
+  ],
+  "obd": {
+    "mil_on": true,
+    "dtcs": [
+      {
+        "code": "P1A31",
+        "status": "active",
+        "system": "engine",
+        "description": "Нестабильность скорости коленвала цилиндра 3"
+      },
+      {
+        "code": "P0521",
+        "status": "pending",
+        "system": "engine",
+        "description": "Диапазон/производительность датчика давления масла"
+      }
+    ],
+    "pids": [
+      {
+        "pid": "J1939-190",
+        "name": "engine_rpm",
+        "value": 1450,
+        "unit": "rpm"
+      },
+      {
+        "pid": "J1939-100",
+        "name": "oil_pressure",
+        "value": 1.6,
+        "unit": "bar"
+      },
+      {
+        "pid": "J1939-110",
+        "name": "coolant_temp",
+        "value": 88,
+        "unit": "C"
+      },
+      {
+        "pid": "J1939-157",
+        "name": "rail_pressure",
+        "value": 342,
+        "unit": "bar"
+      }
+    ]
+  },
+  "recommended_checks": [
+    "Запретить выезд до дефектовки нижней головки шатуна цилиндра 3",
+    "Зафиксировать давление масла, температуру и условия записи в заявке ТОиР",
+    "Подготовить комплект шатунных вкладышей и процедуру измерения шеек",
+    "Взять пробу масла (разжижение топливом, Pb/Cu)"
+  ],
+  "service_hints": [
+    "Глухой металлический стук в нижней части блока около 3-го цилиндра, сильнее с ростом оборотов",
+    "Давление масла на прогретом моторе ниже нормы — приоритет подшипникам, а не форсунке",
+    "Пробег выше 250 000 км: возможно действуют сервисные бюллетени по износу вкладышей"
+  ],
+  "disclaimer": "Вероятностная оценка ML-сервиса, не окончательный диагноз. Решение о ремонте принимает механик после осмотра и сверки с руководством. Зоны A–D — ориентир по образцу ISO 10816-6 (поршневые машины > 100 кВт), не сертификационный замер. Синтетические данные для хакатона."
+}

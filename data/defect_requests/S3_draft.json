@@ -1,0 +1,262 @@
+{
+  "draft_id": "DRF-2026-S3-0001",
+  "request_id": null,
+  "scenario_id": "S3",
+  "status": "draft_awaiting_confirmation",
+  "toir_status": "pending_confirmation",
+  "created_at": "2026-11-16T08:10:20+07:00",
+  "vehicle": {
+    "vehicle_id": "LCV-NSK-0089",
+    "vin": "X96A21R22K0000089",
+    "license_plate": "Н089АС 154",
+    "fleet_id": "FLEET-CARGO-NSK-03",
+    "mileage_km": 78600,
+    "operating_hours": 1890
+  },
+  "engine": {
+    "engine_id": "ENG-ISF28-0089",
+    "code": "ISF2.8s4R148"
+  },
+  "request_type": "scheduled_maintenance",
+  "priority": "low",
+  "urgency": "can_operate",
+  "agent_urgency": "low",
+  "risk_level": "low",
+  "risk_summary": "Повышенный шум клапанного механизма без признаков повреждения; при игнорировании возможен износ кулачков и шайб, срочности нет.",
+  "operation_ban": false,
+  "operating_restriction": {
+    "mode": "none",
+    "conditions": [
+      "Ограничений нет"
+    ],
+    "inspection_deadline": "следующее ТО-4 при 80 000 км (≈ 2026-11-24)",
+    "source": "СР-ISF28-ДЕМО, стр. 12-04; РТО-ГН-ДЕМО, стр. 06-01"
+  },
+  "ml_analysis_id": "a91f4e62-0d37-4b85-9c2e-71b8d5f03a43",
+  "fault": {
+    "fault_code": "valve_clearance",
+    "component": "valve_train",
+    "cylinder": null,
+    "probability": 0.66,
+    "severity_zone": "B"
+  },
+  "symptoms": [
+    "Лёгкое «тиканье» на всех цилиндрах (ML: valve_clearance 0,66, зона B, RMS 4,1 мм/с)",
+    "Жалоб водителя нет, запись плановая",
+    "Давление масла в норме (2,7 бар по датчику на 1 460 об/мин)"
+  ],
+  "measurements": [
+    {
+      "parameter": "Виброскорость RMS",
+      "value": 4.1,
+      "unit": "mm/s",
+      "norm": "2,8–7,1 (B)",
+      "limit": null,
+      "verdict": "зона B",
+      "source": "ML a91f4e62-0d37-4b85-9c2e-71b8d5f03a43"
+    },
+    {
+      "parameter": "Изменение RMS к записи 2026-08-27 (3,3 мм/с)",
+      "value": 24,
+      "unit": "%",
+      "norm": "< 40",
+      "limit": "≥ 40 → зона выше",
+      "verdict": "в норме",
+      "source": "история + ML"
+    }
+  ],
+  "diagnosis_hypotheses": [
+    {
+      "rank": 1,
+      "fault_code": "valve_clearance",
+      "title": "Увеличенные тепловые зазоры клапанов",
+      "ml_probability": 0.66,
+      "agent_posterior": 0.78,
+      "evidence": [
+        "Полоса 2 000–6 000 Гц, порядок 0,5, все цилиндры",
+        "Проверка зазоров ни разу не выполнялась (срок 80 000 км)"
+      ],
+      "manual_refs": [
+        "СР-ISF28-ДЕМО 07-01",
+        "СР-ISF28-ДЕМО 12-05"
+      ]
+    },
+    {
+      "rank": 2,
+      "fault_code": "accessory_drive",
+      "title": "Привод навесного оборудования",
+      "ml_probability": 0.08,
+      "agent_posterior": 0.12,
+      "evidence": [
+        "Низкая уверенность ML"
+      ],
+      "manual_refs": [
+        "СР-ISF28-ДЕМО 06-04"
+      ]
+    },
+    {
+      "rank": 3,
+      "fault_code": "normal",
+      "title": "Норма",
+      "ml_probability": 0.17,
+      "agent_posterior": 0.1,
+      "evidence": [
+        "Зона B допустима для длительной эксплуатации"
+      ],
+      "manual_refs": [
+        "СР-ISF28-ДЕМО 12-03"
+      ]
+    }
+  ],
+  "excluded_ml_classes": [
+    {
+      "fault_code": "hydraulic_lifter",
+      "reason": "Не применим к ISF 2.8: нет гидрокомпенсаторов (СР 12-05)"
+    }
+  ],
+  "agent_findings": [
+    "До срока проверки зазоров по регламенту ≈ 1 400 км",
+    "Рост RMS 24 % < 40 % — перевод в зону C не требуется"
+  ],
+  "manual_refs": [
+    {
+      "doc_id": "СР-ISF28-ДЕМО",
+      "page_id": "12-04",
+      "printed_page": 67,
+      "doc_revision": "Ред. Б от 01.03.2026 (вымышленная)",
+      "quote": "B | can_operate | Допущен | Повторить запись на следующем ТО; контроль давления масла | ТО-3 / 10 000 км",
+      "claim": "Зона B → допущен, планово"
+    },
+    {
+      "doc_id": "РТО-ГН-ДЕМО",
+      "page_id": "06-01",
+      "printed_page": 7,
+      "doc_revision": "Ред. 2 от 01.04.2026 (вымышленная)",
+      "quote": "low | Зона B, плановые замечания | Запись в карте ТО | следующее ТО",
+      "claim": "Приоритет low"
+    },
+    {
+      "doc_id": "СР-ISF28-ДЕМО",
+      "page_id": "12-05",
+      "printed_page": 68,
+      "doc_revision": "Ред. Б от 01.03.2026 (вымышленная)",
+      "quote": "Классы timing_chain_stretch, timing_belt_wear и hydraulic_lifter к ISF 2.8 не применяются (шестерённый привод, нет гидрокомпенсаторов).",
+      "claim": "hydraulic_lifter 0,09 в ответе ML — ошибка классификации, игнорируется"
+    },
+    {
+      "doc_id": "СР-ISF28-ДЕМО",
+      "page_id": "12-03",
+      "printed_page": 66,
+      "doc_revision": "Ред. Б от 01.03.2026 (вымышленная)",
+      "quote": "Рост RMS более чем на 40 % между двумя записями за 30 дней или 10 000 км — перевод на зону выше.",
+      "claim": "RMS 3,3 → 4,1 мм/с = +24 % (< 40 %), повышения зоны нет"
+    },
+    {
+      "doc_id": "РТО-ГН-ДЕМО",
+      "page_id": "03-01",
+      "printed_page": 4,
+      "doc_revision": "Ред. 2 от 01.04.2026 (вымышленная)",
+      "quote": "Проверка зазоров клапанов | 90 000 км | 80 000 км",
+      "claim": "Срок проверки по регламенту парка — 80 000 км (пробег 78 600)"
+    },
+    {
+      "doc_id": "СР-ISF28-ДЕМО",
+      "page_id": "07-01",
+      "printed_page": 43,
+      "doc_revision": "Ред. Б от 01.03.2026 (вымышленная)",
+      "quote": "ВНИМАНИЕ: Измерение зазоров на прогретом двигателе даёт заниженные значения и приводит к неправильной регулировке.",
+      "claim": "Проверять только на холодном"
+    },
+    {
+      "doc_id": "СР-ISF28-ДЕМО",
+      "page_id": "07-02",
+      "printed_page": 44,
+      "doc_revision": "Ред. Б от 01.03.2026 (вымышленная)",
+      "quote": "Допускается отклонение зазора в пределах допуска; не следует стремиться к «идеальному» номиналу, если значение уже в допуске.",
+      "claim": "Не регулировать без необходимости"
+    }
+  ],
+  "bulletins": [],
+  "work_items": [
+    {
+      "code": "VT-001",
+      "name": "Проверка зазоров клапанов",
+      "qty": 1,
+      "norm_hours": 2.2,
+      "norm_source": "СР-ISF28-ДЕМО, стр. 14-01",
+      "norm_hours_adjusted": 2.2,
+      "note": "Проверка тепловых зазоров клапанов щупом на ХОЛОДНОМ двигателе (ОЖ ≤ 35 °C)",
+      "phase": "плановое ТО"
+    },
+    {
+      "code": "DG-004",
+      "name": "Вибро-акустическая запись и анализ",
+      "qty": 1,
+      "norm_hours": 0.5,
+      "norm_source": "СР-ISF28-ДЕМО, стр. 14-01",
+      "norm_hours_adjusted": 0.5,
+      "note": "Контрольная вибро-акустическая запись после проверки/регулировки",
+      "phase": "плановое ТО"
+    }
+  ],
+  "conditional_work_items": [
+    {
+      "code": "VT-002",
+      "name": "Регулировка зазоров клапанов (полная)",
+      "qty": 1,
+      "norm_hours": 4.2,
+      "norm_source": "СР-ISF28-ДЕМО, стр. 14-01",
+      "norm_hours_adjusted": 4.2,
+      "condition": "Только если зазор вне допуска: впуск 0,20–0,30 мм, выпуск 0,40–0,50 мм (СР 07-01)"
+    }
+  ],
+  "norm_hours_coefficient": {
+    "value": 1.0,
+    "reason": "Пробег 78 600 км ≤ 250 000",
+    "source": "СР-ISF28-ДЕМО, стр. 14-01"
+  },
+  "estimated_norm_hours": 2.7,
+  "norm_hours_note": "При выполнении в составе ТО-4 нормы считаются по коду TO-004 (5,5 н/ч), VT-001/VT-002 отдельно не суммируются",
+  "parts": [],
+  "conditional_parts": [
+    {
+      "part_no": "ДМ-ISF28-0701",
+      "name": "Комплект регулировочных шайб (набор)",
+      "qty": 1,
+      "catalog": "СР-ISF28-ДЕМО, стр. 14-05",
+      "condition": "Только при регулировке зазоров"
+    },
+    {
+      "part_no": "ДМ-ISF28-0720",
+      "name": "Прокладка крышки клапанов",
+      "qty": 1,
+      "catalog": "СР-ISF28-ДЕМО, стр. 14-05",
+      "condition": "Только если прокладка крышки клапанов повреждена при снятии"
+    }
+  ],
+  "recommendations": [
+    "Проверять зазоры только на холодном двигателе",
+    "Контроль давления масла при ТО-4",
+    "Повторная запись после проверки"
+  ],
+  "requested_by": {
+    "user_id": "MECH-012",
+    "name": "Лебедев Артём Игоревич",
+    "role": "mechanic"
+  },
+  "drafted_by": "digital-mechanic-agent",
+  "confirmed_by": null,
+  "confirmed_at": null,
+  "confirmation_token": null,
+  "guardrails": {
+    "draft_only_until_human_confirms": true,
+    "agent_cannot_set_operation_ban_flag": true,
+    "submit_requires": [
+      "draft_id",
+      "confirmed_by",
+      "confirmation_token_issued_by_ui"
+    ]
+  },
+  "synthetic": true,
+  "synthetic_note": "СИНТЕТИЧЕСКИЕ ДАННЫЕ для демонстрации на хакатоне «ИИкузница». Все ТС, номера, VIN, ФИО, даты, измерения и номера запчастей вымышлены; значения НЕ предназначены для реального ремонта."
+}

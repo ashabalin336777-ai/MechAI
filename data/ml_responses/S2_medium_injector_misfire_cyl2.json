@@ -1,0 +1,268 @@
+{
+  "schema_version": "1.1.0",
+  "meta": {
+    "synthetic": true,
+    "scenario_id": "S2",
+    "note": "СИНТЕТИЧЕСКИЕ ДАННЫЕ. Средний сценарий: форсунка/пропуски цил. 2, зона C; не хватает записи на холодном пуске и данных о топливе → агент обязан вызвать ask_mechanic."
+  },
+  "analysis": {
+    "analysis_id": "5b0c7d3a-92e4-4c58-8f1a-3d6e0b4a7c22",
+    "analyzed_at": "2026-11-17T14:21:36+07:00",
+    "model_id": "engine-acoustics-clf",
+    "model_version": "2026.11-hackathon-stub-v1.1",
+    "pipeline": [
+      "spectral_features",
+      "anomaly_detector",
+      "fault_classifier",
+      "severity_zone_mapper"
+    ],
+    "trigger": "driver_complaint"
+  },
+  "vehicle": {
+    "vehicle_id": "LCV-NSK-0127",
+    "vin": "X96A21R22K0000127",
+    "fleet_id": "FLEET-CARGO-NSK-02",
+    "usage": "lcv",
+    "make": "Синтетический парк",
+    "model": "LCV-3.5t",
+    "generation": null,
+    "year": 2022,
+    "license_plate": "Е127ТХ 154",
+    "engine": {
+      "id": "ENG-ISF28-0127",
+      "code": "ISF2.8s4R148",
+      "family": "ISF2.8",
+      "fuel": "diesel",
+      "displacement_l": 2.8,
+      "cylinders": 4,
+      "configuration": "inline",
+      "rated_power_kw": 110,
+      "aspiration": "turbo"
+    },
+    "mileage_km": 142300,
+    "operating_hours": 3420
+  },
+  "recording": {
+    "recorded_at": "2026-11-17T14:18:20+07:00",
+    "duration_s": 22,
+    "sample_rate_hz": 25600,
+    "channels": 1,
+    "sensor_type": "accelerometer",
+    "sensor_position": "cylinder_head_cyl1",
+    "audio_ref": "rec://demo/S2/LCV-NSK-0127/2026-11-17T14-18-20.wav",
+    "conditions": {
+      "engine_state": "idle",
+      "engine_speed_rpm": 810,
+      "engine_load_pct": 0,
+      "coolant_temp_c": 86,
+      "oil_temp_c": 92,
+      "vehicle_speed_kph": 0,
+      "gear": "N",
+      "ambient_temp_c": -4,
+      "environment": "depot"
+    },
+    "quality": {
+      "status": "ok",
+      "snr_db": 19.3,
+      "rms_dbfs": -23.7,
+      "silence_ratio": 0.04,
+      "clipping_ratio": 0.001,
+      "warnings": [
+        "Запись только на прогретом двигателе: холодный пуск не записан, injector_fault / knock_detonation / piston_slap не разделяются",
+        "Запись только на холостом ходу (810 об/мин), контрольной записи на 1 450 об/мин нет",
+        "Нет данных о качестве топлива и дате замены топливного фильтра"
+      ]
+    }
+  },
+  "overall": {
+    "verdict": "anomaly",
+    "anomaly_score": 0.61,
+    "severity": "warning",
+    "severity_zone": "C",
+    "severity_standard": "ISO_10816-6_inspired_class5_reciprocating_gt_100kW",
+    "urgency": "inspect_this_week",
+    "confidence": 0.55,
+    "requires_rerecord": false,
+    "overall_vibration": {
+      "rms_velocity_mm_s": 8.4,
+      "peak_acceleration_g": 3.4,
+      "frequency_range_hz": [
+        2,
+        1000
+      ]
+    }
+  },
+  "faults": [
+    {
+      "code": "injector_fault",
+      "name_ru": "Неисправность форсунки",
+      "probability": 0.46,
+      "confidence": 0.55,
+      "component": "injector",
+      "location": {
+        "bank": 1,
+        "cylinder": 2,
+        "side": null
+      },
+      "frequency_bands": [
+        {
+          "f_low_hz": 3000,
+          "f_high_hz": 9000,
+          "peak_hz": 5200,
+          "amplitude": 1.9,
+          "unit": "g",
+          "shaft_order": 0.5
+        }
+      ],
+      "severity": "warning",
+      "severity_zone": "C",
+      "related_dtcs": [
+        "P1A41"
+      ],
+      "recommended_checks": [
+        "Проверить баланс цилиндров и утечку форсунки цилиндра 2 в обратку",
+        "Сначала исключить причины на стороне низкого давления (фильтр, вода, воздух)"
+      ]
+    },
+    {
+      "code": "misfire",
+      "name_ru": "Пропуски воспламенения",
+      "probability": 0.34,
+      "confidence": 0.5,
+      "component": "combustion",
+      "location": {
+        "bank": 1,
+        "cylinder": 2,
+        "side": null
+      },
+      "frequency_bands": [
+        {
+          "f_low_hz": 30,
+          "f_high_hz": 300,
+          "peak_hz": 48,
+          "amplitude": 2.7,
+          "unit": "mm/s",
+          "shaft_order": 0.5
+        }
+      ],
+      "severity": "warning",
+      "severity_zone": "C",
+      "related_dtcs": [
+        "P0302"
+      ],
+      "recommended_checks": [
+        "Баланс цилиндров на холостом ходу",
+        "Проверить давление подкачки и состояние топливного фильтра"
+      ]
+    },
+    {
+      "code": "knock_detonation",
+      "name_ru": "Жёсткое сгорание",
+      "probability": 0.1,
+      "confidence": 0.3,
+      "component": "combustion",
+      "location": {
+        "bank": 1,
+        "cylinder": 2,
+        "side": null
+      },
+      "frequency_bands": [
+        {
+          "f_low_hz": 1500,
+          "f_high_hz": 6000,
+          "peak_hz": 2900,
+          "amplitude": 0.8,
+          "unit": "g",
+          "shaft_order": 0.5
+        }
+      ],
+      "severity": "attention",
+      "severity_zone": "B",
+      "related_dtcs": [],
+      "recommended_checks": [
+        "Сделать запись на холодном пуске, чтобы подтвердить или исключить"
+      ]
+    },
+    {
+      "code": "fuel_pump",
+      "name_ru": "ТНВД / подача топлива",
+      "probability": 0.05,
+      "confidence": 0.25,
+      "component": "high_pressure_pump",
+      "location": {
+        "bank": null,
+        "cylinder": null,
+        "side": null
+      },
+      "frequency_bands": [
+        {
+          "f_low_hz": 500,
+          "f_high_hz": 4000,
+          "peak_hz": 1100,
+          "amplitude": 0.6,
+          "unit": "g",
+          "shaft_order": 0.5
+        }
+      ],
+      "severity": "attention",
+      "severity_zone": "B",
+      "related_dtcs": [],
+      "recommended_checks": [
+        "Проверить давление в рампе и подкачки"
+      ]
+    }
+  ],
+  "obd": {
+    "mil_on": false,
+    "dtcs": [
+      {
+        "code": "P0302",
+        "status": "pending",
+        "system": "engine",
+        "description": "Пропуск воспламенения в цилиндре 2"
+      },
+      {
+        "code": "P1A41",
+        "status": "pending",
+        "system": "engine",
+        "description": "Превышение коррекции подачи цилиндра"
+      }
+    ],
+    "pids": [
+      {
+        "pid": "J1939-190",
+        "name": "engine_rpm",
+        "value": 810,
+        "unit": "rpm"
+      },
+      {
+        "pid": "J1939-100",
+        "name": "oil_pressure",
+        "value": 1.4,
+        "unit": "bar"
+      },
+      {
+        "pid": "J1939-157",
+        "name": "rail_pressure",
+        "value": 318,
+        "unit": "bar"
+      },
+      {
+        "pid": null,
+        "name": "cyl2_fuel_correction",
+        "value": 3.4,
+        "unit": "mm3/stroke"
+      }
+    ]
+  },
+  "recommended_checks": [
+    "Записать двигатель на холодном пуске (масло < 40 °C) для разделения injector_fault / knock_detonation",
+    "Баланс цилиндров и утечка форсунок в обратку",
+    "Уточнить у механика дату замены топливного фильтра, наличие воды в отстое и качество последней заправки"
+  ],
+  "service_hints": [
+    "Щелчки одного цилиндра на холостом, коррекция подачи цилиндра 2 вне нормы",
+    "Уверенность средняя: нужны холодная запись и контекст по топливу"
+  ],
+  "disclaimer": "Вероятностная оценка ML-сервиса, не окончательный диагноз. Решение о ремонте принимает механик после осмотра и сверки с руководством. Зоны A–D — ориентир по образцу ISO 10816-6 (поршневые машины > 100 кВт), не сертификационный замер. Синтетические данные для хакатона."
+}

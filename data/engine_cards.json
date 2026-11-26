@@ -1,0 +1,426 @@
+{
+  "synthetic": true,
+  "synthetic_note": "СИНТЕТИЧЕСКИЕ ДАННЫЕ для демонстрации на хакатоне «ИИкузница». Все ТС, номера, VIN, ФИО, даты, измерения и номера запчастей вымышлены; значения НЕ предназначены для реального ремонта.",
+  "cards": [
+    {
+      "scenario_id": "S1",
+      "vehicle_id": "LCV-NSK-0112",
+      "vin": "X96A21R22K0000112",
+      "license_plate": "В112КМ 154",
+      "fleet_id": "FLEET-CARGO-NSK-02",
+      "depot": "Депо Новосибирск-2",
+      "workshop": "Сервисная зона Новосибирск-2",
+      "usage": "lcv",
+      "make": "Синтетический парк",
+      "model": "LCV-3.5t",
+      "year": 2021,
+      "engine": {
+        "engine_id": "ENG-ISF28-0112",
+        "engine_serial": "ENG-ISF28-0112",
+        "code": "ISF2.8s4R148",
+        "family": "ISF2.8",
+        "fuel": "diesel",
+        "displacement_l": 2.8,
+        "cylinders": 4,
+        "rated_power_kw": 110,
+        "aspiration": "turbo (VGT)",
+        "nameplate_matches_records": true
+      },
+      "mileage_km": 268000,
+      "operating_hours": 5860,
+      "odometer_as_of": "2026-11-18",
+      "last_to": {
+        "type": "ТО-1 (внеплановое, масло и фильтр)",
+        "date": "2026-09-19",
+        "mileage_km": 262400,
+        "operating_hours": 5740,
+        "summary": "Замена масла и фильтра по жалобе на индикатор давления масла; давление 1 500 об/мин после замены 2,1 бар"
+      },
+      "next_planned_to": {
+        "type": "ТО-2",
+        "due_mileage_km": 270400,
+        "due_date": "2027-02-19",
+        "note": "По карте: масло через 8 000 км"
+      },
+      "oil": {
+        "grade": "5W-30 ACEA C3",
+        "volume_l": 7.5,
+        "last_change_date": "2026-09-19",
+        "last_change_mileage_km": 262400,
+        "last_change_operating_hours": 5740,
+        "interval_in_card": {
+          "km": 8000,
+          "hours": 200,
+          "months": 9,
+          "source": "регламент автопарка РТО-ГН-ДЕМО"
+        }
+      },
+      "fuel_filter_last_change": {
+        "date": "2026-03-17",
+        "mileage_km": 241800
+      },
+      "warranty": {
+        "status": "expired",
+        "until_date": "2024-05-30",
+        "until_km": 150000,
+        "note": "Гарантия изготовителя истекла"
+      },
+      "assigned_mechanic": {
+        "user_id": "MECH-007",
+        "name": "Петров Сергей Николаевич",
+        "role": "механик"
+      },
+      "responsible_toir": {
+        "user_id": "TOIR-002",
+        "name": "Орлова Марина Викторовна",
+        "role": "ответственный за ТОиР"
+      },
+      "applied_bulletins": [],
+      "active_flags": {
+        "operation_ban": false,
+        "restriction": null
+      },
+      "data_gaps": [
+        "Бюллетени в карте не отмечены (applied_bulletins пуст): применимость определяется по пробегу и признакам"
+      ],
+      "notes": [
+        "Эксплуатация: городской цикл, частый холостой ход"
+      ],
+      "synthetic": true,
+      "synthetic_note": "СИНТЕТИЧЕСКИЕ ДАННЫЕ для демонстрации на хакатоне «ИИкузница». Все ТС, номера, VIN, ФИО, даты, измерения и номера запчастей вымышлены; значения НЕ предназначены для реального ремонта."
+    },
+    {
+      "scenario_id": "S2",
+      "vehicle_id": "LCV-NSK-0127",
+      "vin": "X96A21R22K0000127",
+      "license_plate": "Е127ТХ 154",
+      "fleet_id": "FLEET-CARGO-NSK-02",
+      "depot": "Депо Новосибирск-2",
+      "workshop": "Сервисная зона Новосибирск-2",
+      "usage": "lcv",
+      "make": "Синтетический парк",
+      "model": "LCV-3.5t",
+      "year": 2022,
+      "engine": {
+        "engine_id": "ENG-ISF28-0127",
+        "engine_serial": "ENG-ISF28-0127",
+        "code": "ISF2.8s4R148",
+        "family": "ISF2.8",
+        "fuel": "diesel",
+        "displacement_l": 2.8,
+        "cylinders": 4,
+        "rated_power_kw": 110,
+        "aspiration": "turbo (VGT)",
+        "nameplate_matches_records": true
+      },
+      "mileage_km": 142300,
+      "operating_hours": 3420,
+      "odometer_as_of": "2026-11-17",
+      "last_to": {
+        "type": "ТО-1",
+        "date": "2026-10-08",
+        "mileage_km": 137900,
+        "operating_hours": 3315,
+        "summary": "Замена масла и фильтра; запись о сливе отстоя топливного фильтра отсутствует"
+      },
+      "next_planned_to": {
+        "type": "ТО-2",
+        "due_mileage_km": 145900,
+        "due_date": "2027-01-08",
+        "note": "По регламенту автопарка"
+      },
+      "oil": {
+        "grade": "5W-30 ACEA C3",
+        "volume_l": 7.5,
+        "last_change_date": "2026-10-08",
+        "last_change_mileage_km": 137900,
+        "last_change_operating_hours": 3315,
+        "interval_in_card": {
+          "km": 8000,
+          "hours": 200,
+          "months": 9,
+          "source": "регламент автопарка РТО-ГН-ДЕМО"
+        }
+      },
+      "fuel_filter_last_change": null,
+      "warranty": {
+        "status": "expired",
+        "until_date": "2025-06-15",
+        "until_km": 100000,
+        "note": "Гарантия изготовителя истекла"
+      },
+      "assigned_mechanic": {
+        "user_id": "MECH-007",
+        "name": "Петров Сергей Николаевич",
+        "role": "механик"
+      },
+      "responsible_toir": {
+        "user_id": "TOIR-002",
+        "name": "Орлова Марина Викторовна",
+        "role": "ответственный за ТОиР"
+      },
+      "applied_bulletins": [],
+      "active_flags": {
+        "operation_ban": false,
+        "restriction": null
+      },
+      "data_gaps": [
+        "Поле fuel_filter_last_change не заполнено: дата и пробег последней замены топливного фильтра в ТОиР отсутствуют (запись ТО-3 от 2026-02-24 заполнена частично)"
+      ],
+      "notes": [
+        "Заправка у стороннего поставщика допускается регламентом при отсутствии парковой колонки"
+      ],
+      "synthetic": true,
+      "synthetic_note": "СИНТЕТИЧЕСКИЕ ДАННЫЕ для демонстрации на хакатоне «ИИкузница». Все ТС, номера, VIN, ФИО, даты, измерения и номера запчастей вымышлены; значения НЕ предназначены для реального ремонта."
+    },
+    {
+      "scenario_id": "S3",
+      "vehicle_id": "LCV-NSK-0089",
+      "vin": "X96A21R22K0000089",
+      "license_plate": "Н089АС 154",
+      "fleet_id": "FLEET-CARGO-NSK-03",
+      "depot": "Депо Новосибирск-3",
+      "workshop": "Сервисная зона Новосибирск-3",
+      "usage": "lcv",
+      "make": "Синтетический парк",
+      "model": "LCV-3.5t",
+      "year": 2024,
+      "engine": {
+        "engine_id": "ENG-ISF28-0089",
+        "engine_serial": "ENG-ISF28-0089",
+        "code": "ISF2.8s4R148",
+        "family": "ISF2.8",
+        "fuel": "diesel",
+        "displacement_l": 2.8,
+        "cylinders": 4,
+        "rated_power_kw": 110,
+        "aspiration": "turbo (VGT)",
+        "nameplate_matches_records": true
+      },
+      "mileage_km": 78600,
+      "operating_hours": 1890,
+      "odometer_as_of": "2026-11-16",
+      "last_to": {
+        "type": "ТО-3",
+        "date": "2026-08-27",
+        "mileage_km": 72400,
+        "operating_hours": 1730,
+        "summary": "ТО-3 с контрольной вибро-акустической записью: зона B, RMS 3,3 мм/с"
+      },
+      "next_planned_to": {
+        "type": "ТО-4 (с проверкой зазоров клапанов)",
+        "due_mileage_km": 80000,
+        "due_date": "2026-11-24",
+        "note": "Проверка зазоров клапанов по регламенту автопарка при 80 000 км (руководство даёт 90 000 км; регламент строже). До срока ≈ 1 400 км (≈ 8 суток при ~180 км/сут)"
+      },
+      "oil": {
+        "grade": "5W-30 ACEA C3",
+        "volume_l": 7.5,
+        "last_change_date": "2026-08-27",
+        "last_change_mileage_km": 72400,
+        "last_change_operating_hours": 1730,
+        "interval_in_card": {
+          "km": 8000,
+          "hours": 200,
+          "months": 9,
+          "source": "регламент автопарка РТО-ГН-ДЕМО"
+        }
+      },
+      "fuel_filter_last_change": {
+        "date": "2026-08-27",
+        "mileage_km": 72400
+      },
+      "warranty": {
+        "status": "active",
+        "until_date": "2027-03-12",
+        "until_km": 150000,
+        "note": "Гарантийные работы согласуются с гарантийным инженером парка"
+      },
+      "assigned_mechanic": {
+        "user_id": "MECH-012",
+        "name": "Лебедев Артём Игоревич",
+        "role": "механик"
+      },
+      "responsible_toir": {
+        "user_id": "TOIR-003",
+        "name": "Волков Игорь Петрович",
+        "role": "ответственный за ТОиР"
+      },
+      "applied_bulletins": [],
+      "active_flags": {
+        "operation_ban": false,
+        "restriction": null
+      },
+      "data_gaps": [],
+      "notes": [],
+      "synthetic": true,
+      "synthetic_note": "СИНТЕТИЧЕСКИЕ ДАННЫЕ для демонстрации на хакатоне «ИИкузница». Все ТС, номера, VIN, ФИО, даты, измерения и номера запчастей вымышлены; значения НЕ предназначены для реального ремонта."
+    },
+    {
+      "scenario_id": "S4",
+      "vehicle_id": "LCV-NSK-0134",
+      "vin": "X96A21R22K0000134",
+      "license_plate": "О134РУ 154",
+      "fleet_id": "FLEET-CARGO-NSK-02",
+      "depot": "Депо Новосибирск-2",
+      "workshop": "Сервисная зона Новосибирск-2",
+      "usage": "lcv",
+      "make": "Синтетический парк",
+      "model": "LCV-3.5t",
+      "year": 2020,
+      "engine": {
+        "engine_id": "ENG-ISF28-0134",
+        "engine_serial": "ENG-ISF28-0134",
+        "code": "ISF2.8s4R148",
+        "family": "ISF2.8",
+        "fuel": "diesel",
+        "displacement_l": 2.8,
+        "cylinders": 4,
+        "rated_power_kw": 110,
+        "aspiration": "turbo (VGT)",
+        "nameplate_matches_records": true
+      },
+      "mileage_km": 203500,
+      "operating_hours": 4610,
+      "odometer_as_of": "2026-11-18",
+      "last_to": {
+        "type": "ТО-2",
+        "date": "2026-10-29",
+        "mileage_km": 198900,
+        "operating_hours": 4506,
+        "summary": "Масло, топливный и воздушный фильтры"
+      },
+      "next_planned_to": {
+        "type": "ТО-3",
+        "due_mileage_km": 206900,
+        "due_date": "2027-01-29",
+        "note": "По регламенту автопарка"
+      },
+      "oil": {
+        "grade": "5W-30 ACEA C3",
+        "volume_l": 7.5,
+        "last_change_date": "2026-10-29",
+        "last_change_mileage_km": 198900,
+        "last_change_operating_hours": 4506,
+        "interval_in_card": {
+          "km": 8000,
+          "hours": 200,
+          "months": 9,
+          "source": "регламент автопарка РТО-ГН-ДЕМО"
+        }
+      },
+      "fuel_filter_last_change": {
+        "date": "2026-10-29",
+        "mileage_km": 198900
+      },
+      "warranty": {
+        "status": "expired",
+        "until_date": "2023-04-20",
+        "until_km": 150000,
+        "note": "Гарантия изготовителя истекла"
+      },
+      "assigned_mechanic": {
+        "user_id": "MECH-009",
+        "name": "Кузнецов Дмитрий Андреевич",
+        "role": "механик"
+      },
+      "responsible_toir": {
+        "user_id": "TOIR-002",
+        "name": "Орлова Марина Викторовна",
+        "role": "ответственный за ТОиР"
+      },
+      "applied_bulletins": [],
+      "active_flags": {
+        "operation_ban": false,
+        "restriction": null
+      },
+      "data_gaps": [],
+      "notes": [],
+      "synthetic": true,
+      "synthetic_note": "СИНТЕТИЧЕСКИЕ ДАННЫЕ для демонстрации на хакатоне «ИИкузница». Все ТС, номера, VIN, ФИО, даты, измерения и номера запчастей вымышлены; значения НЕ предназначены для реального ремонта."
+    },
+    {
+      "scenario_id": "S5",
+      "vehicle_id": "LCV-NSK-0151",
+      "vin": "X96A21R22K0000151",
+      "license_plate": "С151ХМ 154",
+      "fleet_id": "FLEET-CARGO-NSK-03",
+      "depot": "Депо Новосибирск-3",
+      "workshop": "Сервисная зона Новосибирск-3",
+      "usage": "lcv",
+      "make": "Синтетический парк",
+      "model": "LCV-3.5t",
+      "year": 2023,
+      "engine": {
+        "engine_id": "ENG-ISF28-0151",
+        "engine_serial": "ENG-ISF28-0151",
+        "code": "ISF2.8s4R148",
+        "family": "ISF2.8",
+        "fuel": "diesel",
+        "displacement_l": 2.8,
+        "cylinders": 4,
+        "rated_power_kw": 110,
+        "aspiration": "turbo (VGT)",
+        "nameplate_matches_records": true
+      },
+      "mileage_km": 119800,
+      "operating_hours": 2840,
+      "odometer_as_of": "2026-11-18",
+      "last_to": {
+        "type": "ТО-1",
+        "date": "2026-10-27",
+        "mileage_km": 118600,
+        "operating_hours": 2812,
+        "summary": "Замена масла и фильтра; водитель упоминал лёгкий свист, не воспроизведён"
+      },
+      "next_planned_to": {
+        "type": "ТО-2",
+        "due_mileage_km": 122600,
+        "due_date": "2027-01-27",
+        "note": "По регламенту автопарка"
+      },
+      "oil": {
+        "grade": "5W-30 ACEA C3",
+        "volume_l": 7.5,
+        "last_change_date": "2026-10-27",
+        "last_change_mileage_km": 118600,
+        "last_change_operating_hours": 2812,
+        "interval_in_card": {
+          "km": 8000,
+          "hours": 200,
+          "months": 9,
+          "source": "регламент автопарка РТО-ГН-ДЕМО"
+        }
+      },
+      "fuel_filter_last_change": {
+        "date": "2026-08-12",
+        "mileage_km": 114600
+      },
+      "warranty": {
+        "status": "active",
+        "until_date": "2026-12-20",
+        "until_km": 150000,
+        "note": "Гарантия истекает 2026-12-20; ремонт согласовать с гарантийным инженером"
+      },
+      "assigned_mechanic": {
+        "user_id": "MECH-012",
+        "name": "Лебедев Артём Игоревич",
+        "role": "механик"
+      },
+      "responsible_toir": {
+        "user_id": "TOIR-003",
+        "name": "Волков Игорь Петрович",
+        "role": "ответственный за ТОиР"
+      },
+      "applied_bulletins": [],
+      "active_flags": {
+        "operation_ban": false,
+        "restriction": null
+      },
+      "data_gaps": [],
+      "notes": [],
+      "synthetic": true,
+      "synthetic_note": "СИНТЕТИЧЕСКИЕ ДАННЫЕ для демонстрации на хакатоне «ИИкузница». Все ТС, номера, VIN, ФИО, даты, измерения и номера запчастей вымышлены; значения НЕ предназначены для реального ремонта."
+    }
+  ]
+}
