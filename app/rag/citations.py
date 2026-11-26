@@ -15,6 +15,14 @@ CITATION_RE = re.compile(r"\[([^\[\]]+?),\s*стр\.\s*(\d+)\]")
 UNIT = r"(?:Н·м|Н\s?м|кгс·см|кгс·м|кПа|МПа|бар|мм|см|мкм|м|°[CС]|кг|г|мл|л|%|об/мин|мин|кВт|Вт|В|А)"
 CLAIM_RE = re.compile(rf"(?<![\w.,])(\d+(?:[.,]\d+)?)\s?({UNIT})(?![\wа-яА-ЯёЁ])")
 SENTENCE_SPLIT_RE = re.compile(r"(?<=[.!?])\s+|\n+")
+# Сокращения, после которых точка не конец фразы: «стр. 267», «см. стр.», «т.е.», «и т.п.».
+ABBREVIATION_RE = re.compile(
+    r"(?<![\wа-яА-ЯёЁ])(?:стр|ст|рис|табл|пп|п|см|гл|разд|мин|макс|прим|т\.е|т\.д|т\.п)\.",
+    re.IGNORECASE,
+)
+BRACKET_RE = re.compile(r"\[[^\[\]\n]*\]")
+QUOTE_RE = re.compile(r"«[^»\n]*»")
+DOT = "\x01"  # заглушка точки сокращения на время разбиения фраз
 LIST_ITEM_RE = re.compile(r"^\s*(?:[-*•]|\d+[.)])\s+")
 HEADING_RE = re.compile(r"^\s*#{1,6}\s")
 
@@ -159,13 +167,10 @@ def split_sentences(answer: str) -> list[str]:
     предложения. Ссылки прячутся за маркеры, чтобы точки внутри них не резали фразу.
     """
     stashed: dict[str, str] = {}
-
-    def hide(match: re.Match[str]) -> str:
-        marker = f"\x00{len(stashed)}\x00"
-        stashed[marker] = match.group(0)
-        return marker
-
-    masked = CITATION_RE.sub(hide, answer)
+    masked = _hide_all(answer, CITATION_RE, stashed)
+    masked = _hide_all(masked, BRACKET_RE, stashed)
+    masked = _hide_all(masked, QUOTE_RE, stashed)
+    masked = ABBREVIATION_RE.sub(lambda match: match.group(0).replace(".", DOT), masked)
     blocks: list[tuple[bool, str]] = []
     for line in masked.split("\n"):
         if LIST_ITEM_RE.match(line):
@@ -182,10 +187,22 @@ def split_sentences(answer: str) -> list[str]:
             sentences.extend(piece for piece in SENTENCE_SPLIT_RE.split(text) if piece.strip())
     restored = []
     for sentence in sentences:
-        for marker, citation in stashed.items():
-            sentence = sentence.replace(marker, citation)
+        sentence = sentence.replace(DOT, ".")
+        for marker, original in stashed.items():
+            sentence = sentence.replace(marker, original)
         restored.append(sentence)
     return restored
+
+
+def _hide_all(text: str, pattern: re.Pattern[str], stashed: dict[str, str]) -> str:
+    """Прячем фрагменты по шаблону за маркеры: точки и знаки внутри них не режут фразу."""
+
+    def hide(match: re.Match[str]) -> str:
+        marker = f"\x00{len(stashed)}\x00"
+        stashed[marker] = match.group(0)
+        return marker
+
+    return pattern.sub(hide, text)
 
 
 def is_list_item(sentence: str) -> bool:
