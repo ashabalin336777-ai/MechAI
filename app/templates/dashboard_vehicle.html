@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+{% block content %}
+<a class="back" href="/dashboard">← К парку</a>
+<h1 class="page-title">{{ vehicle.vehicle_id }} · {{ vehicle.make }} {{ vehicle.model }}</h1>
+<p class="muted">гар. № {{ vehicle.garage_no }} · {{ vehicle.engine_model }} · {{ vehicle.fuel }}</p>
+
+<div class="dash-vehicle">
+  <section class="panel" aria-labelledby="trend-title">
+    <h2 id="trend-title" class="panel-title">Оценка аномалии по проверкам</h2>
+    {% if trend %}
+    <svg class="trend" viewBox="0 0 320 80" role="img" aria-label="График оценок аномалии">
+      <line x1="0" y1="80" x2="320" y2="80" class="trend-axis" />
+      <line x1="0" y1="16" x2="320" y2="16" class="trend-threshold" />
+      <polyline points="{{ trend }}" class="trend-line" />
+    </svg>
+    <p class="muted small">Пунктир — порог high 0,80. Чем выше точка, тем сильнее аномалия.</p>
+    {% else %}
+    <p class="muted">Для графика нужно минимум две проверки с оценкой.</p>
+    {% endif %}
+  </section>
+
+  <section class="panel" aria-labelledby="tickets-title">
+    <h2 id="tickets-title" class="panel-title">Заявки в ТОиР</h2>
+    {% if tickets_error %}
+    <p class="notice notice-error">Заявки сейчас не загрузились: база недоступна. Обновите страницу через минуту.</p>
+    {% elif tickets %}
+    <ul class="ticket-list">
+      {% for t in tickets %}
+      <li>
+        <strong>{{ t.ticket_id }}</strong>
+        <span class="muted">{{ t.created_at.strftime("%d.%m.%Y") }} · проверка {{ t.session_id }}</span>
+        <span class="muted">{{ t.payload.get("anomaly_type") or "—" }}</span>
+      </li>
+      {% endfor %}
+    </ul>
+    {% else %}
+    <p class="muted">Заявок по машине пока нет.</p>
+    {% endif %}
+  </section>
+</div>
+
+<section class="panel" aria-labelledby="history-title">
+  <h2 id="history-title" class="panel-title">История проверок</h2>
+  <ul class="history">
+    {% for h in history %}
+    <li>
+      <span class="history-date">{{ h.checked_at }}</span>
+      <span class="history-verdict"><span aria-hidden="true">{{ h.light_icon }}</span> {{ h.headline }}</span>
+      <span class="muted">{{ h.status_label }} · оценка {% if h.score is not none %}{{ "%.2f"|format(h.score) }}{% else %}—{% endif %} · уверенность {{ h.confidence }}</span>
+    </li>
+    {% else %}
+    <li class="muted">Проверок пока нет.</li>
+    {% endfor %}
+  </ul>
+</section>
+{% endblock %}

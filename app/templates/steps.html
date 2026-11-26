@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+{% block content %}
+<section id="steps-root" class="steps"
+         data-vehicle="{{ vehicle.vehicle_id }}"
+         data-session="{{ session.session_id }}">
+  <a class="back" href="/vehicles/{{ vehicle.vehicle_id }}/chat?session={{ session.session_id }}">← В чат</a>
+  <h1 class="page-title">Этапы работ</h1>
+  <p class="muted">{{ vehicle.vehicle_id }} · проверка {{ session.session_id }}</p>
+
+  <div id="steps-empty" class="notice" hidden>
+    Этапов работ пока нет. Спросите в чате: «Этапы работ».
+    <a class="btn btn-primary" href="/vehicles/{{ vehicle.vehicle_id }}/chat?session={{ session.session_id }}">Перейти в чат</a>
+  </div>
+
+  <div id="steps-body" hidden>
+    <p class="progress" id="step-progress" aria-live="polite"></p>
+    <article class="step-card">
+      <p class="step-text" id="step-text"></p>
+      <p class="step-source muted" id="step-source"></p>
+    </article>
+    <div class="step-actions">
+      <button type="button" class="btn btn-secondary" id="step-back">Назад</button>
+      <button type="button" class="btn btn-primary btn-xl" id="step-next">Готово → далее</button>
+    </div>
+  </div>
+
+  <div id="steps-done" class="notice notice-ok" hidden>
+    <p><strong>Все этапы пройдены.</strong></p>
+    <a class="btn btn-primary btn-xl" href="/vehicles/{{ vehicle.vehicle_id }}/ticket?session={{ session.session_id }}">Заявка в ТОиР</a>
+    <a class="btn btn-secondary" href="/vehicles/{{ vehicle.vehicle_id }}/chat?session={{ session.session_id }}">Вернуться в чат</a>
+  </div>
+</section>
+{% endblock %}
+
+{% block scripts %}
+<script defer src="/static/js/common.js"></script>
+<script defer src="/static/js/steps.js"></script>
+{% endblock %}

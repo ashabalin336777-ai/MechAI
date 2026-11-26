@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+{% block content %}
+<section id="chat-root" class="chat"
+         data-vehicle="{{ vehicle.vehicle_id }}"
+         data-session="{{ session.session_id }}"
+         data-auto="{{ 'yes' if auto_diagnosis else 'no' }}">
+  <header class="chat-head">
+    <a class="back" href="/vehicles/{{ vehicle.vehicle_id }}?session={{ session.session_id }}">← Машина</a>
+    <h1 class="chat-title">{{ vehicle.vehicle_id }} · {{ vehicle.make }} {{ vehicle.model }}</h1>
+    <p class="muted">{{ vehicle.engine_model }} · проверка {{ session.session_id }}</p>
+  </header>
+
+  <button type="button" class="btn btn-primary btn-xl" id="diagnosis-btn">
+    Получить результат диагностики
+  </button>
+
+  <div id="verdict" class="verdict-slot" aria-live="polite"></div>
+  <ol id="messages" class="messages" aria-live="polite"></ol>
+  <p id="meta" class="meta muted" hidden></p>
+
+  <nav class="quick" aria-label="Быстрые вопросы">
+    <button type="button" class="chip" data-msg="Этапы работ">Этапы работ</button>
+    <button type="button" class="chip" data-msg="Можно ли ехать своим ходом?">Можно ли ехать своим ходом?</button>
+    <button type="button" class="chip" data-msg="Создай заявку">Создать заявку</button>
+    <button type="button" class="chip" data-msg="Покажи историю машины">История машины</button>
+  </nav>
+
+  <form id="composer" class="composer">
+    <label class="visually-hidden" for="message">Вопрос механика</label>
+    <textarea id="message" name="message" rows="2" maxlength="2000"
+              placeholder="Напишите вопрос механика"></textarea>
+    <button type="submit" class="btn btn-primary" id="send-btn">Отправить</button>
+  </form>
+  <div id="glossary-pop" class="glossary-pop" role="dialog" aria-live="polite" hidden></div>
+</section>
+{% endblock %}
+
+{% block scripts %}
+<script defer src="/static/js/common.js"></script>
+<script defer src="/static/js/chat.js"></script>
+{% endblock %}

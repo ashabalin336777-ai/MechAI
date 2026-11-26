@@ -1,0 +1,14 @@
+{% extends "base.html" %}
+{% block content %}
+<h1 class="page-title">Машины</h1>
+<form class="search" action="/vehicles" method="get" role="search">
+  <label class="visually-hidden" for="q">Госномер или гаражный номер</label>
+  <input id="q" name="q" type="search" value="{{ q }}" maxlength="64" autocomplete="off"
+         placeholder="Госномер или гаражный номер"
+         hx-get="/vehicles" hx-trigger="input changed delay:300ms, search"
+         hx-target="#vehicle-list" hx-select="#vehicle-list" hx-swap="outerHTML"
+         hx-push-url="true">
+  <button class="btn btn-secondary" type="submit">Найти</button>
+</form>
+{% include "partials/vehicle_list.html" %}
+{% endblock %}

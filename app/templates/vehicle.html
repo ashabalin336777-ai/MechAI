@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+{% block content %}
+<a class="back" href="/vehicles">← Все машины</a>
+<section class="vehicle-hero">
+  <p class="plate-big">{{ vehicle.vehicle_id }}</p>
+  <p class="vehicle-title">{{ vehicle.make }} {{ vehicle.model }}</p>
+  <p class="muted">гар. № {{ vehicle.garage_no }} · {{ vehicle.engine_model }} · {{ vehicle.fuel }}</p>
+</section>
+
+{% if sessions %}
+<form class="session-pick" method="get" action="/vehicles/{{ vehicle.vehicle_id }}">
+  <label for="session">Проверка</label>
+  <select id="session" name="session" onchange="this.form.submit()">
+    {% for s in sessions %}
+    <option value="{{ s.session_id }}" {% if session and s.session_id == session.session_id %}selected{% endif %}>
+      {{ s.checked_at.strftime("%d.%m.%Y") }} · {{ s.session_id }}{% if loop.first %} (последняя){% endif %}
+    </option>
+    {% endfor %}
+  </select>
+  <noscript><button class="btn btn-secondary" type="submit">Показать</button></noscript>
+</form>
+{% endif %}
+
+{% if verdict %}
+<section class="verdict verdict-{{ verdict.light }}" aria-label="Итог проверки">
+  <p class="verdict-line">
+    <span class="verdict-icon" aria-hidden="true">
+      {% if verdict.light == "green" %}🟢{% elif verdict.light == "yellow" %}🟡{% elif verdict.light == "orange" %}🟠{% elif verdict.light == "red" %}🔴{% else %}⚪{% endif %}
+    </span>
+    <strong>{{ verdict.headline }}</strong>
+  </p>
+  <p class="verdict-reason">{{ verdict.reasons[0] if verdict.reasons else "" }}</p>
+</section>
+{% else %}
+<section class="notice">Проверок пока нет. Запись нужно сделать на стенде.</section>
+{% endif %}
+
+<a class="btn btn-primary btn-xl" href="/vehicles/{{ vehicle.vehicle_id }}/chat?session={{ session.session_id if session else '' }}&amp;action=diagnosis"
+   {% if not session %}aria-disabled="true"{% endif %}>
+  Получить результат диагностики
+</a>
+<a class="btn btn-secondary" href="/vehicles/{{ vehicle.vehicle_id }}/chat?session={{ session.session_id if session else '' }}">
+  Открыть чат
+</a>
+{% endblock %}

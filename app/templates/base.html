@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="ru" data-mode="standard">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#0b5fff">
+  <meta name="color-scheme" content="light dark">
+  <link rel="manifest" href="/static/manifest.webmanifest">
+  <link rel="icon" href="/static/icon.svg" type="image/svg+xml">
+  <title>{{ title }} · Цифровой механик</title>
+  <link rel="stylesheet" href="/static/app.css">
+  <script>
+    document.documentElement.dataset.mode = localStorage.getItem("mode") || "standard";
+  </script>
+  <script defer src="/static/vendor/htmx.min.js"></script>
+  <script defer src="/static/vendor/alpine.min.js"></script>
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="/vehicles">Цифровой механик</a>
+    <nav class="nav" aria-label="Разделы">
+      <a href="/vehicles">Машины</a>
+      <a href="/dashboard">Главный механик</a>
+    </nav>
+    <button type="button" class="mode-btn" id="mode-toggle" aria-label="Режим отображения">Аа</button>
+  </header>
+  <main class="page">
+    {% block content %}{% endblock %}
+  </main>
+  <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
+  <script defer src="/static/js/mode.js"></script>
+  {% block scripts %}{% endblock %}
+</body>
+</html>

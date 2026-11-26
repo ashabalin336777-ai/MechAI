@@ -1,13 +1,872 @@
-/* Базовые стили заглушки. Мобильная вёрстка 360–430 px и крупный режим — в фазе 05. */
+/* Стили «Цифрового механика». Мобильная вёрстка 360–430 px, desktop — от 900 px.
+ * Режимы: html[data-mode="standard" | "novice" | "senior"] (переключатель «Аа»).
+ * Цели касания не меньше 48 px; в режиме «Крупный» — 56 px и крупнее.
+ */
+
 :root {
+  --bg: #eef1f5;
+  --surface: #ffffff;
+  --text: #15181d;
+  --muted: #5b6573;
+  --border: #dde2ea;
+  --primary: #0b5fff;
+  --primary-text: #ffffff;
+  --secondary: #e8edf5;
+  --green: #16a34a;
+  --yellow: #eab308;
+  --orange: #f97316;
+  --red: #dc2626;
+  --grey: #6b7280;
+  --radius: 14px;
+  --target: 48px;
+  --target-xl: 56px;
+  --font: 18px;
   color-scheme: light dark;
-  font-family: system-ui, sans-serif;
-  font-size: 18px;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #0f1216;
+    --surface: #1a1f26;
+    --text: #e8ecf2;
+    --muted: #a3adbb;
+    --border: #2b323c;
+    --secondary: #252c36;
+  }
+}
+
+html[data-mode="novice"] {
+  --font: 19px;
+}
+
+html[data-mode="senior"] {
+  --font: 22px;
+  --target: 56px;
+  --target-xl: 64px;
+}
+
+[hidden] {
+  display: none !important;
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  font-size: var(--font);
 }
 
 body {
   margin: 0;
-  padding: 16px;
-  max-width: 430px;
+  background: var(--bg);
+  color: var(--text);
+  font-family: system-ui, "Segoe UI", Roboto, "Noto Sans", sans-serif;
+  line-height: 1.45;
   overflow-x: hidden;
+  -webkit-font-smoothing: antialiased;
+}
+
+h1,
+h2,
+p,
+ul,
+ol,
+dl,
+dd {
+  margin: 0;
+}
+
+a {
+  color: var(--primary);
+}
+
+.muted {
+  color: var(--muted);
+}
+
+.small {
+  font-size: 0.85em;
+}
+
+/* Шапка: бренд, разделы и переключатель «Аа». Переносится на узком экране. */
+.topbar {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+  align-items: center;
+  padding: 10px 16px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+}
+
+.brand {
+  font-weight: 800;
+  color: var(--text);
+  text-decoration: none;
+  margin-right: auto;
+}
+
+.nav {
+  display: flex;
+  gap: 12px;
+  font-size: 0.9em;
+}
+
+.nav a {
+  color: var(--primary);
+  text-decoration: none;
+  font-weight: 600;
+  min-height: var(--target);
+  display: inline-flex;
+  align-items: center;
+}
+
+.mode-btn {
+  min-height: var(--target);
+  padding: 0 14px;
+  border: 1px solid var(--primary);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--primary);
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.page {
+  width: 100%;
+  max-width: 430px;
+  margin: 0 auto;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.page-title {
+  font-size: 1.5em;
+  font-weight: 800;
+}
+
+.back {
+  align-self: flex-start;
+  min-height: var(--target);
+  display: inline-flex;
+  align-items: center;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+/* Кнопки и чипы: цели касания от 48 px. */
+.btn {
+  min-height: var(--target);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 10px 18px;
+  border: 0;
+  border-radius: 12px;
+  font: inherit;
+  font-weight: 700;
+  text-align: center;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.btn:disabled,
+.btn[aria-disabled="true"] {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.btn-primary {
+  background: var(--primary);
+  color: var(--primary-text);
+}
+
+.btn-secondary {
+  background: var(--secondary);
+  color: var(--text);
+}
+
+.btn-xl {
+  min-height: var(--target-xl);
+  width: 100%;
+  font-size: 1.1em;
+}
+
+.chip {
+  min-height: var(--target);
+  padding: 8px 14px;
+  border: 1px solid var(--primary);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--primary);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.chip:disabled {
+  opacity: 0.45;
+}
+
+input,
+select,
+textarea {
+  min-height: var(--target);
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  max-width: 100%;
+}
+
+/* Экран 1: список машин. */
+.search {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.search input {
+  flex: 1 1 200px;
+}
+
+.vehicle-list {
+  list-style: none;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.vehicle-card {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 14px;
+  min-height: var(--target);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-left: 6px solid var(--grey);
+  border-radius: var(--radius);
+  color: var(--text);
+  text-decoration: none;
+  overflow-wrap: anywhere;
+}
+
+.vehicle-card.status-normal {
+  border-left-color: var(--green);
+}
+
+.vehicle-card.status-attention {
+  border-left-color: var(--yellow);
+}
+
+.vehicle-card.status-quarantine {
+  border-left-color: var(--red);
+}
+
+.vehicle-card-top {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.plate,
+.plate-big {
+  font-weight: 800;
+  font-size: 1.15em;
+}
+
+.garage,
+.vehicle-card-model {
+  color: var(--muted);
+  font-size: 0.9em;
+}
+
+.vehicle-card-status {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.empty {
+  padding: 16px;
+  color: var(--muted);
+  text-align: center;
+  list-style: none;
+}
+
+/* Карточка ТС. */
+.vehicle-hero {
+  padding: 14px;
+  background: var(--surface);
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  overflow-wrap: anywhere;
+}
+
+.vehicle-title {
+  font-size: 1.1em;
+  font-weight: 700;
+}
+
+.session-pick {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+/* Светофор: цвет по свету, иконка и одна строка видны сразу. */
+.verdict {
+  padding: 14px;
+  border-radius: var(--radius);
+  border: 2px solid var(--grey);
+  background: var(--surface);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  overflow-wrap: anywhere;
+}
+
+.verdict-green {
+  border-color: var(--green);
+  background: color-mix(in srgb, var(--green) 12%, var(--surface));
+}
+
+.verdict-yellow {
+  border-color: var(--yellow);
+  background: color-mix(in srgb, var(--yellow) 14%, var(--surface));
+}
+
+.verdict-orange {
+  border-color: var(--orange);
+  background: color-mix(in srgb, var(--orange) 14%, var(--surface));
+}
+
+.verdict-red {
+  border-color: var(--red);
+  background: color-mix(in srgb, var(--red) 14%, var(--surface));
+}
+
+.verdict-line {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  font-size: 1.1em;
+}
+
+.verdict-icon {
+  font-size: 1.6em;
+  line-height: 1;
+}
+
+.verdict-reason {
+  color: var(--muted);
+}
+
+.verdict-facts {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  font-size: 0.85em;
+}
+
+.verdict-facts dt {
+  color: var(--muted);
+}
+
+.verdict-facts dd {
+  font-weight: 700;
+}
+
+.verdict-reasons {
+  padding-left: 1.2em;
+  color: var(--muted);
+  font-size: 0.9em;
+}
+
+.verdict-slot:empty {
+  display: none;
+}
+
+.notice {
+  padding: 14px;
+  border-radius: var(--radius);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.notice-error {
+  border-color: var(--red);
+  color: var(--text);
+}
+
+.notice-ok {
+  border-color: var(--green);
+}
+
+/* Чат. */
+.chat {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.chat-head {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.chat-title {
+  font-size: 1.2em;
+  font-weight: 800;
+  overflow-wrap: anywhere;
+}
+
+.messages {
+  list-style: none;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.bubble {
+  max-width: 100%;
+  padding: 12px 14px;
+  border-radius: var(--radius);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  overflow-wrap: anywhere;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.bubble-me {
+  align-self: flex-end;
+  background: var(--primary);
+  color: var(--primary-text);
+  border-color: var(--primary);
+  max-width: 92%;
+}
+
+.bubble-agent {
+  align-self: flex-start;
+  max-width: 100%;
+}
+
+.bubble-system {
+  border-color: var(--green);
+}
+
+.bubble-error {
+  border-color: var(--red);
+}
+
+.cite {
+  display: inline-block;
+  margin: 2px 4px 2px 0;
+  padding: 2px 8px;
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--primary) 12%, transparent);
+  color: var(--primary);
+  font-size: 0.85em;
+  font-weight: 600;
+}
+
+.term {
+  min-height: var(--target);
+  min-width: var(--target);
+  padding: 0 4px;
+  border: 0;
+  border-bottom: 2px dotted var(--primary);
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  cursor: help;
+}
+
+.glossary-pop {
+  padding: 12px 14px;
+  border-radius: var(--radius);
+  background: var(--text);
+  color: var(--surface);
+  position: sticky;
+  bottom: 12px;
+  overflow-wrap: anywhere;
+}
+
+.meta {
+  font-size: 0.85em;
+}
+
+.quick {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.composer {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  position: sticky;
+  bottom: 0;
+  padding: 10px 0;
+  background: var(--bg);
+}
+
+.composer textarea {
+  flex: 1 1 100%;
+  resize: vertical;
+}
+
+.composer .btn {
+  flex: 1 1 100%;
+}
+
+/* Шаги: один этап на экране. */
+.steps,
+.ticket {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.progress {
+  font-weight: 700;
+  color: var(--primary);
+}
+
+.step-card {
+  padding: 18px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.step-text {
+  font-size: 1.15em;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.step-source {
+  font-size: 0.85em;
+}
+
+.step-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+/* Заявка: секции как в ТОиР. */
+.ticket-sections {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 14px;
+}
+
+.ticket-section {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--border);
+  overflow-wrap: anywhere;
+}
+
+.ticket-section dt {
+  color: var(--muted);
+  font-size: 0.85em;
+}
+
+.ticket-section dd {
+  font-weight: 600;
+}
+
+.ticket-section ol,
+.ticket-section ul {
+  padding-left: 1.2em;
+}
+
+.check {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: var(--target);
+  font-weight: 700;
+}
+
+.check input {
+  width: 24px;
+  height: 24px;
+  min-height: 24px;
+  flex: none;
+}
+
+/* Desktop: главный механик. */
+.dash-head {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.counters {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.counter {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 14px;
+  border-radius: var(--radius);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-top: 5px solid var(--grey);
+  color: var(--text);
+  text-decoration: none;
+  font-weight: 600;
+}
+
+.counter-quarantine {
+  border-top-color: var(--red);
+}
+
+.counter-attention {
+  border-top-color: var(--yellow);
+}
+
+.counter-normal {
+  border-top-color: var(--green);
+}
+
+.counter-num {
+  font-size: 2em;
+  font-weight: 800;
+}
+
+.fleet {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+
+.fleet-head {
+  display: none;
+}
+
+.fleet-list {
+  list-style: none;
+  padding: 0;
+}
+
+.fleet-list li + li {
+  border-top: 1px solid var(--border);
+}
+
+.fleet-row {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 6px;
+  padding: 12px 14px;
+  min-height: var(--target);
+  color: var(--text);
+  text-decoration: none;
+  border-left: 6px solid var(--grey);
+  overflow-wrap: anywhere;
+}
+
+.fleet-row.status-quarantine {
+  border-left-color: var(--red);
+}
+
+.fleet-row.status-attention {
+  border-left-color: var(--yellow);
+}
+
+.fleet-row.status-normal {
+  border-left-color: var(--green);
+}
+
+.fleet-verdict .muted {
+  display: block;
+  font-size: 0.9em;
+}
+
+.dash-vehicle {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 14px;
+}
+
+.panel {
+  padding: 16px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.panel-title {
+  font-size: 1.1em;
+  font-weight: 800;
+}
+
+.trend {
+  width: 100%;
+  height: auto;
+  max-height: 160px;
+}
+
+.trend-axis {
+  stroke: var(--border);
+}
+
+.trend-threshold {
+  stroke: var(--red);
+  stroke-dasharray: 4 4;
+}
+
+.trend-line {
+  fill: none;
+  stroke: var(--primary);
+  stroke-width: 2.5;
+}
+
+.history,
+.ticket-list {
+  list-style: none;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.history li,
+.ticket-list li {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--border);
+  overflow-wrap: anywhere;
+}
+
+.history-date {
+  font-weight: 700;
+}
+
+.toast {
+  position: fixed;
+  left: 16px;
+  right: 16px;
+  bottom: 16px;
+  padding: 14px;
+  border-radius: var(--radius);
+  background: var(--text);
+  color: var(--surface);
+  z-index: 20;
+}
+
+@media (min-width: 900px) {
+  :root {
+    --font: 17px;
+  }
+
+  html[data-mode="novice"] {
+    --font: 18px;
+  }
+
+  html[data-mode="senior"] {
+    --font: 21px;
+  }
+
+  .page {
+    max-width: 1200px;
+    padding: 24px;
+  }
+
+  .topbar {
+    padding: 12px 24px;
+  }
+
+  .composer .btn {
+    flex: 0 0 auto;
+  }
+
+  .composer textarea {
+    flex: 1 1 auto;
+  }
+
+  .vehicle-list {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .dash-vehicle {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .fleet-head {
+    display: grid;
+    grid-template-columns: 2fr 1.2fr 3fr 0.8fr 1fr;
+    gap: 12px;
+    padding: 10px 14px;
+    background: var(--secondary);
+    font-size: 0.85em;
+    font-weight: 700;
+    color: var(--muted);
+  }
+
+  .fleet-row {
+    grid-template-columns: 2fr 1.2fr 3fr 0.8fr 1fr;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .step-actions {
+    flex-direction: row;
+  }
 }

@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="dash-head">
+  <h1 class="page-title">Главный механик</h1>
+  <p class="muted">Статус по последней проверке каждой машины. Сначала карантин, потом внимание.</p>
+</div>
+
+<section class="counters" aria-label="Сводка по парку">
+  <a class="counter counter-quarantine" href="#fleet-quarantine">
+    <span class="counter-num">{{ board.counts.quarantine }}</span>
+    <span>🔴 Карантин</span>
+  </a>
+  <a class="counter counter-attention" href="#fleet-attention">
+    <span class="counter-num">{{ board.counts.attention }}</span>
+    <span>🟡 Требует внимания</span>
+  </a>
+  <a class="counter counter-normal" href="#fleet-normal">
+    <span class="counter-num">{{ board.counts.normal }}</span>
+    <span>🟢 Норма</span>
+  </a>
+</section>
+
+<section class="fleet" aria-label="Парк">
+  <div class="fleet-head" aria-hidden="true">
+    <span>Машина</span><span>Статус</span><span>Вердикт и основание</span><span>Оценка</span><span>Проверка</span>
+  </div>
+  <ul class="fleet-list">
+    {% for row in board.rows %}
+    <li id="fleet-{{ row.status }}">
+      <a class="fleet-row status-{{ row.status }}" href="/dashboard/{{ row.vehicle_id }}">
+        <span class="fleet-vehicle">
+          <strong>{{ row.vehicle_id }}</strong>
+          <span class="muted">{{ row.title }} · гар. № {{ row.garage_no }}</span>
+        </span>
+        <span class="fleet-status"><span aria-hidden="true">{{ row.light_icon }}</span> {{ row.status_label }}</span>
+        <span class="fleet-verdict">
+          {{ row.headline }}
+          {% if row.reason %}<span class="muted">{{ row.reason }}</span>{% endif %}
+        </span>
+        <span class="fleet-score">{% if row.score is not none %}{{ "%.2f"|format(row.score) }}{% else %}—{% endif %}</span>
+        <span class="fleet-date">{{ row.checked_at or "—" }}</span>
+      </a>
+    </li>
+    {% else %}
+    <li class="empty">В парке пока нет машин.</li>
+    {% endfor %}
+  </ul>
+</section>
+{% endblock %}

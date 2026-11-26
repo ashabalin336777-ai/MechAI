@@ -44,7 +44,7 @@ def run(rt: Runtime, args: Args) -> dict:
             confidence=ml.confidence,
             signal_quality=ml.signal_quality,
             fuel=vehicle.fuel,
-            previous_score=_previous_score(vehicle, args.session_id),
+            previous_score=previous_score(vehicle, args.session_id),
         ),
         rt.deps.thresholds,
     )
@@ -70,7 +70,7 @@ def run(rt: Runtime, args: Args) -> dict:
     }
 
 
-def _previous_score(vehicle: Vehicle, session_id: str) -> float | None:
+def previous_score(vehicle: Vehicle, session_id: str) -> float | None:
     """Оценка предыдущей проверки с оценкой (для правила роста score из §7.2)."""
     earlier = []
     for session in vehicle.sessions:

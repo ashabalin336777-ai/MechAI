@@ -1,0 +1,26 @@
+<ul id="vehicle-list" class="vehicle-list">
+  {% for row in rows %}
+  <li>
+    <a class="vehicle-card status-{{ row.status }}" href="/vehicles/{{ row.vehicle_id }}">
+      <span class="vehicle-card-top">
+        <span class="plate">{{ row.vehicle_id }}</span>
+        <span class="garage">гар. № {{ row.garage_no }}</span>
+      </span>
+      <span class="vehicle-card-model">{{ row.title }} · {{ row.engine_model }}</span>
+      <span class="vehicle-card-status">
+        <span aria-hidden="true">{{ row.light_icon }}</span>
+        <strong>{{ row.status_label }}</strong>
+        {% if row.checked_at %}<span class="muted">· проверка {{ row.checked_at }}</span>{% endif %}
+      </span>
+    </a>
+  </li>
+  {% else %}
+  <li class="empty">
+    {% if q %}
+      По запросу «{{ q }}» машин нет. Проверьте госномер или гаражный номер.
+    {% else %}
+      В парке пока нет машин.
+    {% endif %}
+  </li>
+  {% endfor %}
+</ul>

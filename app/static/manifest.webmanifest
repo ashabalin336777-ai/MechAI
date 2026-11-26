@@ -1,0 +1,19 @@
+{
+  "name": "Цифровой механик",
+  "short_name": "Механик",
+  "lang": "ru",
+  "start_url": "/vehicles",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#eef1f5",
+  "theme_color": "#0b5fff",
+  "icons": [
+    {
+      "src": "/static/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

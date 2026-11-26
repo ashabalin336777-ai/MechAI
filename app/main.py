@@ -1,6 +1,7 @@
 """Точка входа FastAPI: страницы, health и ready, клиенты заглушек, парк ТС, агент, миграции."""
 
 import logging
+import mimetypes
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
@@ -25,6 +26,8 @@ from app.paths import STATIC_DIR
 from app.rag.manifest import Manifest, load_manifest
 
 logger = logging.getLogger("app")
+# PWA: браузеры ждут манифест с типом application/manifest+json.
+mimetypes.add_type("application/manifest+json", ".webmanifest")
 
 
 @asynccontextmanager

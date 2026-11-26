@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+{% block content %}
+<section id="ticket-root" class="ticket"
+         data-vehicle="{{ vehicle.vehicle_id }}"
+         data-session="{{ session.session_id }}"
+         x-data="{ checked: false }">
+  <a class="back" href="/vehicles/{{ vehicle.vehicle_id }}/chat?session={{ session.session_id }}">← В чат</a>
+  <h1 class="page-title">Заявка в ТОиР</h1>
+
+  <div id="ticket-empty" class="notice" hidden>
+    Черновика заявки пока нет. Попросите в чате: «Создай заявку».
+    <a class="btn btn-primary" href="/vehicles/{{ vehicle.vehicle_id }}/chat?session={{ session.session_id }}">Перейти в чат</a>
+  </div>
+
+  <div id="ticket-body" hidden>
+    <dl class="ticket-sections">
+      <div class="ticket-section"><dt>Машина</dt><dd>{{ vehicle.vehicle_id }} · {{ vehicle.make }} {{ vehicle.model }} · {{ vehicle.engine_model }}</dd></div>
+      <div class="ticket-section"><dt>Проверка</dt><dd>{{ session.session_id }} · {{ session.checked_at.strftime("%d.%m.%Y") }}</dd></div>
+      <div class="ticket-section"><dt>Тип неисправности</dt><dd id="t-type"></dd></div>
+      <div class="ticket-section"><dt>Диагноз</dt><dd id="t-conclusion"></dd></div>
+      <div class="ticket-section"><dt>Приоритет и основание</dt><dd id="t-urgency"></dd></div>
+      <div class="ticket-section"><dt>Работы</dt><dd><ol id="t-operations"></ol></dd></div>
+      <div class="ticket-section"><dt>Запчасти</dt><dd id="t-parts"></dd></div>
+      <div class="ticket-section"><dt>Источники</dt><dd><ul id="t-refs"></ul></dd></div>
+    </dl>
+
+    <label class="check">
+      <input type="checkbox" x-model="checked" id="checked-box">
+      <span>Состав проверил</span>
+    </label>
+
+    <button type="button" class="btn btn-primary btn-xl" id="send-ticket"
+            x-bind:disabled="!checked">
+      Отправить в ТОиР
+    </button>
+    <p id="ticket-status" class="notice" role="status" hidden></p>
+  </div>
+</section>
+{% endblock %}
+
+{% block scripts %}
+<script defer src="/static/js/common.js"></script>
+<script defer src="/static/js/ticket.js"></script>
+{% endblock %}
