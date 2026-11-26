@@ -297,3 +297,21 @@ def test_run_timestamps_are_utc_iso() -> None:
     assert run_id == 1
     record = store.get_run(1)
     assert record is not None and record.started_at.tzinfo is not None
+
+
+def test_admin_json_declares_utf8_on_success_and_errors() -> None:
+    client = _client()
+    utf8 = "application/json; charset=utf-8"
+
+    listed = client.get("/admin/eval/runs", headers=AUTH)
+    assert listed.status_code == 200
+    assert listed.headers["content-type"] == utf8
+
+    rejected = client.get("/admin/eval/status", headers={"Authorization": "Bearer wrong"})
+    assert rejected.status_code == 401
+    assert rejected.headers["content-type"] == utf8
+    assert rejected.json()["detail"] == "Неверный токен"
+
+    missing = client.get("/admin/eval/status", headers=AUTH)
+    assert missing.status_code == 404
+    assert missing.headers["content-type"] == utf8

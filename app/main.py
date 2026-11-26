@@ -13,6 +13,7 @@ from app.agent.services import build_agent_services, use_postgres_checkpointer
 from app.api.admin_eval import EvalJob
 from app.api.admin_eval import router as admin_eval_router
 from app.api.admin_ingest import router as admin_ingest_router
+from app.api.admin_json import use_admin_json_charset
 from app.api.chat import router as chat_router
 from app.api.health import router as health_router
 from app.api.pages import router as pages_router
@@ -58,6 +59,7 @@ def _load_manifest(settings: Settings) -> Manifest:
 def create_app(settings: Settings | None = None) -> FastAPI:
     settings = settings or get_settings()
     app = FastAPI(title="Цифровой механик", version="0.2.0", lifespan=lifespan)
+    use_admin_json_charset(app)
     app.state.settings = settings
     app.state.migration_failed = False
     app.state.ingest_job = IngestJob()
