@@ -1,0 +1,60 @@
+<!doctype html><html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=390">
+<title>Цифровой механик — D · Заявка ТОиР (form-first)</title><style>
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{background:#d9dde3;font-family:'Inter','Roboto','Noto Sans',sans-serif;-webkit-font-smoothing:antialiased}
+body{display:flex;gap:40px;padding:40px;flex-wrap:wrap;justify-content:center}
+.phone{width:390px;height:844px;position:relative;overflow:hidden;border-radius:0;flex:none}
+.sb{height:44px;display:flex;align-items:center;justify-content:space-between;padding:0 24px;font-size:15px;font-weight:600}
+.sb .r{display:flex;gap:6px;align-items:center;font-size:12px}
+.bat{width:24px;height:12px;border:1.5px solid currentColor;border-radius:3px;position:relative}
+.bat:after{content:'';position:absolute;left:1px;top:1px;bottom:1px;width:15px;background:currentColor;border-radius:1px}
+.home{position:absolute;bottom:8px;left:50%;transform:translateX(-50%);width:134px;height:5px;border-radius:3px;background:currentColor;opacity:.85}
+.mono{font-family:'Roboto Mono',monospace}
+.abs{position:absolute}
+svg{display:block}
+
+.phone{background:#f4f4f1;color:#222}
+.bar1{background:#c8102e;color:#fff;padding:6px 14px 12px}
+.bar1 .a{display:flex;align-items:center;gap:12px}.bar1 h1{font-size:18px;font-weight:700}.bar1 small{display:block;font-size:12px;opacity:.88;margin-top:2px}
+.flt{display:flex;gap:6px;padding:10px 12px 4px;overflow:hidden}.flt span{white-space:nowrap;font-size:12.5px;padding:7px 11px;border-radius:6px;background:#fff;border:1px solid #d6d6cf;font-weight:600;color:#555}.flt span.on{background:#222;color:#fff;border-color:#222}
+.zk{margin:8px 12px 0;background:#fff;border:1px solid #d9d9d2;border-left:7px solid #888;border-radius:6px;padding:10px 12px;font-size:13px;position:relative}
+.zk .id{font-weight:800;font-size:14px}.zk .st{position:absolute;right:10px;top:10px;font-size:10.5px;font-weight:800;padding:3px 7px;border-radius:4px;color:#fff}
+.zk p{margin-top:3px;color:#555;line-height:1.35}.zk .m{display:flex;justify-content:space-between;margin-top:5px;color:#777;font-size:11.5px}
+.sec{margin:8px 12px 0;background:#fff;border:1px solid #d9d9d2;border-radius:6px}
+.sec h2{font-size:12px;text-transform:uppercase;letter-spacing:.05em;padding:8px 12px;background:#ececE6;border-bottom:1px solid #d9d9d2;color:#555;display:flex;justify-content:space-between;border-radius:6px 6px 0 0}
+.fr{display:flex;justify-content:space-between;gap:10px;padding:7px 12px;border-bottom:1px solid #eee;font-size:12.5px}.fr:last-child{border:0}.fr span{color:#777;flex:none}.fr b{text-align:right;font-weight:600}
+.warn{margin:8px 12px 0;background:#fff3cd;border:1px solid #f0d36b;border-radius:6px;padding:9px 12px;font-size:12.5px;color:#6b5200;line-height:1.4}
+.foot{position:absolute;bottom:0;left:0;right:0;background:#fff;border-top:1px solid #d6d6cf;padding:10px 12px 28px}
+.cb{display:flex;gap:8px;font-size:12px;margin-bottom:8px;color:#444;align-items:flex-start}.cb i{width:18px;height:18px;border:2px solid #c8102e;border-radius:4px;background:#c8102e;color:#fff;font-style:normal;font-size:12px;text-align:center;line-height:14px;flex:none}
+.go{background:#c8102e;color:#fff;text-align:center;padding:13px;border-radius:8px;font-weight:800;font-size:15px}
+.sub{display:flex;gap:8px;margin-top:6px}.sub div{flex:1;text-align:center;padding:9px;border:1px solid #d0d0c8;border-radius:8px;font-size:12.5px;font-weight:600;color:#555}
+.src{font-size:11px;font-weight:700;color:#1d4ed8;background:#eaf1ff;padding:2px 6px;border-radius:5px;margin-left:3px;white-space:nowrap}
+.tabs{position:absolute;bottom:0;left:0;right:0;height:78px;background:#fff;border-top:1px solid #d6d6cf;display:flex;justify-content:space-around;padding-top:10px;font-size:11px;color:#777;font-weight:600;text-align:center}.tabs .on{color:#c8102e}.tabs span{display:block;font-size:20px}
+</style></head><body><section class="phone" id="s1"><div class="sb" style="background:#c8102e;color:#fff" style="color:#fff"><span>10:06</span><span class="r"><span>LTE</span><span class="bat"></span></span></div>
+<div class="bar1"><div class="a"><span style="font-size:22px">☰</span><div><h1>Заявки на ремонт</h1><small>Сервисная зона Новосибирск-2 · Петров С. Н. · офлайн-кэш ✓</small></div></div></div>
+<div class="flt"><span class="on">Текущие 3</span><span>Просроченные</span><span>Выполненные</span><span>Все</span></div>
+<div class="zk" style="border-left-color:#f07d1a"><span class="id">Черновик · DRF-2026-S1-0001</span><span class="st" style="background:#f07d1a">ЖДЁТ ПОДТВ.</span><p>ГАЗель Next В112КМ 154 · Дефектовка: стук шатунного подшипника цил. 3 · <b>запрет выезда</b></p><div class="m"><span>Критич. · агент подготовил 10:01</span><span>19,56 н-ч</span></div></div>
+<div class="zk" style="border-left-color:#f2b705"><span class="id">Черновик · DRF-2026-S2-0001</span><span class="st" style="background:#c99700">ЧЕРНОВИК</span><p>ГАЗель Next Е127ТХ 154 · Форсунка цил. 2 · вода в топливе · зона C</p><div class="m"><span>Обычный · 17.11</span><span>2,4 н-ч</span></div></div>
+<div class="zk" style="border-left-color:#22a35a"><span class="id">Черновик · DRF-2026-S3-0001</span><span class="st" style="background:#22a35a">ЧЕРНОВИК</span><p>ГАЗель Next Н089АС 154 · Зазоры клапанов · зона B</p><div class="m"><span>Низкий · 16.11</span><span>2,7 н-ч</span></div></div>
+<div class="warn" style="margin-top:10px"><b>Обмен с 1С:ТОиР:</b> последняя синхронизация 10:02, непереданных документов: 0.</div>
+<div class="warn"><b>Агент отметил:</b> заявка по В112КМ критична — откройте и подтвердите. Статусы цветом: Зарегистрирован · В работе · Приостановлен · Выполнен.</div>
+<div class="tabs"><div class="on"><span>📋</span>Заявки</div><div><span>🚛</span>Объекты</div><div><span>💬</span>Агент</div><div><span>🔄</span>Обмен</div></div>
+<div class="home" style="color:#111"></div></section><section class="phone" id="s2"><div class="sb" style="background:#c8102e;color:#fff" style="color:#fff"><span>10:06</span><span class="r"><span>LTE</span><span class="bat"></span></span></div>
+<div class="bar1"><div class="a"><span style="font-size:22px">‹</span><div><h1>Заявка на дефектовку</h1><small>DRF-2026-S1-0001 · черновик агента · ЖДЁТ ПОДТВЕРЖДЕНИЯ</small></div></div></div>
+<div class="sec"><h2>Объект ремонта</h2>
+<div class="fr"><span>ТС</span><b>ГАЗель Next · В112КМ 154</b></div><div class="fr"><span>Двигатель</span><b>Cummins ISF 2.8 · 268 000 км</b></div></div>
+<div class="sec"><h2>Дефект и риск <span style="color:#c8102e">КРИТИЧЕСКИЙ</span></h2>
+<div class="fr"><span>Неисправность</span><b>Стук шатунного подшипника, цил. 3 <span class="src">ML 82 %</span></b></div>
+<div class="fr"><span>Зона / срочность</span><b>D · do_not_operate</b></div>
+<div class="fr"><span>Давление масла</span><b>0,7 бар @800 · 1,5 бар @1 500</b></div>
+<div class="fr"><span>Предел зазора</span><b>0,095 мм <span class="src">СБ-ISF28-ДЕМО-01 · 01-03</span></b></div></div>
+<div class="sec"><h2>Работы <span>19,56 н-ч ×1,2</span></h2>
+<div class="fr"><span>CR-002</span><b>Снятие поддона, осмотр вкладышей · 5,4</b></div>
+<div class="fr"><span>DF-001</span><b>Дефектовка ШПГ с актом · 3,0</b></div>
+<div class="fr"><span>CR-003</span><b>Замена вкладышей (4 цил.) · 9,0</b></div></div>
+<div class="sec"><h2>Запчасти</h2>
+<div class="fr"><span>ДМ-ISF28-0501</span><b>Комплект шатунных вкладышей STD</b></div>
+<div class="fr"><span>ДМ-ISF28-0504</span><b>Болты шатунных крышек (одноразовые)</b></div></div>
+<div class="foot"><div class="cb"><i>✓</i><span>Данные проверил. Подтверждаю отправку в ТОиР от имени Петров С. Н. (MECH-007)</span></div>
+<div class="go">ПОДТВЕРДИТЬ И ОТПРАВИТЬ</div><div class="sub"><div>Изменить</div><div>Фото</div><div>Агент</div></div></div>
+<div class="home" style="color:#111"></div></section></body></html>

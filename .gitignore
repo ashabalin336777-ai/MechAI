@@ -1,9 +1,28 @@
-﻿.env
+﻿
+# Секреты и локальные настройки: никогда не коммитить
+.env
 .env.*
+!.env.example
+
+# Python
 __pycache__/
 *.pyc
 .venv/
 venv/
+.pytest_cache/
+.ruff_cache/
+
+# Редакторы и ОС
 node_modules/
 .idea/
 .vscode/
+Thumbs.db
+
+# Официальные руководства Cummins: лицензия неясна, в git не попадают.
+# Синтетические чанки (data/manuals/chunks.jsonl) коммитятся.
+data/manuals/official/
+
+# Дампы баз и выгрузки
+*.dump
+*.sql
+*.backup

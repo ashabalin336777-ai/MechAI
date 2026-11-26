@@ -1,0 +1,61 @@
+<!doctype html><html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=390">
+<title>Цифровой механик — E · Пошаговый режим для гаража</title><style>
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{background:#d9dde3;font-family:'Inter','Roboto','Noto Sans',sans-serif;-webkit-font-smoothing:antialiased}
+body{display:flex;gap:40px;padding:40px;flex-wrap:wrap;justify-content:center}
+.phone{width:390px;height:844px;position:relative;overflow:hidden;border-radius:0;flex:none}
+.sb{height:44px;display:flex;align-items:center;justify-content:space-between;padding:0 24px;font-size:15px;font-weight:600}
+.sb .r{display:flex;gap:6px;align-items:center;font-size:12px}
+.bat{width:24px;height:12px;border:1.5px solid currentColor;border-radius:3px;position:relative}
+.bat:after{content:'';position:absolute;left:1px;top:1px;bottom:1px;width:15px;background:currentColor;border-radius:1px}
+.home{position:absolute;bottom:8px;left:50%;transform:translateX(-50%);width:134px;height:5px;border-radius:3px;background:currentColor;opacity:.85}
+.mono{font-family:'Roboto Mono',monospace}
+.abs{position:absolute}
+svg{display:block}
+
+.phone{background:#000;color:#fff}
+.prog{display:flex;gap:5px;padding:6px 14px 0}.prog i{flex:1;height:8px;border-radius:4px;background:#2b2b2b}.prog i.d{background:#ffd400}.prog i.c{background:#fff}
+.stp{padding:10px 18px 0;font-size:15px;font-weight:800;color:#ffd400;letter-spacing:.04em}
+.h1{padding:4px 18px 0;font-size:30px;line-height:1.1;font-weight:900}
+.sm{padding:8px 18px 0;font-size:15px;color:#c8c8c8;line-height:1.35}
+.num{margin:14px 14px 0;background:#161616;border:3px solid #444;border-radius:20px;padding:12px 14px;display:flex;align-items:center;justify-content:space-between}
+.num.act{border-color:#ffd400}
+.num .l{font-size:16px;font-weight:700;color:#e0e0e0;line-height:1.2}.num .l small{display:block;font-size:12.5px;color:#9a9a9a;font-weight:500;margin-top:2px}
+.num .v{display:flex;align-items:center;gap:10px}.pm{width:58px;height:58px;border-radius:16px;background:#2a2a2a;font-size:34px;font-weight:700;text-align:center;line-height:54px}
+.num b{font-size:34px;min-width:78px;text-align:center;font-weight:900}
+.yn{display:flex;gap:10px;margin:14px 14px 0}.yn div{flex:1;border-radius:20px;text-align:center;padding:16px 4px;font-size:18px;font-weight:800;border:3px solid #444;background:#161616}.yn .on{background:#ffd400;color:#000;border-color:#ffd400}
+.next{position:absolute;left:14px;right:14px;bottom:36px;height:76px;border-radius:22px;background:#ffd400;color:#000;font-size:24px;font-weight:900;display:flex;align-items:center;justify-content:center;gap:10px}
+.back{position:absolute;left:14px;bottom:122px;font-size:15px;color:#aaa;font-weight:700}
+.stop{margin:12px 14px 0;background:#e5171b;border-radius:24px;padding:16px 18px}
+.stop b{font-size:34px;font-weight:900;line-height:1.05;display:block}.stop span{font-size:15px;font-weight:600;display:block;margin-top:6px}
+.rs{margin:12px 14px 0;background:#161616;border-radius:18px;padding:6px 14px}
+.rs div{display:flex;gap:10px;align-items:center;padding:9px 0;border-bottom:1px solid #2c2c2c;font-size:15.5px;font-weight:700}.rs div:last-child{border:0}.rs em{font-style:normal;font-size:12px;font-weight:800;background:#ffd400;color:#000;padding:3px 7px;border-radius:7px;margin-left:auto;white-space:nowrap}
+.rs i{font-style:normal;font-size:22px}
+.hold{position:absolute;left:14px;right:14px;bottom:36px;height:88px;border-radius:24px;background:#1f7a3a;overflow:hidden;font-size:22px;font-weight:900;display:flex;align-items:center;justify-content:center;text-align:center;line-height:1.1}
+.hold i{position:absolute;left:0;top:0;bottom:0;width:62%;background:#2fc25b}.hold span{position:relative}
+.hold small{display:block;font-size:12.5px;font-weight:600;opacity:.95;margin-top:3px}
+.vk{position:absolute;left:14px;right:14px;bottom:134px;font-size:12.5px;color:#aaa;text-align:center}
+</style></head><body><section class="phone" id="s1"><div class="sb" style="color:#fff"><span>10:06</span><span class="r"><span>LTE</span><span class="bat"></span></span></div>
+<div class="prog"><i class="d"></i><i class="c"></i><i></i><i></i><i></i></div>
+<div class="stp">ШАГ 2 ИЗ 5 · ЗАМЕРЫ</div>
+<div class="h1">Давление масла<br>манометром</div>
+<div class="sm">Двигатель прогрет, масло 96 °C. Датчик ЭБУ: 1,6 бар @1 450. Нагрузку не давать.</div>
+<div class="num"><div class="l">800 об/мин<small>норма ≥ 1,0 · критично &lt; 0,8</small></div><div class="v"><div class="pm">−</div><b style="color:#ff4d4d">0,7</b><div class="pm">+</div></div></div>
+<div class="num act"><div class="l">1 500 об/мин<small>норма 2,0–3,5 · запрет &lt; 1,8</small></div><div class="v"><div class="pm">−</div><b style="color:#ff4d4d">1,5</b><div class="pm">+</div></div></div>
+<div class="sm" style="padding-top:14px;font-weight:700;color:#fff">Запах дизтоплива в масле?</div>
+<div class="yn"><div class="on">ДА</div><div>НЕТ</div><div>🎙 ГОЛОС</div></div>
+<div class="back">‹ НАЗАД</div>
+<div class="next">ДАЛЬШЕ ›</div>
+<div class="home" style="color:#fff"></div></section><section class="phone" id="s2"><div class="sb" style="color:#fff"><span>10:06</span><span class="r"><span>LTE</span><span class="bat"></span></span></div>
+<div class="prog"><i class="d"></i><i class="d"></i><i class="d"></i><i class="c"></i><i></i></div>
+<div class="stp">ШАГ 4 ИЗ 5 · ЗАЯВКА В ТОиР</div>
+<div class="stop"><b>СТОП.<br>НЕ ВЫПУСКАТЬ</b><span>ГАЗель Next · В112КМ 154 · зона D · эвакуатор, осмотр до 14:01</span></div>
+<div class="rs">
+<div><i>🔩</i>Стук шатунного подшипника, цил. 3<em>82 %</em></div>
+<div><i>🛢</i>Давление 0,7 / 1,5 бар<em>СР 09-02</em></div>
+<div><i>📏</i>Предел зазора 0,095 мм<em>СБ 01-03</em></div>
+<div><i>🧾</i>Заявка: 19,56 нормо-часов<em>ЧЕРНОВИК</em></div></div>
+<div class="sm" style="padding-top:12px">Агент подготовил черновик. Запрет выезда в ТОиР ставит ответственный (Орлова М. В.). Отправка — только после вашего подтверждения.</div>
+<div class="vk">Удерживайте кнопку 2 секунды — защита от случайного нажатия</div>
+<div class="hold"><i></i><span>УДЕРЖИВАЙТЕ:<br>ПОДТВЕРДИТЬ И ОТПРАВИТЬ<small>ТОиР-2026-010214 появится после отправки</small></span></div>
+<div class="home" style="color:#fff"></div></section></body></html>

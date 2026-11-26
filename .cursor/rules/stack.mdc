@@ -1,0 +1,23 @@
+---
+description: Стек и ограничения деплоя «Цифровой механик»
+alwaysApply: true
+---
+
+Стек MVP: Python 3.12, FastAPI, Jinja2, HTMX, Alpine.js, Pydantic, LangGraph
+(чекпоинты в Postgres), openai SDK к https://api.neuraldeep.ru/v1,
+управляемый PostgreSQL с pgvector и tsvector, Timeweb S3.
+
+Не добавлять в MVP без явной просьбы: Streamlit, React/Vite, Qdrant,
+Langfuse, Redis/Valkey, Nginx, отдельный фронтенд-контейнер, Kubernetes.
+
+Хостинг — Timeweb App Platform + Docker Compose. В docker-compose.yml
+запрещены volumes, privileged, extra_hosts, network_mode host,
+include, extends, external, name, driver_opts. Хост-порты 80 и 443
+нельзя. Первый сервис в файле получает основной домен.
+
+Состояние только во внешней Postgres и в S3, не в локальных томах.
+Данные синтетики копируются в образ при сборке (COPY).
+
+Модели продукта: FAST_MODEL (qwen3.6-fp8) для tool-loop,
+REASONING_MODEL (qwen3.8-27b) только для гипотез и черновика заявки.
+Не вызывать 27b на каждый tool-call (высокая задержка TTFT).
