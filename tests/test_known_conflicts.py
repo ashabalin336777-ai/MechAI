@@ -344,6 +344,9 @@ def test_conflict_notice_records_code_phrase_and_drops_model_consult() -> None:
     step = next(step for step in services.journal.steps if step.name == "conflict_notice")
     assert step.output["phrase"] == phrase
     assert step.output["consult_removed"] == ["Уточните у специалиста."]
+    raw = next(step for step in services.journal.steps if step.name == "raw_answer")
+    assert "Уточните у специалиста." in raw.output["text"]
+    assert raw.output["truncated"] is False
 
 
 PAGES_QUERY = "Порядок регулировки клапанов у ЯМЗ-236М2 по руководству?"

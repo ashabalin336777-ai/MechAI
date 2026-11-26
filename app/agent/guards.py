@@ -4,6 +4,7 @@
 """
 
 import re
+from typing import Any
 
 from pydantic import BaseModel, Field
 
@@ -51,6 +52,16 @@ def redact_injection(text: str) -> str:
 def wrap_tool_data(payload_json: str) -> str:
     """Данные инструментов отдаём только в блоке <tool_data>: промпт велит считать их данными."""
     return f"<tool_data>\n{payload_json}\n</tool_data>"
+
+
+RAW_ANSWER_LIMIT_BYTES = 8 * 1024
+
+
+def raw_answer_snapshot(text: str) -> dict[str, Any]:
+    """Сырой ответ модели до правок кодом, для журнала: обрезаем до 8 КБ, символ не рвём."""
+    raw = text.encode("utf-8")
+    cut = raw[:RAW_ANSWER_LIMIT_BYTES].decode("utf-8", errors="ignore")
+    return {"text": cut, "bytes": len(raw), "truncated": len(raw) > RAW_ANSWER_LIMIT_BYTES}
 
 
 class AnswerCheck(BaseModel):

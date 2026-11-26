@@ -76,6 +76,8 @@ class TurnOutcome(BaseModel):
     tools: list[str] = Field(default_factory=list)
     journal: list[str] = Field(default_factory=list)
     answer: str = ""
+    # Текст модели до правок кодом (шаг raw_answer): показываем нарушения в отчёте.
+    raw_answer: str = ""
     citation_ok: bool | None = None
     citation_problems: list[str] = Field(default_factory=list)
     tool_errors: list[str] = Field(default_factory=list)

@@ -5,6 +5,7 @@ checkpointer новый. Поэтому прогон ничего не пише�
 Подтверждение заявки в прогоне не вызывается: черновик показываем, но не отправляем.
 """
 
+import re
 from dataclasses import replace
 from datetime import datetime
 from decimal import Decimal
@@ -135,6 +136,9 @@ def _collect(
         result = citations[-1].output or {}
         outcome.citation_ok = result.get("ok")
         outcome.citation_problems = list(result.get("problems", []))
+    raw = [step for step in steps if step.name == "raw_answer"]
+    if raw:
+        outcome.raw_answer = str((raw[-1].output or {}).get("text", ""))
     summary = journal.runs.get(run_id) if run_id is not None else None
     return outcome, meta, summary.cost_rub if summary else None
 
@@ -202,6 +206,13 @@ def _details(run: ScenarioRun) -> list[str]:
         status = "PASS" if check.ok else "FAIL"
         suffix = "" if check.ok else f" — {check.detail}"
         lines.append(f"- [{status}] {check.name}{suffix}")
+    if outcome.citation_problems:
+        lines += ["", "Первые нарушения цитат (строка ответа модели до правок кодом):"]
+        for problem, excerpt in violation_excerpts(outcome.raw_answer, outcome.citation_problems):
+            lines.append(f"- {problem}")
+            lines.append(
+                f"  фраза: «{excerpt}»" if excerpt else "  фраза: не найдена в сыром тексте"
+            )
     lines += ["", "Ответ агента:", ""]
     answer = outcome.answer.strip() or "_пусто_"
     lines += [f"> {line}" if line else ">" for line in answer.splitlines()]
@@ -211,3 +222,28 @@ def _details(run: ScenarioRun) -> list[str]:
 
 def _or_dash(value: int | float | None) -> str:
     return "—" if value is None else str(value)
+
+
+VIOLATION_LIMIT = 3
+QUOTED_RE = re.compile(r"«([^»]+)»")
+
+
+def violation_excerpts(
+    raw: str, problems: list[str], limit: int = VIOLATION_LIMIT
+) -> list[tuple[str, str]]:
+    """Первые нарушения и строка сырого ответа, где нашлась проверяемая цифра из кавычек."""
+    excerpts: list[tuple[str, str]] = []
+    for problem in problems[:limit]:
+        match = QUOTED_RE.search(problem)
+        excerpts.append((problem, _line_with(raw, match.group(1)) if match else ""))
+    return excerpts
+
+
+def _line_with(raw: str, claim: str) -> str:
+    index = raw.find(claim)
+    if not claim or index < 0:
+        return ""
+    start = raw.rfind("\n", 0, index) + 1
+    end = raw.find("\n", index)
+    line = raw[start : end if end >= 0 else len(raw)].strip()
+    return line[:300]

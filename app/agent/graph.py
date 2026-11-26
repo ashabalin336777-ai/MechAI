@@ -23,6 +23,7 @@ from app.agent.guards import (
     apply_conflict_block,
     check_answer,
     find_injection_markers,
+    raw_answer_snapshot,
     redact_injection,
     sanitize_answer,
     wrap_tool_data,
@@ -196,6 +197,16 @@ def build_graph(deps: AgentDeps, checkpointer: Any) -> Any:
     def finalize(state: AgentState) -> dict[str, Any]:
         last = state["messages"][-1]
         text = str(last.content)
+        # Сырой текст до правок кодом: по нему видно, что именно модель написала и что упало.
+        deps.record(
+            StepRecord(
+                run_id=deps.run_id,
+                n=deps.next_step(),
+                kind="guardrail",
+                name="raw_answer",
+                output=raw_answer_snapshot(text),
+            )
+        )
         check = check_answer(text, deps.turn.fetched_now)
         if not check.ok:
             fixed = fix_citations(text, deps.turn.fetched_now)
