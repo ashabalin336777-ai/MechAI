@@ -135,7 +135,23 @@ MOCK_TOIR_URL=http://127.0.0.1:8000/mock/toir
 
 ## Индексация руководств
 
-Выполнена на стенде 26.11.2026: 6 руководств, 1672 чанка, ошибок нет. Отчёт: [eval/ingest_report.md](../eval/ingest_report.md). Временный эндпоинт `/admin/ingest` удалён. Переменную `INGEST_TOKEN` в панели App Platform можно удалить.
+Первая индексация на стенде выполнена 26.11.2026: 6 руководств, 1672 чанка, ошибок нет. Отчёт: [eval/ingest_report.md](../eval/ingest_report.md). Это была версия нарезки 1.
+
+Проверено 27.11 `SELECT` по `manuals`: у всех шести руководств `chunker_version = 1`. Правки таблиц (версии 2 и 3) на стенде ещё не применены, нужен повторный ингест.
+
+**Временный эндпоинт** (удалить после индексации): `POST /admin/ingest` запускает индексацию в фоне и отвечает 202, `GET /admin/ingest/status` показывает состояние, по каждому руководству `chunker_version` и число чанков, и отчёт после завершения. Оба требуют `Authorization: Bearer <ADMIN_TOKEN>`, без `ADMIN_TOKEN` отвечают 404. Работает только после деплоя коммита, который содержит этот эндпоинт.
+
+PowerShell (вместо `<ADMIN_TOKEN>` свой токен, значение в чат не присылать):
+
+```powershell
+$h = @{ Authorization = "Bearer <ADMIN_TOKEN>" }
+Invoke-RestMethod -Method Post -Uri https://ashabalin336777-ai-mechai-3580.twc1.net/admin/ingest -Headers $h
+Invoke-RestMethod -Uri https://ashabalin336777-ai-mechai-3580.twc1.net/admin/ingest/status -Headers $h
+```
+
+Статус `running` держится до конца индексации. Во время неё повторный запуск даёт 409. После `done` в поле `manuals` должны быть `chunker_version: 3` у всех руководств. Если `state` равен `error`, текст ошибки очищен от строки подключения и ключа.
+
+Когда ингест прошёл и отчёт сохранён: удалить `app/api/admin_ingest.py`, `IngestJob` в `app/rag/ingest.py`, строку `include_router(admin_ingest_router)` в `app/main.py` и тесты `tests/test_admin_ingest.py`. Переменная `INGEST_TOKEN` не нужна: эндпоинт использует `ADMIN_TOKEN`.
 
 ## Проверка поиска по руководствам (POST /admin/eval)
 

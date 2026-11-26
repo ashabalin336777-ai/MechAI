@@ -5,7 +5,9 @@
 """
 
 import logging
+import threading
 import time
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
@@ -191,6 +193,50 @@ def render_report(report: IngestReport) -> str:
         "",
     ]
     return "\n".join(lines)
+
+
+class IngestJob:
+    """Фоновый запуск индексации: один запуск за раз, состояние в памяти процесса.
+
+    Сервер запускается одним воркером (Dockerfile), поэтому состояние общее для всех запросов.
+    """
+
+    def __init__(self, runner: Callable[[Settings], str] = run_ingest) -> None:
+        self._runner = runner
+        self._lock = threading.Lock()
+        self.state = "idle"  # idle | running | done | error
+        self.report_md: str | None = None
+        self.error: str | None = None
+
+    def start(self, settings: Settings) -> bool:
+        with self._lock:
+            if self.state == "running":
+                return False
+            self.state = "running"
+            self.report_md = None
+            self.error = None
+        threading.Thread(target=self._run, args=(settings,), daemon=True).start()
+        return True
+
+    def _run(self, settings: Settings) -> None:
+        try:
+            report = self._runner(settings)
+        except Exception as exc:  # фоновый поток: любой сбой должен быть виден в статусе
+            self.error = _safe_message(f"{type(exc).__name__}: {exc}", settings)
+            self.state = "error"
+            logger.error("индексация завершилась с ошибкой: %s", self.error)
+            return
+        self.report_md = report
+        self.state = "done"
+        logger.info("индексация завершена")
+
+
+def _safe_message(message: str, settings: Settings) -> str:
+    """Убирает из текста ошибки строку подключения и ключ API: статус виден по HTTP."""
+    for secret in (settings.database_url, settings.neuraldeep_api_key):
+        if secret:
+            message = message.replace(secret, "<скрыто>")
+    return message[:300]
 
 
 if __name__ == "__main__":
