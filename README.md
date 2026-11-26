@@ -14,7 +14,13 @@ FastAPI, Jinja2, HTMX/Alpine.js (мобильное PWA), LangGraph с чекп�
 
 ## Статус
 
-Фазы 01–02: каркас, клиенты Mock ML и Mock ТОиР по OpenAPI, парк ТС из `mock/data/vehicles.json`, `GET /health` и `GET /ready`, подключение к PostgreSQL с миграциями (pgvector, pg_trgm), запасной режим `MOUNT_MOCKS=1`. Развёрнуто на Timeweb App Platform. Агента, входа и экран чата пока нет (фазы 03–05).
+Готово в коде (`pytest`: 270 тестов, ещё 10 требуют `TEST_DATABASE_URL` и пропускаются без него):
+- **Фазы 01–02:** каркас, клиенты Mock ML и Mock ТОиР по OpenAPI, парк ТС из `mock/data/vehicles.json`, `GET /health` и `GET /ready`, PostgreSQL с миграциями (pgvector), запасной режим `MOUNT_MOCKS=1`. Развёрнуто на Timeweb App Platform.
+- **Фаза 03:** ингест руководств, гибридный поиск (pgvector + полнотекст + реранк) с порогом `RAG_MIN_SCORE`, фильтр по двигателю в SQL, известные противоречия руководств (`data/known_conflicts.yaml`).
+- **Фаза 04:** агент LangGraph и инструменты `get_vehicle`, `get_diagnosis`, `search_manual`, `get_history`, `draft_ticket`, `create_ticket` (отправка только по одноразовому токену), журнал ходов `agent_runs` / `agent_steps`.
+- **Фаза 05 (черновик):** мобильный чат, карточка вердикта, экран заявки, дашборд, режимы «Стандартный» / «Новичок» / «Крупный».
+
+Не подтверждено на стенде: агент и поиск зависят от Neuraldeep (с рабочей машины API недоступен). Последний прогон агента 26.11 — 1 из 4 сценариев пройдено, отчёт в [eval/reports/agent_report_2026-11-26_1747.md](eval/reports/agent_report_2026-11-26_1747.md). Повторный ингест и прогон `suite=agent` — на стенде. Подробности и решения: [docs/STATUS.md](docs/STATUS.md).
 
 ## Модели
 
