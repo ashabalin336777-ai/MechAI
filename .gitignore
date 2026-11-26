@@ -26,3 +26,6 @@ data/manuals/yamz-536_rk_2013.pdf
 *.dump
 *.backup
 dumps/
+
+# Сырой JSON прогона агента (локально; отчёт в eval/reports/)
+agent_eval.json
