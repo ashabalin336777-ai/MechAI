@@ -58,3 +58,31 @@ def test_model_outage_is_503_not_500(monkeypatch: pytest.MonkeyPatch) -> None:
     response = _client(TOKEN).post("/admin/eval", headers={"Authorization": f"Bearer {TOKEN}"})
     assert response.status_code == 503
     assert "Модели недоступны" in response.json()["detail"]
+
+
+def test_agent_suite_requires_bearer() -> None:
+    response = _client(TOKEN).post("/admin/eval?suite=agent")
+    assert response.status_code == 401
+
+
+def test_agent_suite_without_database_is_503() -> None:
+    response = _client(TOKEN, database_url="").post(
+        "/admin/eval?suite=agent", headers={"Authorization": f"Bearer {TOKEN}"}
+    )
+    assert response.status_code == 503
+
+
+def test_agent_suite_returns_agent_report(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(admin_eval, "run_agent_report", lambda *args, **kwargs: "# агент\n")
+    response = _client(TOKEN).post(
+        "/admin/eval?suite=agent", headers={"Authorization": f"Bearer {TOKEN}"}
+    )
+    assert response.status_code == 200
+    assert response.json() == {"report": "# агент\n"}
+
+
+def test_unknown_suite_is_422() -> None:
+    response = _client(TOKEN).post(
+        "/admin/eval?suite=unknown", headers={"Authorization": f"Bearer {TOKEN}"}
+    )
+    assert response.status_code == 422

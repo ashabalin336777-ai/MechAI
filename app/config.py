@@ -46,6 +46,7 @@ class Settings(BaseSettings):
     # Постоянный админ-доступ к POST /admin/eval (Bearer). Пусто — эндпоинта нет (404).
     admin_token: str = ""
     eval_questions_path: Path = Path("eval/questions.yaml")
+    agent_scenarios_path: Path = Path("eval/agent_scenarios.yaml")
 
 
 @lru_cache
