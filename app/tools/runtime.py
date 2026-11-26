@@ -44,6 +44,8 @@ class TurnContext:
     fetched_now: list[Fragment] = field(default_factory=list)
     diagnosis: dict[str, Any] | None = None
     events: list[tuple[str, dict[str, Any]]] = field(default_factory=list)
+    # Карточку вердикта показываем в первом ходе сессии и по кнопке «Получить результат».
+    show_verdict: bool = True
 
     def remember(self, fragments: list[Fragment]) -> None:
         """Фрагменты диалога копим без дублей: по (руководство, страница, начало текста)."""

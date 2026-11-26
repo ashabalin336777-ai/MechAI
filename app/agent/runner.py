@@ -92,6 +92,9 @@ def run_turn(services: AgentServices, request: TurnRequest, base_prompt: str, em
     }
     status = "ok"
     try:
+        deps.turn.show_verdict = request.user_action == "get_diagnosis" or _is_first_turn(
+            graph, config
+        )
         result = graph.invoke(payload, config)
         final = result["messages"][-1]
         if isinstance(final, AIMessage):
@@ -129,6 +132,11 @@ def run_turn(services: AgentServices, request: TurnRequest, base_prompt: str, em
         },
     )
     emit("done", {})
+
+
+def _is_first_turn(graph: Any, config: dict[str, Any]) -> bool:
+    """В состоянии потока (сессии) ещё нет сообщений: это первый ход сессии."""
+    return not graph.get_state(config).values.get("messages")
 
 
 def _cost(stats: RunStats) -> Any:

@@ -60,7 +60,7 @@ class AgentStore(Protocol):
 class MemoryAgentStore:
     def __init__(self) -> None:
         self._lock = threading.Lock()
-        self.diagnoses: list[tuple[str, str, str]] = []
+        self.diagnoses: dict[tuple[str, str], str] = {}
         self.recommendations: list[tuple[str, str, str]] = []
         self._drafts: dict[str, DraftRecord] = {}
         self._tickets: list[tuple[str, str, str, dict[str, Any], datetime]] = []
@@ -69,7 +69,7 @@ class MemoryAgentStore:
         self, vehicle_id: str, session_id: str, payload: dict[str, Any], verdict: str
     ) -> None:
         with self._lock:
-            self.diagnoses.append((vehicle_id, session_id, verdict))
+            self.diagnoses[(vehicle_id, session_id)] = verdict
 
     def save_recommendation(
         self, vehicle_id: str, session_id: str, kind: RecommendationKind, text: str
@@ -133,7 +133,9 @@ class PgAgentStore:
         with self._connect() as conn:
             conn.execute(
                 "INSERT INTO diagnoses (tenant_id, vehicle_id, session_id, payload, verdict) "
-                "VALUES (%s, %s, %s, %s, %s)",
+                "VALUES (%s, %s, %s, %s, %s) "
+                "ON CONFLICT (tenant_id, vehicle_id, session_id) DO UPDATE SET "
+                "payload = EXCLUDED.payload, verdict = EXCLUDED.verdict, created_at = now()",
                 (TENANT_ID, vehicle_id, session_id, Jsonb(payload), verdict),
             )
 

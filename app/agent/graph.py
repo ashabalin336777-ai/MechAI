@@ -325,6 +325,8 @@ def _execute(
 
 def _flush_events(deps: AgentDeps) -> None:
     for name, data in deps.turn.events:
+        if name == "verdict" and not deps.turn.show_verdict:
+            continue
         deps.emit(name, data)
     deps.turn.events.clear()
 

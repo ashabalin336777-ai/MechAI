@@ -10,7 +10,7 @@ import os
 import psycopg
 import pytest
 
-from app.db.database import apply_migrations
+from app.db.database import apply_migrations, list_migrations
 
 TEST_DATABASE_URL = os.environ.get("TEST_DATABASE_URL", "")
 
@@ -48,7 +48,7 @@ def migrated() -> str:
 def test_first_run_applies_all_migrations(migrated: str) -> None:
     status = apply_migrations(migrated)
     assert status.state == "ok"
-    assert status.migrations_applied == 1
+    assert status.migrations_applied == len(list_migrations())
 
 
 def test_second_run_is_idempotent(migrated: str) -> None:
