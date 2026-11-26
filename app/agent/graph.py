@@ -4,6 +4,7 @@
 и проверяет ответ guardrails (ТЗ §6.4). Состояние диалога хранит checkpointer (Postgres в проде).
 """
 
+import contextvars
 import json
 import logging
 import time
@@ -25,8 +26,10 @@ from app.agent.guards import (
     sanitize_answer,
     wrap_tool_data,
 )
-from app.agent.llm import ChatModel
+from app.agent.llm import ChatModel, root_cause
+from app.obs.failure import Failure, describe_failure
 from app.obs.journal import Journal, StepRecord
+from app.obs.retry import take_retries
 from app.rag.citations import fix_citations
 from app.rag.search import Fragment
 from app.tools.registry import ToolSpec, openai_tools
@@ -38,7 +41,7 @@ TIMEOUT_TEXT = "Ответ занимает слишком много време
 NO_TOOLS_LEFT_NOTE = (
     "Лимит вызовов инструментов исчерпан: ответь механику по уже полученным данным."
 )
-MIN_CALL_TIMEOUT_S = 5.0
+MIN_CALL_TIMEOUT_S = 15.0  # ниже этого модель не успевает ответить на промпт около 6k токенов
 # Данные машины грузим кодом параллельно до первого вызова модели: результаты уже в контексте.
 PREFETCH_TOOLS = ("get_vehicle", "get_diagnosis", "get_history")
 # Инструмент, который можно вызвать не больше N раз за ход (остальное — текст отказа модели).
@@ -113,12 +116,16 @@ def build_graph(deps: AgentDeps, checkpointer: Any) -> Any:
             ),
             _call("get_history", {"vehicle_id": vehicle_id}, "prefetch_history"),
         ]
+        # Каждый вызов в своём копии контекста: мешок повторов хода виден и в потоке.
+        jobs = [(contextvars.copy_context(), call) for call in calls]
         with ThreadPoolExecutor(max_workers=len(calls)) as pool:
-            outcomes = list(pool.map(lambda call: _call_tool(deps, runtime, call), calls))
+            outcomes = list(
+                pool.map(lambda job: job[0].run(_call_tool, deps, runtime, job[1]), jobs)
+            )
         messages: list[AnyMessage] = [AIMessage(content="", tool_calls=calls)]
         messages += [
-            _finish_tool(deps, call, result, error)
-            for call, (result, error) in zip(calls, outcomes, strict=True)
+            _finish_tool(deps, call, result, error, failure)
+            for call, (result, error, failure) in zip(calls, outcomes, strict=True)
         ]
         _flush_events(deps)
         return {"messages": messages, "diagnosis": deps.turn.diagnosis}
@@ -137,13 +144,19 @@ def build_graph(deps: AgentDeps, checkpointer: Any) -> Any:
             name: spec for name, spec in deps.registry.items() if _refusal(name, usage) is None
         }
         tools = openai_tools(offered) if calls < deps.max_tool_calls and offered else None
-        reply = deps.llm.complete(
-            messages,
-            tools,
-            lambda text: deps.emit("token", {"text": text}),
-            max(MIN_CALL_TIMEOUT_S, timeout_s - elapsed),
-        )
-        _count_llm(deps, reply)
+        call_timeout = max(MIN_CALL_TIMEOUT_S, timeout_s - elapsed)
+        logger.info("вызов модели агента: timeout_s=%.1f, прошло=%.1f с", call_timeout, elapsed)
+        try:
+            reply = deps.llm.complete(
+                messages,
+                tools,
+                lambda text: deps.emit("token", {"text": text}),
+                call_timeout,
+            )
+        except Exception as exc:
+            record_error(deps, "chat", exc, output=_timing(call_timeout, elapsed))
+            raise
+        _count_llm(deps, reply, call_timeout, elapsed)
         tool_calls = [
             {
                 "name": call.name,
@@ -165,11 +178,11 @@ def build_graph(deps: AgentDeps, checkpointer: Any) -> Any:
             count += 1
             refusal = _refusal(call["name"], usage)
             if refusal is not None:
-                result, error = {"ok": False, "error": refusal}, "tool_refused"
+                result, error, failure = {"ok": False, "error": refusal}, "tool_refused", None
             else:
                 usage[call["name"]] = usage.get(call["name"], 0) + 1
-                result, error = _call_tool(deps, runtime, call)
-            outputs.append(_finish_tool(deps, call, result, error))
+                result, error, failure = _call_tool(deps, runtime, call)
+            outputs.append(_finish_tool(deps, call, result, error, failure))
             _flush_events(deps)
         return {
             "messages": outputs,
@@ -298,17 +311,24 @@ def _refusal(name: str, usage: dict[str, int]) -> str | None:
     return None
 
 
-def _call_tool(deps: AgentDeps, runtime: Runtime, call: dict[str, Any]) -> tuple[dict, str | None]:
+def _call_tool(
+    deps: AgentDeps, runtime: Runtime, call: dict[str, Any]
+) -> tuple[dict[str, Any], str | None, Failure | None]:
     spec = deps.registry.get(call["name"])
     if spec is None:
-        return {"ok": False, "error": "Такого инструмента нет."}, "unknown_tool"
+        return {"ok": False, "error": "Такого инструмента нет."}, "unknown_tool", None
     return _execute(spec, runtime, call["args"])
 
 
 def _finish_tool(
-    deps: AgentDeps, call: dict[str, Any], result: dict[str, Any], error: str | None
+    deps: AgentDeps,
+    call: dict[str, Any],
+    result: dict[str, Any],
+    error: str | None,
+    failure: Failure | None = None,
 ) -> ToolMessage:
     """Журнал и ответ модели: команды из данных вырезаем до показа модели (ТЗ §6.4, п.5)."""
+    _flush_retries(deps)
     name = call["name"]
     payload = json.dumps(result, ensure_ascii=False, default=str)
     markers = find_injection_markers(payload)
@@ -332,6 +352,8 @@ def _finish_tool(
             input=call["args"],
             output=result,
             error=error,
+            error_class=failure.error_class if failure else None,
+            error_message=failure.error_message if failure else None,
         )
     )
     return ToolMessage(content=wrap_tool_data(payload), tool_call_id=call["id"], name=name)
@@ -339,19 +361,58 @@ def _finish_tool(
 
 def _execute(
     spec: ToolSpec, runtime: Runtime, raw_args: dict[str, Any]
-) -> tuple[dict[str, Any], str | None]:
+) -> tuple[dict[str, Any], str | None, Failure | None]:
     try:
         args = spec.args.model_validate(raw_args)
     except ValidationError as exc:
-        return {"ok": False, "error": f"неверные аргументы: {exc.errors()[0]['msg']}"}, "bad_args"
+        message = f"неверные аргументы: {exc.errors()[0]['msg']}"
+        return {"ok": False, "error": message}, "bad_args", None
     try:
-        return spec.run(runtime, args), None
+        return spec.run(runtime, args), None, None
     except Exception as exc:  # граница инструмента: модель получает текст, а не трассу
         logger.exception("инструмент %s упал", spec.name)
-        detail = f"{type(exc).__name__}: {str(exc)[:200]}"
-        return {"ok": False, "error": "Инструмент временно недоступен, повторите."}, (
-            f"tool_error: {detail}"
+        failure = describe_failure(exc)
+        error = f"tool_error: {failure.error_class}: {failure.error_message}"
+        return {"ok": False, "error": "Инструмент временно недоступен, повторите."}, error, failure
+
+
+def record_error(
+    deps: AgentDeps, name: str, exc: BaseException, output: dict[str, Any] | None = None
+) -> None:
+    """Шаг журнала kind=error: класс и краткий текст исходной ошибки, без секретов."""
+    _flush_retries(deps)
+    failure = describe_failure(root_cause(exc))
+    deps.record(
+        StepRecord(
+            run_id=deps.run_id,
+            n=deps.next_step(),
+            kind="error",
+            name=name,
+            output=output,
+            error_class=failure.error_class,
+            error_message=failure.error_message,
         )
+    )
+
+
+def _flush_retries(deps: AgentDeps) -> None:
+    """Повторы внешних сервисов, накопленные с прошлого шага, пишем до очередного шага."""
+    for event in take_retries():
+        deps.record(
+            StepRecord(
+                run_id=deps.run_id,
+                n=deps.next_step(),
+                kind="retry",
+                name=event.service,
+                output={"attempt": event.attempt, "pause_s": event.pause_s},
+                error_class=event.error_class,
+                error_message=event.error_message,
+            )
+        )
+
+
+def _timing(timeout_s: float, elapsed_s: float) -> dict[str, float]:
+    return {"timeout_s": round(timeout_s, 1), "elapsed_s": round(elapsed_s, 1)}
 
 
 def _flush_events(deps: AgentDeps) -> None:
@@ -373,12 +434,21 @@ def _regenerate(deps: AgentDeps, state: AgentState, problems: list[str]) -> str:
     messages = [{"role": "system", "content": deps.system_prompt}]
     messages += to_openai(state["messages"])
     messages.append({"role": "user", "content": note})
-    reply = deps.llm.complete(messages, None, None, MIN_CALL_TIMEOUT_S)
-    _count_llm(deps, reply)
+    # Таймаут — из бюджета хода, но не меньше MIN_CALL_TIMEOUT_S (раньше был фиксированный 5 с).
+    elapsed = time.monotonic() - state["started_at"]
+    call_timeout = max(MIN_CALL_TIMEOUT_S, deps.timeout_s - elapsed)
+    logger.info("перегенерация ответа: timeout_s=%.1f, прошло=%.1f с", call_timeout, elapsed)
+    try:
+        reply = deps.llm.complete(messages, None, None, call_timeout)
+    except Exception as exc:
+        record_error(deps, "regenerate", exc, output=_timing(call_timeout, elapsed))
+        raise
+    _count_llm(deps, reply, call_timeout, elapsed)
     return reply.content
 
 
-def _count_llm(deps: AgentDeps, reply: Any) -> None:
+def _count_llm(deps: AgentDeps, reply: Any, timeout_s: float, elapsed_s: float) -> None:
+    _flush_retries(deps)
     stats = deps.stats
     stats.prompt_tokens += reply.prompt_tokens
     stats.completion_tokens += reply.completion_tokens
@@ -398,7 +468,10 @@ def _count_llm(deps: AgentDeps, reply: Any) -> None:
             completion_tokens=reply.completion_tokens,
             tok_per_s=reply.tok_per_s,
             model=reply.model,
-            output={"tool_calls": [call.name for call in reply.tool_calls]},
+            output={
+                "tool_calls": [call.name for call in reply.tool_calls],
+                **_timing(timeout_s, elapsed_s),
+            },
         )
     )
 

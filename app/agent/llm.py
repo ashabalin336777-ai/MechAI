@@ -8,10 +8,14 @@ import time
 from collections.abc import Callable
 from typing import Any, Protocol
 
-from openai import OpenAI, OpenAIError
+from openai import APIConnectionError, InternalServerError, OpenAI, OpenAIError
 from pydantic import BaseModel
 
+from app.obs.retry import record_retry
+
 CHARS_PER_TOKEN_ESTIMATE = 3  # грубая оценка, если сервер не вернул usage
+MAX_ATTEMPTS = 2  # одна попытка и один повтор при 5xx, таймауте или обрыве соединения
+RETRY_PAUSE_S = 2.0
 
 
 class ToolCall(BaseModel):
@@ -37,6 +41,13 @@ class LlmError(Exception):
     user_message = "Модель временно недоступна, повторите запрос."
 
 
+def root_cause(exc: BaseException) -> BaseException:
+    """Исходная ошибка SDK для LlmError: в журнал пишем её класс, а не общий LlmError."""
+    if isinstance(exc, LlmError) and exc.__cause__ is not None:
+        return exc.__cause__
+    return exc
+
+
 class ChatModel(Protocol):
     def complete(
         self,
@@ -60,15 +71,42 @@ class NeuraldeepChat:
         on_token: Callable[[str], None] | None,
         timeout_s: float,
     ) -> LlmReply:
+        emitted = [False]  # есть ли уже отданный механику текст: тогда повтор не делаем
+
+        def watch(text: str) -> None:
+            emitted[0] = True
+            if on_token is not None:
+                on_token(text)
+
         try:
-            return self._stream(self._model, messages, tools, on_token, timeout_s)
+            return self._call(self._model, messages, tools, watch, timeout_s, emitted)
         except OpenAIError as exc:
             if not self._fallback or self._fallback == self._model:
                 raise LlmError(f"модель недоступна: {type(exc).__name__}") from exc
         try:
-            return self._stream(self._fallback, messages, tools, on_token, timeout_s)
+            return self._call(self._fallback, messages, tools, watch, timeout_s, emitted)
         except OpenAIError as exc:
             raise LlmError(f"запасная модель недоступна: {type(exc).__name__}") from exc
+
+    def _call(
+        self,
+        model: str,
+        messages: list[dict[str, Any]],
+        tools: list[dict[str, Any]] | None,
+        on_token: Callable[[str], None],
+        timeout_s: float,
+        emitted: list[bool],
+    ) -> LlmReply:
+        attempt = 1
+        while True:
+            try:
+                return self._stream(model, messages, tools, on_token, timeout_s)
+            except OpenAIError as exc:
+                if attempt >= MAX_ATTEMPTS or emitted[0] or not _retryable(exc):
+                    raise
+                record_retry("neuraldeep", exc, attempt, RETRY_PAUSE_S)
+                time.sleep(RETRY_PAUSE_S)
+                attempt += 1
 
     def _stream(
         self,
@@ -135,6 +173,11 @@ class NeuraldeepChat:
             tok_per_s=tok_per_s,
             ms=int((ended - started) * 1000),
         )
+
+
+def _retryable(exc: OpenAIError) -> bool:
+    """Повтор только при обрыве, таймауте (наследник APIConnectionError) и 5xx. 4xx не повторяем."""
+    return isinstance(exc, (APIConnectionError, InternalServerError))
 
 
 def _count(usage: Any, field: str, fallback_text: str) -> int:

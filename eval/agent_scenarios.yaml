@@ -62,6 +62,25 @@ scenarios:
       - name: "черновика заявки нет"
         no_draft: true
 
+  - id: S0083_C596XT78_GENERATOR
+    title: "Регресс: отклонение F05 «Генератор» ЯМЗ-536, ход не должен упасть после вердикта"
+    vehicle_id: C596XT78
+    session_id: S-0083
+    message: "Получить результат диагностики и этапы проверки со ссылками на руководство."
+    checks:
+      - name: "вердикт «красный», приоритет high"
+        light_in: [red]
+        urgency: high
+      - name: "вызван get_diagnosis"
+        tools_include: [get_diagnosis]
+      - name: "ответ не заменён общей ошибкой хода"
+        answer_not_matches:
+          - 'временно\s+недоступ'
+      - name: "шаг проверки цитат записан (ход дошёл до finalize)"
+        journal_contains: citation_check
+      - name: "цитаты проверены кодом"
+        citation_ok: true
+
   - id: X01_YAMZ236_CONFLICT
     title: "X01 Противоречие ЯМЗ-236: РЭ стр. 31 и РК стр. 269, 276 — показать обе формулировки"
     vehicle_id: T792HO98

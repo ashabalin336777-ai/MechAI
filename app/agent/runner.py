@@ -13,10 +13,11 @@ from typing import Any
 
 from langchain_core.messages import AIMessage, HumanMessage
 
-from app.agent.graph import AgentDeps, RunStats, build_graph
+from app.agent.graph import AgentDeps, RunStats, build_graph, record_error
 from app.agent.llm import ChatModel, LlmError
 from app.obs.journal import Journal, RunSummary
 from app.obs.prices import cost_rub
+from app.obs.retry import retry_sink
 from app.tools.registry import ToolSpec
 from app.tools.runtime import ToolDeps, TurnContext
 
@@ -91,22 +92,25 @@ def run_turn(services: AgentServices, request: TurnRequest, base_prompt: str, em
         "started_at": time.monotonic(),
     }
     status = "ok"
-    try:
-        deps.turn.show_verdict = request.user_action == "get_diagnosis" or _is_first_turn(
-            graph, config
-        )
-        result = graph.invoke(payload, config)
-        final = result["messages"][-1]
-        if isinstance(final, AIMessage):
-            emit("answer_final", {"text": str(final.content)})
-    except LlmError as exc:
-        status = "error"
-        logger.warning("модель недоступна: %s", exc)
-        emit("error", {"message": GENERIC_ERROR})
-    except Exception:
-        status = "error"
-        logger.exception("сбой хода агента")
-        emit("error", {"message": GENERIC_ERROR})
+    with retry_sink():
+        try:
+            deps.turn.show_verdict = request.user_action == "get_diagnosis" or _is_first_turn(
+                graph, config
+            )
+            result = graph.invoke(payload, config)
+            final = result["messages"][-1]
+            if isinstance(final, AIMessage):
+                emit("answer_final", {"text": str(final.content)})
+        except LlmError as exc:
+            status = "error"
+            logger.warning("модель недоступна: %s", exc)
+            record_error(deps, "turn", exc)
+            emit("error", {"message": GENERIC_ERROR})
+        except Exception as exc:
+            status = "error"
+            logger.exception("сбой хода агента")
+            record_error(deps, "turn", exc)
+            emit("error", {"message": GENERIC_ERROR})
 
     total_ms = int((time.monotonic() - started) * 1000)
     services.journal.finish_run(

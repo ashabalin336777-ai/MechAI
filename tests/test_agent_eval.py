@@ -109,6 +109,9 @@ def _scripted_llm() -> ScriptedChat:
                 "это несоответствие диагноза. Процедуру не подбираю. Рекомендую повторную "
                 "дефектовку топливной системы; заявку по этой проверке не формирую."
             ),
+            # ЯМЗ-536, S-0083: регресс пути «вердикт → ответ», ход доходит до проверки цитат
+            reply(calls=[("get_diagnosis", {"vehicle_id": "C596XT78", "session_id": "S-0083"})]),
+            reply(content="Отклонение F05: шум в зоне генератора. Проверьте ремень привода."),
             # X01: обе формулировки со ссылками, противоречие, уточнение
             reply(
                 calls=[
@@ -131,12 +134,13 @@ def _by_id(scenarios: list[Scenario], scenario_id: str) -> Scenario:
     return next(scenario for scenario in scenarios if scenario.id == scenario_id)
 
 
-def test_scenario_file_has_the_four_required_cases() -> None:
+def test_scenario_file_has_the_four_required_cases_and_s0083_regression() -> None:
     scenarios = load_scenarios(SCENARIOS_PATH)
     assert [scenario.id for scenario in scenarios] == [
         "C1_T792HO98",
         "C3_P456AT178",
         "C_M260EH47",
+        "S0083_C596XT78_GENERATOR",
         "X01_YAMZ236_CONFLICT",
     ]
 
@@ -225,7 +229,7 @@ def test_full_suite_passes_with_scripted_model() -> None:
         if not run.passed
     ]
     assert failures == []
-    assert len(llm.calls) == 9
+    assert len(llm.calls) == 11
     assert runs[0].ttft_ms == 120
     assert runs[0].tok_per_s == 40.0
 
@@ -256,7 +260,7 @@ def test_agent_report_has_summary_and_pass_marks() -> None:
         min_score=0.80,
     )
 
-    assert "Итог: 4 из 4 PASS." in report
+    assert "Итог: 5 из 5 PASS." in report
     assert "| C1_T792HO98 |" in report
     assert "| X01_YAMZ236_CONFLICT |" in report
     assert "[PASS] обе формулировки со ссылками" in report

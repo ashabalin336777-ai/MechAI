@@ -31,6 +31,8 @@ class StepRecord:
     tok_per_s: float | None = None
     model: str | None = None
     error: str | None = None
+    error_class: str | None = None
+    error_message: str | None = None
 
 
 @dataclass
@@ -111,8 +113,9 @@ class PgJournal:
         with psycopg.connect(self._url, connect_timeout=5, autocommit=True) as conn:
             conn.execute(
                 "INSERT INTO agent_steps (run_id, n, kind, name, input, output, ms, ttft_ms, "
-                "prompt_tokens, completion_tokens, tok_per_s, model, error) "
-                "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",
+                "prompt_tokens, completion_tokens, tok_per_s, model, error, error_class, "
+                "error_message) "
+                "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",
                 (
                     step.run_id,
                     step.n,
@@ -127,6 +130,8 @@ class PgJournal:
                     step.tok_per_s,
                     step.model,
                     step.error,
+                    step.error_class,
+                    step.error_message,
                 ),
             )
 

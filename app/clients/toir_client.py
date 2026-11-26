@@ -32,5 +32,6 @@ class ToirClient(ServiceClient):
     service_name = "mock_toir"
 
     def create_ticket(self, ticket: TicketRequest) -> TicketResponse:
-        response = self._request("POST", "/tickets", ticket)
+        # Заявка не повторяется после таймаута или 5xx: сервис мог создать её и не ответить.
+        response = self._request("POST", "/tickets", ticket, retry="connect")
         return self._parse(response, TicketResponse)
