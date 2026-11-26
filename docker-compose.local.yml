@@ -40,7 +40,7 @@ services:
       MANUALS_YADISK_URL: ${MANUALS_YADISK_URL:-https://disk.yandex.ru/d/QdAA8p4m0ySe8Q}
       CONF_LOW: ${CONF_LOW:-0.60}
       SCORE_HIGH: ${SCORE_HIGH:-0.80}
-      RAG_MIN_SCORE: ${RAG_MIN_SCORE:-0.35}
+      RAG_MIN_SCORE: ${RAG_MIN_SCORE:-0.80}
       AUTH_MODE: ${AUTH_MODE:-demo}
       JWT_SECRET: ${JWT_SECRET:-}
       LOG_RETENTION_DAYS: ${LOG_RETENTION_DAYS:-90}

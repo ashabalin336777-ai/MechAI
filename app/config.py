@@ -33,7 +33,7 @@ class Settings(BaseSettings):
 
     conf_low: float = Field(default=0.60, ge=0, le=1)
     score_high: float = Field(default=0.80, ge=0, le=1)
-    rag_min_score: float = Field(default=0.35, ge=0, le=1)
+    rag_min_score: float = Field(default=0.80, ge=0, le=1)
 
     auth_mode: Literal["demo", "pin"] = "demo"
     jwt_secret: str = ""

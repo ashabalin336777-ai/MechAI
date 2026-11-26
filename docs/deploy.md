@@ -86,7 +86,7 @@ python -c "import urllib.parse; print(urllib.parse.quote(input('пароль: ')
 | `MANUALS_YADISK_URL` | `https://disk.yandex.ru/d/QdAA8p4m0ySe8Q` | нет | для ingest 536 РК (фаза 03) |
 | `CONF_LOW` | `0.60` | нет | порог уверенности (ТЗ §7) |
 | `SCORE_HIGH` | `0.80` | нет | порог приоритета high (ТЗ §7.2) |
-| `RAG_MIN_SCORE` | `0.35` | нет | минимальный score фрагмента |
+| `RAG_MIN_SCORE` | `0.80` | нет | минимальный rerank score фрагмента (подобран по прогону eval 26.11, см. `eval/rag_report.md`) |
 | `AUTH_MODE` | `demo` | нет | `demo` без входа; `pin` — фаза 09 |
 | `JWT_SECRET` | `<openssl rand -hex 32>` | да | для режима `pin`, сгенерировать и хранить только в панели |
 | `LOG_RETENTION_DAYS` | `90` | нет | срок хранения журнала агента |
