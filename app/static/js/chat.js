@@ -117,10 +117,7 @@
   }
 
   function formatAnswer(text) {
-    var html = MC.esc(text)
-      .replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>")
-      .replace(/\[([^\[\]]+?),\s*стр\.\s*(\d+)\]/g, '<span class="cite">📖 $1, стр. $2</span>')
-      .replace(/\n/g, "<br>");
+    var html = MC.renderMarkdown(text);
     if (MC.currentMode() === "novice") {
       html = html.replace(GLOSSARY_RE, function (term) {
         return '<button type="button" class="term" data-term="' + term + '">' + term + "</button>";
@@ -149,7 +146,10 @@
 
   function handleEvent(state, name, data) {
     if (name === "token") {
-      if (!state.text) state.body.textContent = "";
+      if (!state.text) {
+        state.body.textContent = "";
+        state.body.classList.add("bubble-stream");
+      }
       state.text += data.text || "";
       state.body.textContent = state.text;
     } else if (name === "verdict") {
@@ -157,6 +157,8 @@
       scrollToEnd(verdictEl);
     } else if (name === "answer_final") {
       state.final = data.text || "";
+      state.body.classList.remove("bubble-stream");
+      state.body.classList.add("answer");
       state.body.innerHTML = formatAnswer(state.final);
       try {
         sessionStorage.setItem(KEY_ANSWER, state.final);

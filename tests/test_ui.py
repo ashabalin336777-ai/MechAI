@@ -200,7 +200,14 @@ def test_pages_have_no_english_button_labels(client: TestClient) -> None:
 
 
 def test_static_scripts_are_in_place() -> None:
-    for name in ("js/common.js", "js/mode.js", "js/chat.js", "js/steps.js", "js/ticket.js"):
+    for name in (
+        "js/common.js",
+        "js/markdown.js",
+        "js/mode.js",
+        "js/chat.js",
+        "js/steps.js",
+        "js/ticket.js",
+    ):
         assert (STATIC_DIR / name).is_file(), name
     assert (STATIC_DIR / "vendor" / "htmx.min.js").is_file()
     assert (STATIC_DIR / "vendor" / "alpine.min.js").is_file()
