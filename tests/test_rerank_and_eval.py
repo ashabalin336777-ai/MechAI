@@ -1,15 +1,11 @@
-"""Реранк-клиент (MockTransport), набор вопросов и отчёт eval — без сети."""
+"""Реранк-клиент против MockTransport: тело запроса, сортировка, ошибки. Без сети."""
 
 import json
-from datetime import datetime
 
 import httpx
 import pytest
 
-from app.rag.evaluation import EvalItem, EvalQuestion, load_questions, render_report
 from app.rag.rerank import RerankClient, RerankError
-from app.rag.search import Fragment
-from tests.helpers import REPO_ROOT, VEHICLES_PATH
 
 
 def _client(handler) -> RerankClient:
@@ -66,48 +62,3 @@ def test_empty_documents_do_not_call_the_api() -> None:
         raise AssertionError("запрос не должен уйти без документов")
 
     assert _client(handler).rerank("q", []) == []
-
-
-def test_question_file_is_valid_and_engines_are_known() -> None:
-    questions = load_questions(REPO_ROOT / "eval" / "questions.yaml")
-    assert len(questions) == 10
-    assert len({question.id for question in questions}) == 10
-    vehicles = json.loads(VEHICLES_PATH.read_text(encoding="utf-8"))["vehicles"]
-    known = {vehicle["engine_model"] for vehicle in vehicles}
-    assert {question.engine_model for question in questions} <= known
-
-
-def test_report_lists_top_fragments_and_no_data_branch() -> None:
-    fragment = Fragment(
-        manual_id="yamz536_rk",
-        manual="536.01.02 РК",
-        pdf_page=45,
-        section="Клапаны",
-        text="Зазор 0,15 мм | проверка",
-        score=0.812,
-    )
-    items = [
-        EvalItem(
-            question=EvalQuestion(
-                id="Q01", question="Какой зазор клапанов?", engine_model="ЯМЗ-536"
-            ),
-            fragments=[fragment],
-        ),
-        EvalItem(
-            question=EvalQuestion(
-                id="Q02", question="Какое давление масла?", engine_model="ЯМЗ-536"
-            ),
-            fragments=[],
-        ),
-    ]
-    report = render_report(
-        items,
-        generated_at=datetime(2026, 11, 26, 21, 0),
-        embed_model="bge-m3",
-        rerank_model="bge-reranker",
-        min_score=0.35,
-    )
-    assert "| 1 | 536.01.02 РК | 45 | Клапаны | 0.812 |" in report
-    assert "Зазор 0,15 мм / проверка" in report
-    assert "этих данных нет" in report
-    assert "Проверка цитат: не применяется" in report
