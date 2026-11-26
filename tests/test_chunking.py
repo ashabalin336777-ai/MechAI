@@ -10,6 +10,7 @@ from app.rag.chunking import (
     OVERLAP_CHARS,
     build_manual_text,
     is_heading,
+    is_prose,
     linearize_rows,
     split_lines,
     table_lines,
@@ -101,6 +102,70 @@ def test_real_page_gives_oil_capacity_with_its_unit() -> None:
         page = document[10]  # стр. 11 PDF: «Заправочные емкости, л»
         lines = table_lines(page, page.get_text("text"))
     assert any(line.startswith("Система смазки (без радиатора): ЯМЗ–236М2 21 л") for line in lines)
+
+
+def test_numeric_header_without_caption_is_not_linearized() -> None:
+    rows = [["Номинальное напряжение, В", "24"], ["Номинальная мощность, кВт", "6,5"]]
+    assert linearize_rows(rows) == []
+
+
+def test_numeric_size_header_with_unit_in_label_is_kept() -> None:
+    rows = [
+        ["Размер «под ключ», S, мм", "10", "12"],
+        ["Диаметр описанной окружности, мм", "10,5", "12,7"],
+    ]
+    assert linearize_rows(rows) == ["Диаметр описанной окружности, мм: 10 10,5; 12 12,7"]
+
+
+def test_prose_row_is_not_linearized() -> None:
+    rows = [
+        ["Показатели", "ЯМЗ-236М2"],
+        ["Допускается установка фильтра грубой очистки вместо полнопоточного.", ""],
+    ]
+    assert linearize_rows(rows) == []
+
+
+def test_is_prose_keeps_short_labels_and_unit_values() -> None:
+    assert not is_prose("Система смазки")
+    assert not is_prose("Заправочные емкости, л")
+    assert not is_prose("Частота вращения, мин-1 800")
+    assert is_prose("Допускается установка фильтра грубой очистки вместо полнопоточного.")
+
+
+def _real_page_lines(manual: str, page_number: int) -> list[str]:
+    path = Path(__file__).resolve().parents[1] / "data" / "manuals" / manual
+    if not path.exists():
+        pytest.skip(f"руководство {manual} не найдено в data/manuals")
+    with pymupdf.open(path) as document:
+        page = document[page_number - 1]
+        return table_lines(page, page.get_text("text"))
+
+
+def test_regression_oil_system_capacity_stays_in_re_page_11() -> None:
+    lines = _real_page_lines("yamz-236_re_2010.pdf", 11)
+    assert any(line.startswith("Система смазки (без радиатора): ЯМЗ–236М2 21 л") for line in lines)
+
+
+def test_regression_size_table_stays_in_rk_page_35() -> None:
+    lines = _real_page_lines("yamz-236_rk_2014.pdf", 35)
+    assert any(line.startswith("Диаметр описанной окружности, мм: 10 10,5") for line in lines)
+
+
+@pytest.mark.parametrize("page_number", [279, 281, 282])  # стр. 280 — без текстового слоя
+def test_regression_test_modes_stay_in_rk_pages_279_282(page_number: int) -> None:
+    lines = _real_page_lines("yamz-236_rk_2014.pdf", page_number)
+    assert any("Частота вращения, мин-1" in line for line in lines)
+
+
+@pytest.mark.parametrize("page_number", [117, 160])
+def test_bare_numbers_without_column_caption_are_not_output(page_number: int) -> None:
+    lines = _real_page_lines("yamz-236_re_2010.pdf", page_number)
+    assert not any(": 24 " in line or "181 182" in line for line in lines)
+
+
+def test_prose_lines_of_re_page_7_are_not_output() -> None:
+    lines = _real_page_lines("yamz-236_re_2010.pdf", 7)
+    assert not any("Зубчатые передачи, подшипники качения" in line for line in lines)
 
 
 def test_rotated_table_with_reversed_text_is_not_linearized() -> None:

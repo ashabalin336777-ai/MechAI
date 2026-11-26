@@ -14,11 +14,14 @@ MIN_TEXT_CHARS = 100
 HARD_CHARS = 3600
 OVERLAP_CHARS = 400
 # Версия нарезки: при смене правил руководство переиндексируется (см. миграцию 0005).
-CHUNKER_VERSION = 2
+CHUNKER_VERSION = 3
 NUMBERED_HEADING = re.compile(r"^\d+(\.\d+)*\.?\s+\S")
 NUMBER_TOKEN = re.compile(r"^\d+([.,]\d+)?$")
 VALUE_CELL = re.compile(r"^[\d.,]+$")
 SECTION_UNIT = re.compile(r",\s*(л|мм|кг|кПа|мин|Н·м|°C)\s*$")
+UNIT_VALUE = re.compile(
+    r"\d[\d.,]*\s*(л|мм|кг|кПа|кгс|мин|Н·м|кВт|А|В|°C|ºС|об/мин)(?![а-яёА-ЯЁa-zA-Z])"
+)
 TABLE_MIN_NUMBERS = 8  # страницы с меньшим числом цифр таблицами не считаем (find_tables медленный)
 TABLE_TRUST = 0.9  # доля слов ячеек, которая должна встречаться в обычном тексте страницы
 WORD_EDGES = "«»\"'()[].,;:"
@@ -137,32 +140,60 @@ def _trusted(rows: list[list[str]], page_words: set[str]) -> bool:
 
 
 def linearize_rows(rows: list[list[str]]) -> list[str]:
-    """Первая строка таблицы — заголовки колонок. Строка с одной ячейкой — раздел с единицей."""
+    """Первая строка таблицы — заголовки колонок. Строка с одной ячейкой — раздел с единицей.
+
+    Значение выводится, только если у него есть подпись колонки (буквы в заголовке). Числовой
+    заголовок годится, только если таблица из трёх и более колонок и подпись строки содержит
+    единицу (размеры «под ключ», РК стр. 35). Строки без подписи («181 182 2,3») и строки-прозу
+    не выводятся: фрагмент страницы остаётся в индексе через обычный текст.
+    """
     if len(rows) < 2:
         return []
     header = rows[0]
+    numeric_header = not any(_has_letters(cell) for cell in header[1:])
     unit: str | None = None
     lines: list[str] = []
     for row in rows[1:]:
         filled = [(index, cell) for index, cell in enumerate(row) if cell]
         if not filled:
             continue
+        label = filled[0][1]
+        label_unit = SECTION_UNIT.search(label)
         if len(filled) == 1:
-            label = filled[0][1]
-            unit_match = SECTION_UNIT.search(label)
-            if unit_match:
-                unit = unit_match.group(1)
-            lines.append(label)
+            if label_unit:
+                unit = label_unit.group(1)
+            if not is_prose(label):
+                lines.append(label)
             continue
         suffix = f" {unit}" if unit else ""
         pairs = [
             f"{header[index]} {value}{suffix}"
             for index, value in filled[1:]
-            if header[index] and VALUE_CELL.match(value)
+            if header[index]
+            and VALUE_CELL.match(value)
+            and (
+                _has_letters(header[index])
+                or (numeric_header and len(header) >= 3 and label_unit is not None)
+            )
         ]
         if pairs:
-            lines.append(f"{filled[0][1]}: " + "; ".join(pairs))
+            lines.append(f"{label}: " + "; ".join(pairs))
     return lines
+
+
+def is_prose(text: str) -> bool:
+    """Строка таблицы похожа на прозу: без «подписи: значение» и без числа с единицей, но длинная.
+
+    Эвристика, а не разбор речи: длиннее 120 символов или от 6 слов. Такие куски (РЭ стр. 7–9)
+    дублируют обычный текст страницы, поэтому в таблицу их не выводим.
+    """
+    if ":" in text or UNIT_VALUE.search(text):
+        return False
+    return len(text) > 120 or len(text.split()) >= 6
+
+
+def _has_letters(cell: str) -> bool:
+    return any(char.isalpha() for char in cell)
 
 
 def _word(token: str) -> str:
