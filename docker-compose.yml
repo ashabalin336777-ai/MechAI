@@ -12,7 +12,7 @@ services:
     environment:
       NEURALDEEP_API_KEY: ${NEURALDEEP_API_KEY:-}
       NEURALDEEP_BASE_URL: ${NEURALDEEP_BASE_URL:-https://api.neuraldeep.ru/v1}
-      AGENT_MODEL: ${AGENT_MODEL:-qwen3.6-fp8}
+      AGENT_MODEL: ${AGENT_MODEL:-qwen3.8-flash-next-ru-noreason}
       AGENT_FALLBACK_MODEL: ${AGENT_FALLBACK_MODEL:-qwen3.8-flash-next-ru-noreason}
       EMBED_MODEL: ${EMBED_MODEL:-bge-m3}
       RERANK_MODEL: ${RERANK_MODEL:-bge-reranker}

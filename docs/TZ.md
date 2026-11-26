@@ -258,14 +258,14 @@ LangGraph `create_react_agent`-подобный цикл (свой граф до
 
 | Роль | Переменная | Модель | Почему |
 |---|---|---|---|
-| Агент (tool loop + стрим ответа) | `AGENT_MODEL` | `qwen3.6-fp8` | tools, FP8 fast-lane, «до 157 токенов в секунду на запрос» (страница модели Neuraldeep), в РФ, 9,38/53,58 ₽ за 1М |
-| Запасная для агента | `AGENT_FALLBACK_MODEL` | `qwen3.8-flash-next-ru-noreason` | tools, без reasoning, в РФ, 20,36/64,30 ₽; скорость не опубликована — замерить |
+| Агент (tool loop + стрим ответа) | `AGENT_MODEL` | `qwen3.8-flash-next-ru-noreason` | tools, без reasoning, в РФ, 20,36/64,30 ₽; скорость по замеру 26.11 предварительная (см. `docs/models.md`) |
+| Запасная для агента | `AGENT_FALLBACK_MODEL` | `qwen3.8-flash-next-ru-noreason` | та же модель; отдельной запасной нет, пока замер не покажет необходимость |
 | Эмбеддинги | `EMBED_MODEL` | `bge-m3` (1024) | мультиязычная (вопрос на хинди/узбекском → русские фрагменты), 8k, в РФ, 3,21 ₽/1М |
 | Реранк | `RERANK_MODEL` | `bge-reranker` (v2-m3) | мультиязычный, 3,21 ₽/1М |
 | Распознавание речи | `STT_MODEL` | `whisper-1` (Whisper large-v3-turbo, 100+ языков) | в РФ, 1 ₽/мин |
 | Не в горячем пути | — | `qwen3.8-27b` | TTFT ≈ 19 с по открытым замерам — только офлайн для eval/судьи, если нужно |
 
-Запрещено для продукта: модели с пометкой «вне РФ» (`gpt-oss-*`, `gemma-*`, `glm-*` и т. п.) — 152-ФЗ. Reasoning у `qwen3.6-fp8` выключить/минимизировать (параметр проверить в `docs/chat.md` Neuraldeep), иначе растёт TTFT.
+Запрещено для продукта: модели с пометкой «вне РФ» (`gpt-oss-*`, `gemma-*`, `glm-*` и т. п.) — 152-ФЗ. Для агента выбрана `qwen3.8-flash-next-ru-noreason`: reasoning у неё отсутствует, tools есть. `qwen3.6-fp8` отклонена: reasoning по умолчанию, выключается только через `-noreason`-версию без tools.
 
 **Скорость > 20 ток/с (пожелание заказчика):** на каждый LLM-вызов пишем `ttft_ms`, `completion_tokens`, `tok_per_s = completion_tokens / (t_end − t_first_token)`. В UI под ответом мелко: «0,9 с до ответа · 64 ток/с»; в журнале — среднее и p10 за сутки. Если p10 < 20 ток/с — переключение на `AGENT_FALLBACK_MODEL` (флаг в админке). Скрипт `scripts/bench_models.py` (фаза 02) меряет 3 кандидата на 10 запросах и пишет `eval/bench.md` — эти цифры идут в форму.
 
@@ -320,7 +320,7 @@ LangGraph `create_react_agent`-подобный цикл (свой граф до
 ```
 NEURALDEEP_API_KEY=
 NEURALDEEP_BASE_URL=https://api.neuraldeep.ru/v1
-AGENT_MODEL=qwen3.6-fp8
+AGENT_MODEL=qwen3.8-flash-next-ru-noreason
 AGENT_FALLBACK_MODEL=qwen3.8-flash-next-ru-noreason
 EMBED_MODEL=bge-m3
 RERANK_MODEL=bge-reranker
@@ -439,7 +439,7 @@ tests/
 ## 20. Сторонние компоненты и наработки (для формы)
 - Заказчик: заглушки Mock ML и Mock ТОиР, OpenAPI, `vehicles.json`, `fault_types.json`, тесты заглушек (`mock/`, без изменений); 6 руководств ЯМЗ/ЗМЗ (синтетический набор/общедоступные, разрешены к размещению).
 - Библиотеки: FastAPI, Uvicorn, Pydantic, httpx, LangGraph/LangChain-core, openai SDK, psycopg/SQLAlchemy, pgvector, pymupdf/pdfplumber, (tesseract), HTMX, Alpine.js, Chart.js (если используется), argon2-cffi, PyJWT.
-- Модели Neuraldeep: qwen3.6-fp8, qwen3.8-flash-next-ru-noreason (запасная), bge-m3, bge-reranker, whisper-1 (+ qwen3-tts, если сделан).
+- Модели Neuraldeep: qwen3.8-flash-next-ru-noreason (агент), bge-m3, bge-reranker, whisper-1 (+ qwen3-tts, если сделан).
 - Инфраструктура: Timeweb App Platform, Timeweb Managed PostgreSQL.
 - Наработки до спринта (раскрыть): текстовые ТЗ, правила Cursor, промпты фаз, макеты экранов (картинки/HTML) и устаревшая репетиция на синтетике Cummins ISF 2.8 (в продукт не вошла).
 - Инструменты разработки (не в продукте): Cursor (Claude Haiku 5.5, Composer 2.5, Grok 4.7).

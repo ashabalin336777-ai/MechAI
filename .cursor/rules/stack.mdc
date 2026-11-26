@@ -17,7 +17,7 @@ external, name, driver_opts, хост-порты 80/443. Первый серви
 Состояние — только в Postgres. vehicles.json и PDF копируются в образ (COPY).
 URL заглушек и датчиков — только из env (MOCK_ML_URL, MOCK_TOIR_URL, SENSORS_URL).
 
-Модели (только «в РФ»): AGENT_MODEL=qwen3.6-fp8 (tool loop + стрим),
+Модели (только «в РФ»): AGENT_MODEL=qwen3.8-flash-next-ru-noreason (tool loop + стрим),
 AGENT_FALLBACK_MODEL=qwen3.8-flash-next-ru-noreason, EMBED_MODEL=bge-m3,
 RERANK_MODEL=bge-reranker, STT_MODEL=whisper-1. qwen3.8-27b в горячий путь
 не ставить (TTFT ~19 с). На каждый LLM-вызов писать ttft_ms, токены, tok_per_s.

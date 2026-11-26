@@ -13,7 +13,7 @@ class Settings(BaseSettings):
 
     neuraldeep_api_key: str = ""
     neuraldeep_base_url: str = "https://api.neuraldeep.ru/v1"
-    agent_model: str = "qwen3.6-fp8"
+    agent_model: str = "qwen3.8-flash-next-ru-noreason"
     agent_fallback_model: str = "qwen3.8-flash-next-ru-noreason"
     embed_model: str = "bge-m3"
     rerank_model: str = "bge-reranker"

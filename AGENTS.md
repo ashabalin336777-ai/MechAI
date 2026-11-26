@@ -24,7 +24,7 @@
 - URL только из `.env`.
 
 ## Стек (не менять без просьбы)
-Python 3.12, FastAPI, Jinja2, HTMX, Alpine.js, Pydantic v2, httpx, LangGraph, openai SDK → Neuraldeep `https://api.neuraldeep.ru/v1`, PostgreSQL + pgvector (Timeweb Managed), Docker Compose на Timeweb App Platform. Модели: `AGENT_MODEL=qwen3.6-fp8`, `EMBED_MODEL=bge-m3`, `RERANK_MODEL=bge-reranker`, `STT_MODEL=whisper-1`. Нет: Streamlit, React, Qdrant, Redis, Langfuse, Nginx, модели «вне РФ».
+Python 3.12, FastAPI, Jinja2, HTMX, Alpine.js, Pydantic v2, httpx, LangGraph, openai SDK → Neuraldeep `https://api.neuraldeep.ru/v1`, PostgreSQL + pgvector (Timeweb Managed), Docker Compose на Timeweb App Platform. Модели: `AGENT_MODEL=qwen3.8-flash-next-ru-noreason`, `EMBED_MODEL=bge-m3`, `RERANK_MODEL=bge-reranker`, `STT_MODEL=whisper-1`. Нет: Streamlit, React, Qdrant, Redis, Langfuse, Nginx, модели «вне РФ».
 
 ## Жёсткие правила агента
 - Инструменты отдельные: `get_vehicle`, `get_diagnosis`, `search_manual`, `get_history`, `draft_ticket`, `create_ticket` (+ опц. `get_sensor_telemetry`). Выбор инструмента — моделью, не цепочкой if-else.

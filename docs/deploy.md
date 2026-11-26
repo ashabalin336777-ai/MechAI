@@ -69,7 +69,7 @@ python -c "import urllib.parse; print(urllib.parse.quote(input('пароль: ')
 |---|---|---|---|
 | `NEURALDEEP_API_KEY` | `<ключ из кабинета Neuraldeep>` | да | ключ моделей, в git не класть |
 | `NEURALDEEP_BASE_URL` | `https://api.neuraldeep.ru/v1` | нет | |
-| `AGENT_MODEL` | `qwen3.6-fp8` | нет | модель агента |
+| `AGENT_MODEL` | `qwen3.8-flash-next-ru-noreason` | нет | модель агента |
 | `AGENT_FALLBACK_MODEL` | `qwen3.8-flash-next-ru-noreason` | нет | запасная модель |
 | `EMBED_MODEL` | `bge-m3` | нет | эмбеддинги, 1024 измерения |
 | `RERANK_MODEL` | `bge-reranker` | нет | реранк |
@@ -136,5 +136,5 @@ MOCK_TOIR_URL=http://127.0.0.1:8000/mock/toir
 ## Что ещё не сделано
 
 - Миграции применяются при старте `app` (`app/db/database.py`). Ingest руководств (`python -m app.rag.ingest`) появится в фазе 03.
-- Замер моделей `scripts/bench_models.py` и `eval/bench.md` (фаза 02, пункт 3): нужен ключ Neuraldeep, он ещё не передан.
-- Фаза 02 считается закрытой, когда по HTTPS отвечает `/ready`, заглушки доступны из `app`, `eval/bench.md` заполнен. Первые два условия выполнены, третье ждёт ключ Neuraldeep.
+- Замер моделей: `eval/bench.md` неполный (26.11 API Neuraldeep не отвечал с рабочей машины). Агент переведён на `qwen3.8-flash-next-ru-noreason` по решению владельца; полный замер нужно повторить до демо (`python -m scripts.bench_models`, ключ из env).
+- Переменная `AGENT_MODEL` в панели App Platform должна быть `qwen3.8-flash-next-ru-noreason` (или не задана: по умолчанию в compose та же модель). После смены перезапустить `app`.
