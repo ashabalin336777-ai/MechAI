@@ -14,13 +14,14 @@ FastAPI, Jinja2, HTMX/Alpine.js (мобильное PWA), LangGraph с чекп�
 
 ## Статус
 
-Готово в коде (`pytest`: 328 тестов проходят, 10 пропускаются без `TEST_DATABASE_URL`):
+Готово в коде (`pytest`: 359 тестов проходят, 18 пропускаются без `TEST_DATABASE_URL`):
 - **Фазы 01–02:** каркас, клиенты Mock ML и Mock ТОиР по OpenAPI, парк ТС из `mock/data/vehicles.json`, `GET /health` и `GET /ready`, PostgreSQL с миграциями (pgvector), запасной режим `MOUNT_MOCKS=1`. Развёрнуто на Timeweb App Platform.
 - **Фаза 03:** ингест руководств, гибридный поиск (pgvector + полнотекст + реранк) с порогом `RAG_MIN_SCORE`, фильтр по двигателю в SQL, известные противоречия руководств (`data/known_conflicts.yaml`).
 - **Фаза 04:** агент LangGraph и инструменты `get_vehicle`, `get_diagnosis`, `search_manual`, `get_history`, `draft_ticket`, `create_ticket` (отправка только по одноразовому токену), журнал ходов `agent_runs` / `agent_steps` с шагами `error` и `retry` (класс и текст ошибки без секретов). Таймаут вызова модели не меньше 15 с, один повтор при 5xx, таймауте и обрыве (`97cb0f7`).
 - **Фаза 05 (черновик):** мобильный чат, карточка вердикта, экран заявки, дашборд, режимы «Стандартный» / «Новичок» / «Крупный».
+- **Прогоны проверки по API:** `POST /admin/eval?suite=rag|agent` отвечает 202 с `run_id`, статус и отчёт — `GET /admin/eval/status`, список — `GET /admin/eval/runs`. Результаты хранятся в Postgres (таблица `eval_runs`, миграция `0007`) и переживают перезапуск. Доступ по Bearer `ADMIN_TOKEN`; без токена эндпоинтов нет. Команды PowerShell — в [docs/deploy.md](docs/deploy.md).
 
-Не подтверждено на стенде: агент и поиск зависят от Neuraldeep (с рабочей машины API недоступен). Последний прогон агента на стенде 27.11, 03:59 — 2 из 4 сценариев (C3 и M260EH47), отчёт в [eval/agent_report.md](eval/agent_report.md). Фикс X01 (таймаут, журнал ошибок) ждёт проверки на стенде; регресс по сессии S-0083 добавлен в [eval/agent_scenarios.yaml](eval/agent_scenarios.yaml). Подробности и решения: [docs/STATUS.md](docs/STATUS.md).
+Не подтверждено на стенде: агент и поиск зависят от Neuraldeep (с рабочей машины API недоступен). Последний прогон агента на стенде 27.11, 03:59 — 2 из 4 сценариев (C3 и M260EH47), отчёт в [eval/agent_report.md](eval/agent_report.md). Фиксы X01 (таймаут, журнал ошибок, правила противоречий в образе и триггеры, `6f955af`) ждут передеплоя и проверки на стенде; регресс по сессии S-0083 добавлен в [eval/agent_scenarios.yaml](eval/agent_scenarios.yaml). Подробности и решения: [docs/STATUS.md](docs/STATUS.md).
 
 ## Модели
 
@@ -32,9 +33,10 @@ FastAPI, Jinja2, HTMX/Alpine.js (мобильное PWA), LangGraph с чекп�
 ## Структура
 
 ```
-app/        FastAPI-приложение: api/ (страницы, /health, /ready), clients/ (ML, ТОиР), data/ (парк ТС), db/ (БД и миграции), config.py
+app/        FastAPI-приложение: api/ (страницы, /health, /ready, /admin/eval, /admin/ingest), clients/ (ML, ТОиР), data/ (парк ТС), db/ (БД и миграции), rag/ (поиск, противоречия), agent/ (агент), config.py
 mock/       заглушки заказчика (Mock ML, Mock ТОиР, данные). Код не меняем; mock/Dockerfile наш
 data/manuals/  руководства (PDF); в образ копируются. manifest.yaml — реестр руководств (ТЗ §3.2)
+data/known_conflicts.yaml  известные противоречия руководств (X01 и давление масла); в образ копируется
 scripts/    служебные скрипты (замер моделей `bench_models.py`)
 eval/       прогон сценариев С1–С3 и вопросов RAG (фазы 03 и 06), замер моделей `bench.md`
 tests/      тесты (pytest): клиенты против заглушек через TestClient, миграции при TEST_DATABASE_URL
