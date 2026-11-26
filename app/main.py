@@ -10,6 +10,7 @@ from fastapi.staticfiles import StaticFiles
 
 from app.agent.runner import load_base_prompt
 from app.agent.services import build_agent_services, use_postgres_checkpointer
+from app.api.admin_eval import EvalJob
 from app.api.admin_eval import router as admin_eval_router
 from app.api.admin_ingest import router as admin_ingest_router
 from app.api.chat import router as chat_router
@@ -59,6 +60,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.state.settings = settings
     app.state.migration_failed = False
     app.state.ingest_job = IngestJob()
+    app.state.eval_job = EvalJob()
     app.state.ml_client = MlClient(settings.mock_ml_url)
     app.state.toir_client = ToirClient(settings.mock_toir_url)
     app.state.vehicles = VehicleStore.load(settings.vehicles_path)

@@ -155,10 +155,19 @@ Invoke-RestMethod -Uri https://ashabalin336777-ai-mechai-3580.twc1.net/admin/ing
 
 ## Проверка поиска по руководствам (POST /admin/eval)
 
-Постоянный админ-эндпоинт: `POST /admin/eval` с заголовком `Authorization: Bearer <ADMIN_TOKEN>`. Без `ADMIN_TOKEN` эндпоинта нет (404). Прогоняет `eval/questions.yaml` и возвращает отчёт в Markdown (поле `report`): вопрос, двигатель, топ-5 фрагментов с руководством и страницей PDF. Отчёт сохраняется в `eval/rag_report.md`. В фазе 06 этот же эндпоинт расширится сценариями С1–С3.
+Постоянный админ-эндпоинт прогона, асинхронный как ингест. `POST /admin/eval` с заголовком `Authorization: Bearer <ADMIN_TOKEN>` запускает прогон в фоне и отвечает 202 (`{"status": "started", "suite": ...}`). Параметр `suite`: `rag` (по умолчанию, `eval/questions.yaml`) или `agent` (сценарии С1–С3 и контрольные случаи, `eval/agent_scenarios.yaml`). Без `ADMIN_TOKEN` эндпоинтов нет (404). Во время прогона повторный запуск даёт 409.
+
+Результат забирается через `GET /admin/eval/status` с тем же заголовком: `state` (`idle`, `running`, `done`, `error`), `suite`, `started_at`, `finished_at`, `error` и `report` (Markdown). Прогон идёт на сервере, поэтому обрыв сети у клиента его не останавливает. Состояние хранится в памяти процесса: после перезапуска или деплоя статус сбрасывается в `idle`, и прогон нужно запустить заново.
 
 PowerShell (вместо `<ADMIN_TOKEN>` свой токен, значение в чат не присылать):
-`(Invoke-RestMethod -Method Post -Uri https://ashabalin336777-ai-mechai-3580.twc1.net/admin/eval -Headers @{ Authorization = "Bearer <ADMIN_TOKEN>" }).report`
+
+```powershell
+$h = @{ Authorization = "Bearer <ADMIN_TOKEN>" }
+Invoke-RestMethod -Method Post -Uri "https://ashabalin336777-ai-mechai-3580.twc1.net/admin/eval?suite=agent" -Headers $h
+Invoke-RestMethod -Uri https://ashabalin336777-ai-mechai-3580.twc1.net/admin/eval/status -Headers $h
+```
+
+Пока `state` равен `running`, повторно опрашивать статус. Когда `state` стал `done`, отчёт в поле `report`. Если `state` равен `error`, в `error` короткий текст без строки подключения и ключей.
 
 ## Что ещё не сделано
 
