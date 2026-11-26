@@ -153,24 +153,40 @@ Invoke-RestMethod -Uri https://ashabalin336777-ai-mechai-3580.twc1.net/admin/ing
 
 Когда ингест прошёл и отчёт сохранён: удалить `app/api/admin_ingest.py`, `IngestJob` в `app/rag/ingest.py`, строку `include_router(admin_ingest_router)` в `app/main.py` и тесты `tests/test_admin_ingest.py`. Переменная `INGEST_TOKEN` не нужна: эндпоинт использует `ADMIN_TOKEN`.
 
-## Проверка поиска по руководствам (POST /admin/eval)
+## Проверка поиска и агента (POST /admin/eval)
 
-Постоянный админ-эндпоинт прогона, асинхронный как ингест. `POST /admin/eval` с заголовком `Authorization: Bearer <ADMIN_TOKEN>` запускает прогон в фоне и отвечает 202 (`{"status": "started", "suite": ...}`). Параметр `suite`: `rag` (по умолчанию, `eval/questions.yaml`) или `agent` (сценарии С1–С3 и контрольные случаи, `eval/agent_scenarios.yaml`). Без `ADMIN_TOKEN` эндпоинтов нет (404). Во время прогона повторный запуск даёт 409.
+Админ-прогон проверки, асинхронный. Все три эндпоинта требуют `Authorization: Bearer <ADMIN_TOKEN>`. Без `ADMIN_TOKEN` их нет (404), без верного токена 401.
 
-Результат забирается через `GET /admin/eval/status` с тем же заголовком: `state` (`idle`, `running`, `done`, `error`), `suite`, `started_at`, `finished_at`, `error` и `report` (Markdown). Прогон идёт на сервере, поэтому обрыв сети у клиента его не останавливает. Состояние хранится в памяти процесса: после перезапуска или деплоя статус сбрасывается в `idle`, и прогон нужно запустить заново.
+- `POST /admin/eval?suite=rag|agent` (по умолчанию `rag`): создаёт строку в таблице `eval_runs` и запускает прогон в фоне. Ответ 202: `{"status": "started", "suite": ..., "run_id": N}`. Пока идёт другой прогон, отвечает 409.
+- `GET /admin/eval/status` возвращает последний прогон; `GET /admin/eval/status?run_id=N` возвращает прогон N. Поля: `id`, `suite`, `commit_sha`, `status` (`running`, `done`, `error`), `started_at`, `finished_at`, `passed`, `total`, `error_message`, `report_md` (отчёт в Markdown), `report_json` (сводка по кейсам). Если прогонов ещё не было, 404.
+- `GET /admin/eval/runs?limit=10` (от 1 до 100): список последних прогонов без `report_md`.
+
+Прогон идёт на сервере, поэтому обрыв сети у клиента его не останавливает. Итог лежит в Postgres, поэтому после перезапуска или деплоя результат остаётся доступен. Прогон, который висит дольше 30 минут (сервис упал до записи итога), при следующем запуске помечается `error`.
+
+Критерии «пройдено»: для `rag` — hit@5 по странице у вопроса с эталоном, а для вопроса «нет инструкции» — порог отсёк выдачу. Для `agent` — все проверки сценария. `passed` и `total` считаются по этим критериям.
+
+`commit_sha` берётся из переменной `COMMIT_SHA` (задаётся в панели App Platform). Пусто — в таблице NULL.
 
 PowerShell (вместо `<ADMIN_TOKEN>` свой токен, значение в чат не присылать):
 
 ```powershell
 $h = @{ Authorization = "Bearer <ADMIN_TOKEN>" }
-Invoke-RestMethod -Method Post -Uri "https://ashabalin336777-ai-mechai-3580.twc1.net/admin/eval?suite=agent" -Headers $h
-Invoke-RestMethod -Uri https://ashabalin336777-ai-mechai-3580.twc1.net/admin/eval/status -Headers $h
+$base = "https://ashabalin336777-ai-mechai-3580.twc1.net/admin/eval"
+# запуск агентского прогона: вернёт run_id
+$run = Invoke-RestMethod -Method Post -Uri "${base}?suite=agent" -Headers $h
+# статус выбранного прогона (без run_id — последний)
+$st = Invoke-RestMethod -Uri "${base}/status?run_id=$($run.run_id)" -Headers $h
+$st.status; "$($st.passed) из $($st.total)"
+# отчёт в Markdown: сохранить в файл
+$st.report_md | Set-Content -Encoding UTF8 eval\reports\agent_run_$($run.run_id).md
+# список последних прогонов без текста отчёта
+(Invoke-RestMethod -Uri "${base}/runs?limit=10" -Headers $h).runs | Format-Table id, suite, status, passed, total, commit_sha
 ```
 
-Пока `state` равен `running`, повторно опрашивать статус. Когда `state` стал `done`, отчёт в поле `report`. Если `state` равен `error`, в `error` короткий текст без строки подключения и ключей.
-
+Пока `status` равен `running`, повторно опрашивать статус (обычно несколько минут). Когда `status` стал `done`, отчёт в `report_md`. Если `status` равен `error`, причина в `error_message`: короткий текст без строки подключения и ключей.
 ## Что ещё не сделано
 
 - Миграции применяются при старте `app` (`app/db/database.py`). Повторный ingest локально: `python -m app.rag.ingest` (нужны `DATABASE_URL` и `NEURALDEEP_API_KEY`).
 - Замер моделей: `eval/bench.md` неполный (26.11 API Neuraldeep не отвечал с рабочей машины). Агент переведён на `qwen3.8-flash-next-ru-noreason` по решению владельца; полный замер нужно повторить до демо (`python -m scripts.bench_models`, ключ из env).
 - Переменная `AGENT_MODEL` в панели App Platform должна быть `qwen3.8-flash-next-ru-noreason` (или не задана: по умолчанию в compose та же модель). После смены перезапустить `app`.
+
