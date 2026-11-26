@@ -1,12 +1,13 @@
-.git
+﻿.git
 .cursor
 .env
 .env.*
 .venv
 venv
-__pycache__
-.pytest_cache
+**/__pycache__
+**/.pytest_cache
 .ruff_cache
 docs
 tests
-data/manuals/official
+# 536 РК (99 МБ) не нужен в образе: ingest пишет индекс в Postgres (фаза 03)
+data/manuals/yamz-536_rk_2013.pdf
