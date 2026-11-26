@@ -33,7 +33,6 @@ services:
       AUTH_MODE: ${AUTH_MODE:-demo}
       JWT_SECRET: ${JWT_SECRET:-}
       LOG_RETENTION_DAYS: ${LOG_RETENTION_DAYS:-90}
-      INGEST_TOKEN: ${INGEST_TOKEN:-}
     depends_on:
       - mock_ml
       - mock_toir

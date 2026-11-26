@@ -5,9 +5,7 @@
 """
 
 import logging
-import threading
 import time
-from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
@@ -194,38 +192,6 @@ def render_report(report: IngestReport) -> str:
         "",
     ]
     return "\n".join(lines)
-
-
-class IngestJob:
-    """Фоновый запуск индексации: одна задача за раз, результат читается через статус."""
-
-    def __init__(self, runner: Callable[[Settings], str] = run_ingest) -> None:
-        self._runner = runner
-        self._lock = threading.Lock()
-        self.state = "idle"
-        self.report_md: str | None = None
-        self.error: str | None = None
-
-    def start(self, settings: Settings) -> bool:
-        with self._lock:
-            if self.state == "running":
-                return False
-            self.state = "running"
-            self.report_md = None
-            self.error = None
-        threading.Thread(target=self._run, args=(settings,), daemon=True).start()
-        return True
-
-    def _run(self, settings: Settings) -> None:
-        try:
-            report = self._runner(settings)
-        except Exception as exc:  # граница фоновой задачи: ошибку пишем в статус и журнал
-            logger.exception("индексация руководств прервана")
-            self.error = f"{type(exc).__name__}: {str(exc)[:300]}"
-            self.state = "error"
-            return
-        self.report_md = report
-        self.state = "done"
 
 
 if __name__ == "__main__":
