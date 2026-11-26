@@ -1,4 +1,5 @@
-# Образ приложения. Данные из data/ копируются при сборке (тома в App Platform запрещены).
+# Образ приложения. Данные из data/ и заглушки из mock/ копируются при сборке (тома в App Platform запрещены).
+# mock/ нужен для запасного режима MOUNT_MOCKS=1; в обычном режиме заглушки живут в своих сервисах compose.
 FROM python:3.12-slim
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
@@ -13,7 +14,7 @@ RUN pip install -r requirements.txt
 
 COPY app ./app
 COPY data ./data
-COPY eval ./eval
+COPY mock ./mock
 
 RUN useradd --create-home --uid 10001 appuser
 USER appuser

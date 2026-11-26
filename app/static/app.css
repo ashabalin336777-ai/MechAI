@@ -1,0 +1,13 @@
+/* Базовые стили заглушки. Мобильная вёрстка 360–430 px и крупный режим — в фазе 05. */
+:root {
+  color-scheme: light dark;
+  font-family: system-ui, sans-serif;
+  font-size: 18px;
+}
+
+body {
+  margin: 0;
+  padding: 16px;
+  max-width: 430px;
+  overflow-x: hidden;
+}

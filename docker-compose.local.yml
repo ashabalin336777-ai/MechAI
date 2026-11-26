@@ -1,0 +1,63 @@
+# Локальный запуск с PostgreSQL + pgvector. Только для своей машины, не для App Platform.
+# Запуск: docker compose -f docker-compose.local.yml up --build
+# Пароль БД задаётся в локальном .env (POSTGRES_PASSWORD), в git его нет.
+services:
+  db:
+    image: pgvector/pgvector:pg16
+    environment:
+      POSTGRES_DB: mechai
+      POSTGRES_USER: mechai
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?задайте POSTGRES_PASSWORD в локальном .env}
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U mechai -d mechai"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    restart: unless-stopped
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "8000:8000"
+    environment:
+      NEURALDEEP_API_KEY: ${NEURALDEEP_API_KEY:-}
+      NEURALDEEP_BASE_URL: ${NEURALDEEP_BASE_URL:-https://api.neuraldeep.ru/v1}
+      AGENT_MODEL: ${AGENT_MODEL:-qwen3.6-fp8}
+      AGENT_FALLBACK_MODEL: ${AGENT_FALLBACK_MODEL:-qwen3.8-flash-next-ru-noreason}
+      EMBED_MODEL: ${EMBED_MODEL:-bge-m3}
+      RERANK_MODEL: ${RERANK_MODEL:-bge-reranker}
+      STT_MODEL: ${STT_MODEL:-whisper-1}
+      STT_BROWSER_FALLBACK: ${STT_BROWSER_FALLBACK:-0}
+      MOCK_ML_URL: http://mock_ml:8001
+      MOCK_TOIR_URL: http://mock_toir:8002
+      SENSORS_URL: ${SENSORS_URL:-}
+      MOUNT_MOCKS: ${MOUNT_MOCKS:-0}
+      DATABASE_URL: postgresql://mechai:${POSTGRES_PASSWORD:?задайте POSTGRES_PASSWORD в локальном .env}@db:5432/mechai
+      AUTH_MODE: ${AUTH_MODE:-demo}
+      JWT_SECRET: ${JWT_SECRET:-}
+      LOG_RETENTION_DAYS: ${LOG_RETENTION_DAYS:-90}
+    depends_on:
+      db:
+        condition: service_healthy
+      mock_ml:
+        condition: service_started
+      mock_toir:
+        condition: service_started
+    restart: unless-stopped
+  mock_ml:
+    build:
+      context: ./mock
+      dockerfile: Dockerfile
+    command: uvicorn mock_ml.app:app --host 0.0.0.0 --port 8001
+    ports:
+      - "8001:8001"
+    restart: unless-stopped
+  mock_toir:
+    build:
+      context: ./mock
+      dockerfile: Dockerfile
+    command: uvicorn mock_toir.app:app --host 0.0.0.0 --port 8002
+    ports:
+      - "8002:8002"
+    restart: unless-stopped

@@ -1,6 +1,7 @@
-# Compose для App Platform. Запрещено: volumes, privileged, extra_hosts, network_mode: host,
+# Compose для Timeweb App Platform. Запрещено: volumes, privileged, extra_hosts, network_mode: host,
 # include, extends, external, name, driver_opts; хост-порты 80 и 443.
-# Первый сервис получает основной домен. Значения секретов задаются в панели или в локальном .env.
+# Первый сервис (app) получает основной домен. Переменные задаются в панели App Platform
+# или подставляются из локального .env при запуске на своей машине. env_file не используем.
 services:
   app:
     build:
@@ -9,14 +10,39 @@ services:
     ports:
       - "8000:8000"
     environment:
-      DATABASE_URL: ${DATABASE_URL}
-      NEURALDEEP_API_KEY: ${NEURALDEEP_API_KEY}
+      NEURALDEEP_API_KEY: ${NEURALDEEP_API_KEY:-}
       NEURALDEEP_BASE_URL: ${NEURALDEEP_BASE_URL:-https://api.neuraldeep.ru/v1}
-      S3_ENDPOINT: ${S3_ENDPOINT}
-      S3_ACCESS_KEY: ${S3_ACCESS_KEY}
-      S3_SECRET_KEY: ${S3_SECRET_KEY}
-      S3_BUCKET: ${S3_BUCKET}
-      JWT_SECRET: ${JWT_SECRET}
-      FAST_MODEL: ${FAST_MODEL:-qwen3.6-fp8}
-      REASONING_MODEL: ${REASONING_MODEL:-qwen3.8-27b}
+      AGENT_MODEL: ${AGENT_MODEL:-qwen3.6-fp8}
+      AGENT_FALLBACK_MODEL: ${AGENT_FALLBACK_MODEL:-qwen3.8-flash-next-ru-noreason}
+      EMBED_MODEL: ${EMBED_MODEL:-bge-m3}
+      RERANK_MODEL: ${RERANK_MODEL:-bge-reranker}
+      STT_MODEL: ${STT_MODEL:-whisper-1}
+      STT_BROWSER_FALLBACK: ${STT_BROWSER_FALLBACK:-0}
+      MOCK_ML_URL: ${MOCK_ML_URL:-http://mock_ml:8001}
+      MOCK_TOIR_URL: ${MOCK_TOIR_URL:-http://mock_toir:8002}
+      SENSORS_URL: ${SENSORS_URL:-}
+      MOUNT_MOCKS: ${MOUNT_MOCKS:-0}
+      DATABASE_URL: ${DATABASE_URL:-}
+      AUTH_MODE: ${AUTH_MODE:-demo}
+      JWT_SECRET: ${JWT_SECRET:-}
+      LOG_RETENTION_DAYS: ${LOG_RETENTION_DAYS:-90}
+    depends_on:
+      - mock_ml
+      - mock_toir
+    restart: unless-stopped
+  mock_ml:
+    build:
+      context: ./mock
+      dockerfile: Dockerfile
+    command: uvicorn mock_ml.app:app --host 0.0.0.0 --port 8001
+    ports:
+      - "8001:8001"
+    restart: unless-stopped
+  mock_toir:
+    build:
+      context: ./mock
+      dockerfile: Dockerfile
+    command: uvicorn mock_toir.app:app --host 0.0.0.0 --port 8002
+    ports:
+      - "8002:8002"
     restart: unless-stopped

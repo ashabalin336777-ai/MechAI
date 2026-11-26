@@ -1,34 +1,31 @@
-"""Точка входа FastAPI. На этой фазе: healthcheck и заглушка главной страницы."""
+"""Точка входа FastAPI: страницы, healthcheck, клиенты заглушек, парк ТС, запасной режим."""
 
 from fastapi import FastAPI
-from fastapi.responses import HTMLResponse
+from fastapi.staticfiles import StaticFiles
 
-app = FastAPI(title="MechAI", version="0.1.0")
-
-INDEX_HTML = """<!doctype html>
-<html lang="ru">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Цифровой механик</title>
-</head>
-<body>
-  <main>
-    <h1>Цифровой механик</h1>
-    <p>Стенд в разработке. Вход и агент появятся в следующих фазах.</p>
-  </main>
-</body>
-</html>
-"""
+from app.api.health import router as health_router
+from app.api.pages import router as pages_router
+from app.clients.ml_client import MlClient
+from app.clients.toir_client import ToirClient
+from app.config import Settings, get_settings
+from app.data.vehicles import VehicleStore
+from app.mocks import mount_mocks
+from app.paths import STATIC_DIR
 
 
-@app.get("/health")
-def health() -> dict[str, str]:
-    """Проверка живости сервиса. Без авторизации и без обращения к внешним сервисам."""
-    return {"status": "ok"}
+def create_app(settings: Settings | None = None) -> FastAPI:
+    settings = settings or get_settings()
+    app = FastAPI(title="Цифровой механик", version="0.2.0")
+    app.state.settings = settings
+    app.state.ml_client = MlClient(settings.mock_ml_url)
+    app.state.toir_client = ToirClient(settings.mock_toir_url)
+    app.state.vehicles = VehicleStore.load(settings.vehicles_path)
+    if settings.mount_mocks:
+        mount_mocks(app)
+    app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
+    app.include_router(health_router)
+    app.include_router(pages_router)
+    return app
 
 
-@app.get("/", response_class=HTMLResponse)
-def index() -> str:
-    """Заглушка главной страницы."""
-    return INDEX_HTML
+app = create_app()
