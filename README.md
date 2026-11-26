@@ -14,13 +14,13 @@ FastAPI, Jinja2, HTMX/Alpine.js (мобильное PWA), LangGraph с чекп�
 
 ## Статус
 
-Готово в коде (`pytest`: 270 тестов, ещё 10 требуют `TEST_DATABASE_URL` и пропускаются без него):
+Готово в коде (`pytest`: 328 тестов проходят, 10 пропускаются без `TEST_DATABASE_URL`):
 - **Фазы 01–02:** каркас, клиенты Mock ML и Mock ТОиР по OpenAPI, парк ТС из `mock/data/vehicles.json`, `GET /health` и `GET /ready`, PostgreSQL с миграциями (pgvector), запасной режим `MOUNT_MOCKS=1`. Развёрнуто на Timeweb App Platform.
 - **Фаза 03:** ингест руководств, гибридный поиск (pgvector + полнотекст + реранк) с порогом `RAG_MIN_SCORE`, фильтр по двигателю в SQL, известные противоречия руководств (`data/known_conflicts.yaml`).
-- **Фаза 04:** агент LangGraph и инструменты `get_vehicle`, `get_diagnosis`, `search_manual`, `get_history`, `draft_ticket`, `create_ticket` (отправка только по одноразовому токену), журнал ходов `agent_runs` / `agent_steps`.
+- **Фаза 04:** агент LangGraph и инструменты `get_vehicle`, `get_diagnosis`, `search_manual`, `get_history`, `draft_ticket`, `create_ticket` (отправка только по одноразовому токену), журнал ходов `agent_runs` / `agent_steps` с шагами `error` и `retry` (класс и текст ошибки без секретов). Таймаут вызова модели не меньше 15 с, один повтор при 5xx, таймауте и обрыве (`97cb0f7`).
 - **Фаза 05 (черновик):** мобильный чат, карточка вердикта, экран заявки, дашборд, режимы «Стандартный» / «Новичок» / «Крупный».
 
-Не подтверждено на стенде: агент и поиск зависят от Neuraldeep (с рабочей машины API недоступен). Последний прогон агента 26.11 — 1 из 4 сценариев пройдено, отчёт в [eval/reports/agent_report_2026-11-26_1747.md](eval/reports/agent_report_2026-11-26_1747.md). Повторный ингест и прогон `suite=agent` — на стенде. Подробности и решения: [docs/STATUS.md](docs/STATUS.md).
+Не подтверждено на стенде: агент и поиск зависят от Neuraldeep (с рабочей машины API недоступен). Последний прогон агента на стенде 27.11, 03:59 — 2 из 4 сценариев (C3 и M260EH47), отчёт в [eval/agent_report.md](eval/agent_report.md). Фикс X01 (таймаут, журнал ошибок) ждёт проверки на стенде; регресс по сессии S-0083 добавлен в [eval/agent_scenarios.yaml](eval/agent_scenarios.yaml). Подробности и решения: [docs/STATUS.md](docs/STATUS.md).
 
 ## Модели
 
@@ -34,7 +34,7 @@ FastAPI, Jinja2, HTMX/Alpine.js (мобильное PWA), LangGraph с чекп�
 ```
 app/        FastAPI-приложение: api/ (страницы, /health, /ready), clients/ (ML, ТОиР), data/ (парк ТС), db/ (БД и миграции), config.py
 mock/       заглушки заказчика (Mock ML, Mock ТОиР, данные). Код не меняем; mock/Dockerfile наш
-data/manuals/  руководства (PDF); в образ копируются. manifest.yaml добавляется в фазе 03
+data/manuals/  руководства (PDF); в образ копируются. manifest.yaml — реестр руководств (ТЗ §3.2)
 scripts/    служебные скрипты (замер моделей `bench_models.py`)
 eval/       прогон сценариев С1–С3 и вопросов RAG (фазы 03 и 06), замер моделей `bench.md`
 tests/      тесты (pytest): клиенты против заглушек через TestClient, миграции при TEST_DATABASE_URL
@@ -113,7 +113,7 @@ docker compose -f docker-compose.local.yml up --build
 ## Данные и лицензии
 
 - `mock/data/` — синтетика заказчика; копируется в образ при сборке.
-- `data/manuals/` — руководства заказчика (5 PDF, 2010–2025). Основание публикации: ответ заказчика в Q&A (вопрос 18, «руководства общедоступные»). Файл `yamz-536_rk_2013.pdf` (99 МБ) в git не кладём: по плану его скачивает ingest с Яндекс Диска заказчика (фаза 03, `scripts/fetch_manuals.py`, ещё не написан).
+- `data/manuals/` — руководства заказчика (5 PDF, 2010–2025). Основание публикации: ответ заказчика в Q&A (вопрос 18, «руководства общедоступные»). Файл `yamz-536_rk_2013.pdf` (99 МБ) в git не кладём: его скачивает ingest с Яндекс Диска заказчика и проверяет sha256 (`app/rag/manuals.py`). Отдельного скрипта `scripts/fetch_manuals.py` в репозитории нет.
 - Заявка в ТОиР — только по команде механика; при «нет инструкции» заявка не создаётся (ТЗ §7.1).
 
 ## Лицензия
