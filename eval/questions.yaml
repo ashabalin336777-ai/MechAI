@@ -12,9 +12,9 @@ questions:
   - id: Q02
     question: "Какой тепловой зазор клапанов у ЯМЗ-236М2 на холодном двигателе?"
     engine_model: "ЯМЗ-236М2"
-    expected_manual: "yamz236_rk"
-    expected_page: 267
-    key_numbers: ["0,25", "0,3"]
+    expected_manual: "yamz236_re"
+    expected_page: 31
+    key_numbers: ["0,25", "0,30"]
   - id: Q03
     question: "Какое давление масла в магистрали ЯМЗ-236М2 при номинальной частоте вращения?"
     engine_model: "ЯМЗ-236М2"
