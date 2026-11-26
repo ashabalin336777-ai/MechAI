@@ -12,7 +12,13 @@ import pytest
 
 from app.db.database import apply_migrations
 from app.rag.embeddings import EMBED_DIM
-from app.rag.search import TENANT_ID, Candidate, reciprocal_rank_fusion, search
+from app.rag.search import (
+    TENANT_ID,
+    Candidate,
+    fulltext_query,
+    reciprocal_rank_fusion,
+    search,
+)
 
 TEST_DATABASE_URL = os.environ.get("TEST_DATABASE_URL", "")
 ALLOW_RESET = os.environ.get("TEST_DATABASE_ALLOW_RESET") == "1"
@@ -35,6 +41,16 @@ def test_rrf_counts_each_chunk_once_and_prefers_chunks_found_by_both_lists() -> 
     ids = [candidate.id for candidate in fused]
     assert sorted(ids) == [1, 2, 3, 4]
     assert ids[0] == 3
+
+
+def test_fulltext_query_joins_words_with_or_so_long_hints_still_match() -> None:
+    """plainto_tsquery требовал все слова сразу: подсказки обнуляли полнотекст."""
+    assert fulltext_query("давление масла ЯМЗ-236М2") == "'давление' | 'масла' | 'ямз' | '236м2'"
+
+
+def test_fulltext_query_drops_short_and_empty_input() -> None:
+    assert fulltext_query("а и") == ""
+    assert fulltext_query("") == ""
 
 
 def _unit_vector() -> list[float]:

@@ -15,6 +15,7 @@ CONDITION_FIELDS = (
     "light_in",
     "urgency",
     "tools_include",
+    "tools_exclude",
     "answer_matches",
     "answer_not_matches",
     "journal_contains",
@@ -28,6 +29,7 @@ class Check(BaseModel):
     light_in: list[Literal["green", "yellow", "orange", "red", "grey"]] | None = None
     urgency: Literal["low", "medium", "high"] | None = None
     tools_include: list[str] | None = None
+    tools_exclude: list[str] | None = None
     answer_matches: list[str] | None = None
     answer_not_matches: list[str] | None = None
     journal_contains: str | None = None
@@ -108,6 +110,10 @@ def _judge_check(check: Check, outcome: TurnOutcome) -> CheckResult:
         missing = [name for name in check.tools_include if name not in outcome.tools]
         if missing:
             problems.append(f"не вызваны инструменты: {', '.join(missing)}")
+    if check.tools_exclude:
+        called = [name for name in check.tools_exclude if name in outcome.tools]
+        if called:
+            problems.append(f"вызваны запрещённые инструменты: {', '.join(called)}")
     for pattern in check.answer_matches or []:
         if not re.search(pattern, outcome.answer, re.IGNORECASE):
             problems.append(f"в ответе нет: {pattern}")

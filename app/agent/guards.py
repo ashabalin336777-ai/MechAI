@@ -9,7 +9,8 @@ from pydantic import BaseModel
 
 from app.agent.verdict import Verdict
 from app.clients.toir_client import Reference
-from app.rag.citations import check_citations, split_sentences
+from app.rag.citations import check_citations, split_sentences, unsupported_claims
+from app.rag.conflicts import ConflictNotice
 from app.rag.search import Fragment
 
 UNCONFIRMED_MARK = "(не подтверждено руководством)"
@@ -80,16 +81,24 @@ def check_ticket_draft(
     retrieved: list[Fragment],
     engine_manuals: dict[str, int],
     urgency: str,
+    texts: list[str] | None = None,
 ) -> TicketCheck:
     """ticket_guard (§6.4 п.3): заявки нет при check_failed, normal, без ссылок RAG этого диалога.
 
     engine_manuals: обозначение руководства двигателя ТС -> число страниц PDF.
+    texts: вывод и операции черновика — в них цифры только из фрагментов этого диалога.
     """
     problems: list[str] = []
     if verdict is None:
         return TicketCheck(ok=False, problems=["сначала получите результат диагностики"])
     if not verdict.ticket_possible:
         problems.append(f"заявка не создаётся при вердикте «{verdict.headline}»")
+    for text in texts or []:
+        for claim in unsupported_claims(text, retrieved):
+            problems.append(
+                f"цифра «{claim}» не найдена в руководстве этого диалога: уберите число "
+                "или получите норматив через search_manual"
+            )
     if verdict.urgency is not None and urgency != verdict.urgency:
         problems.append(f"приоритет {urgency} не совпадает с правилом §7.2: {verdict.urgency}")
     if not references:
@@ -122,3 +131,36 @@ def _pages_for(key: str, engine_manuals: dict[str, int]) -> int | None:
 
 def _norm(value: str) -> str:
     return " ".join(value.lower().split())
+
+
+CONFLICT_CLAUSE_RE = re.compile(r"уточн|специалист|производител", re.IGNORECASE)
+
+
+def conflict_notice_problems(answer: str, notices: list[ConflictNotice]) -> list[str]:
+    """Ответ с противоречием обязан: назвать противоречие, дать обе ссылки и безопасное правило."""
+    if not notices:
+        return []
+    lowered = answer.lower()
+    problems: list[str] = []
+    if "противореч" not in lowered:
+        problems.append("нет слов «в документации противоречие»")
+    for notice in notices:
+        for quote in notice.quotes:
+            if f"[{quote.manual}, стр. {quote.pdf_page}]" not in answer:
+                problems.append(f"нет ссылки [{quote.manual}, стр. {quote.pdf_page}]")
+        if notice.safe_rule.lower() not in lowered:
+            problems.append(f"нет безопасного правила «{notice.safe_rule}»")
+    if not CONFLICT_CLAUSE_RE.search(answer):
+        problems.append("нет рекомендации уточнить у специалиста или производителя")
+    return problems
+
+
+def append_conflict_notice(answer: str, notices: list[ConflictNotice]) -> str:
+    """Дописываем обе формулировки, если модель их не дала: механик обязан их увидеть."""
+    lines = ["**В документации противоречие.** Формулировки руководства:"]
+    for notice in notices:
+        for quote in notice.quotes:
+            lines.append(f"- «{quote.quote}» [{quote.manual}, стр. {quote.pdf_page}]")
+        lines.append(f"Безопасное правило: {notice.safe_rule}.")
+    lines.append("Уточните у специалиста или производителя до регулировки.")
+    return f"{answer.rstrip()}\n\n" + "\n".join(lines)

@@ -192,13 +192,14 @@ def test_model_repeating_prefetched_tool_gets_refusal_not_a_second_call() -> Non
     assert [s.error for s in refused] == ["tool_refused"]
 
 
-def test_search_manual_is_limited_to_two_calls_per_turn() -> None:
+def test_search_manual_is_limited_to_three_calls_per_turn() -> None:
     search_call = (
         "search_manual",
         {"query": "момент затяжки головки", "vehicle_id": DIAG_VEHICLE, "top_k": 3},
     )
     llm = ScriptedChat(
         [
+            reply(calls=[search_call]),
             reply(calls=[search_call]),
             reply(calls=[search_call]),
             reply(calls=[search_call]),
@@ -211,4 +212,4 @@ def test_search_manual_is_limited_to_two_calls_per_turn() -> None:
     _run(services, _turn(DIAG_VEHICLE, DIAG_SESSION))
 
     searches = [s for s in services.journal.steps if s.name == "search_manual"]
-    assert [s.error for s in searches] == [None, None, "tool_refused"]
+    assert [s.error for s in searches] == [None, None, None, "tool_refused"]

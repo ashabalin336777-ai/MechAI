@@ -13,7 +13,15 @@ import pymupdf
 MIN_TEXT_CHARS = 100
 HARD_CHARS = 3600
 OVERLAP_CHARS = 400
+# Версия нарезки: при смене правил руководство переиндексируется (см. миграцию 0005).
+CHUNKER_VERSION = 2
 NUMBERED_HEADING = re.compile(r"^\d+(\.\d+)*\.?\s+\S")
+NUMBER_TOKEN = re.compile(r"^\d+([.,]\d+)?$")
+VALUE_CELL = re.compile(r"^[\d.,]+$")
+SECTION_UNIT = re.compile(r",\s*(л|мм|кг|кПа|мин|Н·м|°C)\s*$")
+TABLE_MIN_NUMBERS = 8  # страницы с меньшим числом цифр таблицами не считаем (find_tables медленный)
+TABLE_TRUST = 0.9  # доля слов ячеек, которая должна встречаться в обычном тексте страницы
+WORD_EDGES = "«»\"'()[].,;:"
 
 
 @dataclass(frozen=True)
@@ -92,8 +100,70 @@ def build_manual_text(path: Path) -> ManualText:
             if len("\n".join(lines)) < MIN_TEXT_CHARS:
                 image_only.append(index)
                 continue
+            lines += table_lines(page, raw)
             page_chunks, section = split_lines(lines, section)
             chunks.extend(
                 ChunkDraft(pdf_page=index, section=name, text=text) for name, text in page_chunks
             )
     return ManualText(pages_total=pages_total, image_only_pages=image_only, chunks=chunks)
+
+
+def table_lines(page: pymupdf.Page, raw: str) -> list[str]:
+    """Строки таблиц страницы в виде «строка: колонка значение единица».
+
+    PyMuPDF отдаёт ячейки по одной строке, и единица отрывается от числа: «21» и «л» не рядом,
+    поэтому цифра с единицей не находится как фраза (rag.mdc). Таблица берётся, только если её
+    слова есть в обычном тексте страницы: повёрнутые таблицы PyMuPDF читает задом наперёд.
+    """
+    if sum(1 for token in raw.split() if NUMBER_TOKEN.match(token)) < TABLE_MIN_NUMBERS:
+        return []
+    page_words = {_word(token) for token in raw.split()}
+    lines: list[str] = []
+    for table in page.find_tables().tables:
+        rows = [[" ".join((cell or "").split()) for cell in row] for row in table.extract()]
+        if _trusted(rows, page_words):
+            lines += linearize_rows(rows)
+    return lines
+
+
+def _trusted(rows: list[list[str]], page_words: set[str]) -> bool:
+    tokens = [
+        _word(token) for row in rows for cell in row for token in cell.split() if len(token) >= 3
+    ]
+    if not tokens:
+        return False
+    known = sum(1 for token in tokens if token in page_words)
+    return known / len(tokens) >= TABLE_TRUST
+
+
+def linearize_rows(rows: list[list[str]]) -> list[str]:
+    """Первая строка таблицы — заголовки колонок. Строка с одной ячейкой — раздел с единицей."""
+    if len(rows) < 2:
+        return []
+    header = rows[0]
+    unit: str | None = None
+    lines: list[str] = []
+    for row in rows[1:]:
+        filled = [(index, cell) for index, cell in enumerate(row) if cell]
+        if not filled:
+            continue
+        if len(filled) == 1:
+            label = filled[0][1]
+            unit_match = SECTION_UNIT.search(label)
+            if unit_match:
+                unit = unit_match.group(1)
+            lines.append(label)
+            continue
+        suffix = f" {unit}" if unit else ""
+        pairs = [
+            f"{header[index]} {value}{suffix}"
+            for index, value in filled[1:]
+            if header[index] and VALUE_CELL.match(value)
+        ]
+        if pairs:
+            lines.append(f"{filled[0][1]}: " + "; ".join(pairs))
+    return lines
+
+
+def _word(token: str) -> str:
+    return token.strip(WORD_EDGES).lower()

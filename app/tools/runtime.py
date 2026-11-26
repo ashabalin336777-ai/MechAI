@@ -16,10 +16,17 @@ from app.clients.ml_client import MlClient
 from app.clients.toir_client import ToirClient
 from app.data.vehicles import VehicleStore
 from app.db.agent_store import AgentStore
+from app.rag.conflicts import ConflictNotice, KnownConflict
 from app.rag.manifest import Manifest
 from app.rag.search import Fragment
 
 SearchFn = Callable[[str, str, int], list[Fragment]]
+# Страницы руководства: (модель двигателя, обозначение руководства, номера страниц PDF).
+PageFetchFn = Callable[[str, str, list[int]], list[Fragment]]
+
+
+def no_pages(engine_model: str, designation: str, pages: list[int]) -> list[Fragment]:
+    return []
 
 
 @dataclass
@@ -32,6 +39,8 @@ class ToolDeps:
     store: AgentStore
     search: SearchFn
     tenant_id: str = "demo"
+    conflicts: list[KnownConflict] = field(default_factory=list)
+    fetch_pages: PageFetchFn = no_pages
 
 
 @dataclass
@@ -46,6 +55,8 @@ class TurnContext:
     events: list[tuple[str, dict[str, Any]]] = field(default_factory=list)
     # Карточку вердикта показываем в первом ходе сессии и по кнопке «Получить результат».
     show_verdict: bool = True
+    # Противоречия руководства, найденные в этом ходе: ответ обязан их показать (guards.py).
+    conflicts: list[ConflictNotice] = field(default_factory=list)
 
     def remember(self, fragments: list[Fragment]) -> None:
         """Фрагменты диалога копим без дублей: по (руководство, страница, начало текста)."""

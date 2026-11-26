@@ -51,6 +51,7 @@ def run(rt: Runtime, args: Args) -> dict:
         retrieved=turn.retrieved,
         engine_manuals=rt.engine_manuals(vehicle.engine_model),
         urgency=args.urgency,
+        texts=[args.conclusion, *args.operations, *args.spare_parts],
     )
     if not check.ok or verdict is None:
         return {

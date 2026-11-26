@@ -57,6 +57,20 @@ def check_citations(answer: str, fragments: list[Fragment]) -> CitationCheck:
     return CitationCheck(ok=not problems, problems=problems)
 
 
+def unsupported_claims(text: str, fragments: list[Fragment]) -> list[str]:
+    """Цифры с единицей из текста, которых нет ни в одном фрагменте (для черновика заявки)."""
+    known = {
+        _claim_key(number, unit)
+        for fragment in fragments
+        for number, unit in CLAIM_RE.findall(fragment.text)
+    }
+    return [
+        match.group(0)
+        for match in CLAIM_RE.finditer(text)
+        if _claim_key(match.group(1), match.group(2)) not in known
+    ]
+
+
 def split_sentences(answer: str) -> list[str]:
     """Фразы ответа. Ссылки прячутся за маркеры, чтобы точки внутри них не резали фразу."""
     stashed: dict[str, str] = {}

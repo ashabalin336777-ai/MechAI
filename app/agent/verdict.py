@@ -8,20 +8,12 @@ from typing import Literal
 
 from pydantic import BaseModel, Field
 
+from app.agent.compat import FUEL_ADJECTIVE, fuel_mismatch
+
 CRITICAL_TYPES = frozenset({"F02", "F03", "F14"})  # давление масла, перегрев/ОЖ, цепь ГРМ (§7.2)
 RISE_HIGH = 0.3  # рост score за последние проверки, при котором приоритет high (§7.2)
-FUEL_HINTS: dict[str, tuple[frozenset[str], str]] = {
-    "дизель": (
-        frozenset({"F12", "F13"}),
-        "код типа обычно относится к бензиновому двигателю; проверьте тип проверки и запись",
-    ),
-    "бензин": (
-        frozenset({"F08"}),
-        "код типа обычно относится к дизельной топливоподаче; проверьте тип проверки и запись",
-    ),
-}
 
-VerdictCode = Literal["normal", "check_failed", "anomaly", "needs_confirmation"]
+VerdictCode = Literal["normal", "check_failed", "anomaly", "needs_confirmation", "mismatch"]
 Urgency = Literal["low", "medium", "high"]
 Light = Literal["green", "yellow", "orange", "red", "grey"]
 SignalQuality = Literal["good", "warning", "bad"]
@@ -88,9 +80,10 @@ def _anomaly_verdict(data: VerdictInput, thresholds: Thresholds) -> Verdict:
     code: VerdictCode = "needs_confirmation" if needs_confirmation else "anomaly"
     name = data.anomaly_title or data.anomaly_type or "неисправность"
     reasons = _basis(data, thresholds, score)
-    fuel_hint = FUEL_HINTS.get(data.fuel)
-    if fuel_hint and data.anomaly_type in fuel_hint[0]:
-        reasons.append(fuel_hint[1])
+
+    required = fuel_mismatch(data.anomaly_type, data.fuel)
+    if required is not None:
+        return _mismatch_verdict(data, name, required, reasons)
 
     if needs_confirmation:
         # §7.2: любой «требует подтверждения» — приоритет не выше medium
@@ -114,6 +107,25 @@ def _anomaly_verdict(data: VerdictInput, thresholds: Thresholds) -> Verdict:
         urgency=urgency,
         reasons=reasons,
         recording_ok=True,
+    )
+
+
+def _mismatch_verdict(
+    data: VerdictInput, name: str, required_fuel: str, reasons: list[str]
+) -> Verdict:
+    """Код неисправности не применим к топливу ТС: 🟡 «Нет инструкции», без приоритета и заявки."""
+    reasons.append(
+        f"код {data.anomaly_type} относится к двигателю на «{required_fuel}», у ТС «{data.fuel}»"
+    )
+    reasons.append("процедуру по этому коду не подбираем: нужна повторная дефектовка узла")
+    adjective = FUEL_ADJECTIVE.get(data.fuel, data.fuel)
+    return Verdict(
+        code="mismatch",
+        light="yellow",
+        headline=f"Несоответствие: «{name}» не относится к {adjective} двигателю",
+        urgency=None,
+        reasons=reasons,
+        recording_ok=data.signal_quality == "good",
     )
 
 

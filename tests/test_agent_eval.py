@@ -8,6 +8,7 @@ from pydantic import ValidationError
 from app.agent.evaluation import render_report, run_agent_report, run_scenario
 from app.agent.runner import load_base_prompt
 from app.agent.scenarios import Check, Scenario, ScenarioFile, TurnOutcome, judge, load_scenarios
+from app.rag.conflicts import load_conflicts
 from app.rag.search import Fragment
 from tests.agent_helpers import DIAG_VEHICLE, ScriptedChat, make_services, reply
 from tests.helpers import REPO_ROOT
@@ -77,6 +78,10 @@ def _search(query: str, engine: str, top_k: int) -> list[Fragment]:
     return _fragments(engine)
 
 
+def _fetch_pages(engine: str, designation: str, pages: list[int]) -> list[Fragment]:
+    return [f for f in _fragments(engine) if f.manual == designation and f.pdf_page in pages]
+
+
 def _scripted_llm() -> ScriptedChat:
     return ScriptedChat(
         [
@@ -97,19 +102,12 @@ def _scripted_llm() -> ScriptedChat:
                 content="Повторите запись: сигнал плохого качества, диагноз не ставлю. "
                 "Заявку не формирую."
             ),
-            # ЯМЗ-536: процедуры нет, дефектовка, без заявки
+            # ЯМЗ-536: F13 не относится к дизелю — несоответствие, процедуру не ищем, без заявки
             reply(calls=[("get_diagnosis", {"vehicle_id": "M260EH47", "session_id": "S-0079"})]),
             reply(
-                calls=[
-                    (
-                        "search_manual",
-                        {"query": "подача бензина F13", "vehicle_id": "M260EH47", "top_k": 3},
-                    )
-                ]
-            ),
-            reply(
-                content="В руководстве на ЯМЗ-536 этих данных нет. Рекомендую дефектовку "
-                "топливной системы; заявку по этой проверке не формирую."
+                content="Код F13 «Подача бензина» не относится к дизельному двигателю ЯМЗ-536: "
+                "это несоответствие диагноза. Процедуру не подбираю. Рекомендую повторную "
+                "дефектовку топливной системы; заявку по этой проверке не формирую."
             ),
             # X01: обе формулировки со ссылками, противоречие, уточнение
             reply(
@@ -215,6 +213,8 @@ def test_full_suite_passes_with_scripted_model() -> None:
     llm = _scripted_llm()
     template = make_services(llm)
     template.deps.search = _search
+    template.deps.conflicts = load_conflicts(REPO_ROOT / "data" / "known_conflicts.yaml")
+    template.deps.fetch_pages = _fetch_pages
     scenarios = load_scenarios(SCENARIOS_PATH)
 
     runs = [run_scenario(template, scenario, load_base_prompt()) for scenario in scenarios]
@@ -225,7 +225,7 @@ def test_full_suite_passes_with_scripted_model() -> None:
         if not run.passed
     ]
     assert failures == []
-    assert len(llm.calls) == 10
+    assert len(llm.calls) == 9
     assert runs[0].ttft_ms == 120
     assert runs[0].tok_per_s == 40.0
 

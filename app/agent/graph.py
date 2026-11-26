@@ -18,7 +18,9 @@ from langgraph.graph.message import add_messages
 from pydantic import ValidationError
 
 from app.agent.guards import (
+    append_conflict_notice,
     check_answer,
+    conflict_notice_problems,
     find_injection_markers,
     redact_injection,
     sanitize_answer,
@@ -40,7 +42,7 @@ MIN_CALL_TIMEOUT_S = 5.0
 # Данные машины грузим кодом параллельно до первого вызова модели: результаты уже в контексте.
 PREFETCH_TOOLS = ("get_vehicle", "get_diagnosis", "get_history")
 # Инструмент, который можно вызвать не больше N раз за ход (остальное — текст отказа модели).
-MAX_CALLS_PER_TOOL = {"search_manual": 2}
+MAX_CALLS_PER_TOOL = {"search_manual": 3}
 PREFETCHED_TEXT = "Этот инструмент уже вызван в начале хода: его данные есть в контексте."
 LIMIT_TEXT = "Лимит вызовов этого инструмента в ходе исчерпан: ответь по уже полученным данным."
 
@@ -195,6 +197,18 @@ def build_graph(deps: AgentDeps, checkpointer: Any) -> Any:
                 output={"ok": check.ok, "problems": check.problems},
             )
         )
+        notice_problems = conflict_notice_problems(text, deps.turn.conflicts)
+        if notice_problems:
+            text = append_conflict_notice(text, deps.turn.conflicts)
+            deps.record(
+                StepRecord(
+                    run_id=deps.run_id,
+                    n=deps.next_step(),
+                    kind="guardrail",
+                    name="conflict_notice",
+                    output={"problems": notice_problems},
+                )
+            )
         return {"messages": [AIMessage(id=last.id, content=text)]}
 
     def route_after_agent(state: AgentState) -> str:

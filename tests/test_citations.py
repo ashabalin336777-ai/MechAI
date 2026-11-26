@@ -1,9 +1,14 @@
 """Проверка цитат: цифра без ссылки, ссылка на неполученную страницу, нормализация единиц."""
 
-from app.rag.citations import check_citations
+from app.rag.citations import check_citations, unsupported_claims
 from app.rag.search import Fragment
 
 DESIGNATION = "536.01.02 РК"
+
+
+def test_unsupported_claims_lists_numbers_missing_from_fragments() -> None:
+    fragment = _fragment("Затяжка 150 Н·м")
+    assert unsupported_claims("Затяжка 150 Н·м и 2 мм", [fragment]) == ["2 мм"]
 
 
 def _fragment(text: str, page: int = 45, manual: str = DESIGNATION) -> Fragment:

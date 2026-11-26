@@ -18,12 +18,13 @@ from app.config import Settings
 from app.data.vehicles import VehicleStore
 from app.db.agent_store import MemoryAgentStore, PgAgentStore
 from app.obs.journal import MemoryJournal, PgJournal
+from app.rag.conflicts import load_conflicts
 from app.rag.embeddings import EmbeddingClient
 from app.rag.manifest import Manifest
 from app.rag.rerank import RerankClient
-from app.rag.search import Fragment, search
+from app.rag.search import TENANT_ID, Fragment, fetch_manual_pages, search
 from app.tools.registry import build_registry
-from app.tools.runtime import SearchFn, ToolDeps
+from app.tools.runtime import PageFetchFn, SearchFn, ToolDeps, no_pages
 
 logger = logging.getLogger("app.agent")
 
@@ -48,6 +49,8 @@ def build_agent_services(
         toir=toir,
         store=PgAgentStore(settings.database_url) if database else MemoryAgentStore(),
         search=_build_search(settings),
+        conflicts=load_conflicts(settings.known_conflicts_path),
+        fetch_pages=_build_fetch_pages(settings),
     )
     llm = NeuraldeepChat(
         api_key=settings.neuraldeep_api_key,
@@ -110,3 +113,14 @@ def _build_search(settings: Settings) -> SearchFn:
             )
 
     return run_search
+
+
+def _build_fetch_pages(settings: Settings) -> PageFetchFn:
+    if not settings.database_url:
+        return no_pages
+
+    def fetch(engine_model: str, designation: str, pages: list[int]) -> list[Fragment]:
+        with psycopg.connect(settings.database_url, connect_timeout=5) as conn:
+            return fetch_manual_pages(conn, TENANT_ID, engine_model, designation, pages)
+
+    return fetch

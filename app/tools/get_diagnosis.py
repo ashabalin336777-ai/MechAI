@@ -92,6 +92,13 @@ def _record(rt: Runtime, verdict: Verdict) -> None:
             "repeat_recording",
             "Повторите запись: сбой проверки или плохое качество сигнала.",
         )
+    if verdict.code == "mismatch":
+        rt.deps.store.save_recommendation(
+            turn.vehicle_id,
+            turn.session_id,
+            "defect_inspection_no_procedure",
+            "Код неисправности не применим к топливу двигателя: нужна повторная дефектовка узла.",
+        )
     if verdict.code == "needs_confirmation":
         rt.deps.store.save_recommendation(
             turn.vehicle_id,

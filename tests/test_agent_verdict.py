@@ -105,16 +105,29 @@ def test_rise_of_score_gives_high() -> None:
     assert any("рост оценки" in reason for reason in verdict.reasons)
 
 
-def test_diesel_with_petrol_code_gets_fuel_hint() -> None:
-    verdict = compute_verdict(_input(anomaly_type="F12", fuel="дизель"), THRESHOLDS)
-    assert any("бензиновому" in reason for reason in verdict.reasons)
+def test_diesel_with_petrol_code_is_mismatch_not_a_procedure() -> None:
+    """ТЗ §17.1: F13 («подача бензина») у дизеля — 🟡 «Нет инструкции», приоритета и заявки нет."""
+    verdict = compute_verdict(_input(anomaly_type="F13", fuel="дизель"), THRESHOLDS)
+    assert verdict.code == "mismatch"
+    assert verdict.light == "yellow"
+    assert verdict.urgency is None
+    assert not verdict.ticket_possible
+    assert any("бензиновом" in reason or "бензин" in reason for reason in verdict.reasons)
 
 
-def test_petrol_with_diesel_code_gets_fuel_hint() -> None:
+def test_petrol_with_diesel_code_is_mismatch() -> None:
     verdict = compute_verdict(_input(anomaly_type="F08", fuel="бензин"), THRESHOLDS)
-    assert any("дизельной" in reason for reason in verdict.reasons)
+    assert verdict.code == "mismatch"
+    assert "бензиновому" in verdict.headline
+    assert any("дизель" in reason for reason in verdict.reasons)
 
 
-def test_matching_fuel_has_no_hint() -> None:
-    verdict = compute_verdict(_input(anomaly_type="F08", fuel="дизель"), THRESHOLDS)
-    assert not any("обычно относится" in reason for reason in verdict.reasons)
+def test_petrol_code_on_petrol_engine_is_a_normal_anomaly() -> None:
+    verdict = compute_verdict(_input(anomaly_type="F13", fuel="бензин"), THRESHOLDS)
+    assert verdict.code == "anomaly"
+    assert verdict.ticket_possible
+
+
+def test_code_without_fuel_rule_is_not_a_mismatch() -> None:
+    verdict = compute_verdict(_input(anomaly_type="F02", fuel="дизель"), THRESHOLDS)
+    assert verdict.code != "mismatch"

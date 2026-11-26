@@ -14,7 +14,7 @@ import psycopg
 
 from app.config import Settings, get_settings
 from app.db.database import describe_error
-from app.rag.chunking import ChunkDraft, build_manual_text
+from app.rag.chunking import CHUNKER_VERSION, ChunkDraft, build_manual_text
 from app.rag.embeddings import EmbeddingClient, EmbeddingError, vector_literal
 from app.rag.manifest import ManualEntry, load_manifest
 from app.rag.manuals import ManualFileError, ensure_manual_file
@@ -98,15 +98,16 @@ def _ingest_manual(
 
 
 def _already_indexed(database_url: str, entry: ManualEntry) -> bool:
+    """Пропуск только если тот же файл, та же версия нарезки и чанки уже записаны."""
     with psycopg.connect(database_url, connect_timeout=5) as conn:
         row = conn.execute(
-            "SELECT m.sha256, "
+            "SELECT m.sha256, m.chunker_version, "
             "(SELECT count(*) FROM chunks c "
             "WHERE c.tenant_id = m.tenant_id AND c.manual_id = m.id) "
             "FROM manuals m WHERE m.tenant_id = %s AND m.id = %s",
             (TENANT_ID, entry.id),
         ).fetchone()
-    return row is not None and row[0] == entry.sha256 and row[1] > 0
+    return row is not None and row[0] == entry.sha256 and row[1] == CHUNKER_VERSION and row[2] > 0
 
 
 def _store(
@@ -128,11 +129,12 @@ def _store(
     with psycopg.connect(database_url, connect_timeout=5) as conn:
         conn.execute(
             "INSERT INTO manuals (tenant_id, id, designation, title, year, file_name, sha256, "
-            "pages, engine_models) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s) "
+            "pages, engine_models, chunker_version) "
+            "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s) "
             "ON CONFLICT (tenant_id, id) DO UPDATE SET designation = EXCLUDED.designation, "
             "title = EXCLUDED.title, year = EXCLUDED.year, file_name = EXCLUDED.file_name, "
             "sha256 = EXCLUDED.sha256, pages = EXCLUDED.pages, "
-            "engine_models = EXCLUDED.engine_models",
+            "engine_models = EXCLUDED.engine_models, chunker_version = EXCLUDED.chunker_version",
             (
                 TENANT_ID,
                 entry.id,
@@ -143,6 +145,7 @@ def _store(
                 entry.sha256,
                 entry.pages,
                 entry.engine_models,
+                CHUNKER_VERSION,
             ),
         )
         conn.execute(

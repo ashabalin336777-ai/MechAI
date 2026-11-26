@@ -29,6 +29,7 @@ class Settings(BaseSettings):
     vehicles_path: Path = Path("mock/data/vehicles.json")
     fault_types_path: Path = Path("mock/data/fault_types.json")
     manuals_dir: Path = Path("data/manuals")
+    known_conflicts_path: Path = Path("data/known_conflicts.yaml")
     manuals_yadisk_url: str = "https://disk.yandex.ru/d/QdAA8p4m0ySe8Q"
 
     conf_low: float = Field(default=0.60, ge=0, le=1)
