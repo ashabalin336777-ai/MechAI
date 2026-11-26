@@ -82,6 +82,23 @@ def test_sanitize_replaces_unsupported_sentence_only() -> None:
     assert UNCONFIRMED_MARK in cleaned
 
 
+def test_sanitize_keeps_line_breaks_for_markdown() -> None:
+    """Раньше переносы схлопывались в пробелы: заголовки и списки не отображались в UI."""
+    answer = (
+        "## Вердикт\n"
+        f"Момент 150 Н·м [{YAMZ236_RK}, стр. 267].\n\n"
+        "## Этапы работ\n"
+        f"1. Снять головку. Зазор 0,3 мм [{YAMZ236_RK}, стр. 267].\n"
+        f"2. Проверить затяжку [{YAMZ236_RK}, стр. 267]."
+    )
+    cleaned = sanitize_answer(answer, [_fragment()])
+    assert cleaned.startswith("## Вердикт\nМомент 150 Н·м")
+    assert "\n\n## Этапы работ\n" in cleaned
+    assert "\n2. Проверить затяжку" in cleaned
+    assert "0,3" not in cleaned
+    assert UNCONFIRMED_MARK in cleaned
+
+
 @pytest.mark.parametrize(
     ("code", "urgency", "problem"),
     [

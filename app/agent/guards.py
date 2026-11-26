@@ -59,14 +59,25 @@ def check_answer(answer: str, fragments: list[Fragment]) -> AnswerCheck:
 
 
 def sanitize_answer(answer: str, fragments: list[Fragment]) -> str:
-    """Фразы с непроверенными цифрами или ссылками заменяем пометкой (ТЗ §6.4, п.1)."""
-    kept: list[str] = []
+    """Фразы с непроверенными цифрами или ссылками заменяем пометкой (ТЗ §6.4, п.1).
+
+    Переносы строк и отступы между фразами сохраняем: по ним интерфейс строит заголовки и списки.
+    Заменяется только сама фраза, разделители из исходного текста остаются как были.
+    """
+    out: list[str] = []
+    cursor = 0
     for sentence in split_sentences(answer):
+        start = answer.find(sentence, cursor)
+        if start < 0:
+            continue
+        out.append(answer[cursor:start])
         if not sentence.strip() or check_citations(sentence, fragments).ok:
-            kept.append(sentence)
+            out.append(sentence)
         else:
-            kept.append(UNCONFIRMED_MARK)
-    return " ".join(part.strip() for part in kept if part.strip())
+            out.append(UNCONFIRMED_MARK)
+        cursor = start + len(sentence)
+    out.append(answer[cursor:])
+    return "".join(out).strip()
 
 
 class TicketCheck(BaseModel):
