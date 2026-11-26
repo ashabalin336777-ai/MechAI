@@ -1,42 +1,47 @@
 # AGENTS.md — MechAI («Цифровой механик»)
 
-Краткий регламент для Cursor Agent. Полное ТЗ: `docs/TZ.md` (в репозитории спринта скопировать ТЗ в `docs/TZ.md` или оставить ссылку). Обновлено 26.11.2026 под новую редакцию Положения.
+Регламент для Cursor Agent. Полное ТЗ: `docs/TZ.md` (редакция 26.11 v2). Промпты фаз: `docs/prompts/00…10`. Модели: `docs/models.md`. Требования заказчика: `docs/customer/`, заглушки и данные: `mock/`.
 
-## Когда писать код
+## Сроки
+- Спринт идёт: до **28.11 10:00 МСК (14:00 Нск)**. Оценивается последний коммит до этого времени. Наша заморозка — 13:30 Нск.
+- Коммит после каждой фазы, сообщения по делу. История проверяется.
 
-Код продукта — только после **26.11.2026 10:00 МСК** (14:00 Asia/Novosibirsk). Сдача формы и **заморозка последнего учитываемого коммита** — до **28.11.2026 10:00 МСК** (14:00 Новосибирск). После этой отметки новые коммиты в оценку не входят.
+## Приоритеты (строго по порядку)
+1. Обязательный минимум **F1–F7** и сценарии **С1–С3** на стенде (без них проект не оценивают).
+2. **B1** память, **B2** график, **B3** «Главный механик».
+3. Пожелания заказчика: голос (whisper-1), режимы «Новичок»/«Крупный», журнал агента, SaaS/роли, 152-ФЗ.
+4. Опция: адаптер датчиков/CAN `get_sensor_telemetry`.
+Не начинать пункт ниже, пока выше не работает на стенде.
 
-## Репозиторий и секреты
+## Данные
+- ТС и проверки: `mock/data/vehicles.json` (50 ТС, 195 проверок). Справочник F01–F14: `mock/data/fault_types.json`. Код в `mock/` **не менять** (это компонент заказчика).
+- Руководства: `data/manuals/*.pdf` + `data/manuals/manifest.yaml`. `yamz-536_rk_2013.pdf` (99 МБ) в git не кладём — `scripts/fetch_manuals.py` скачивает его с Яндекс Диска заказчика.
+- Старые данные (Cummins ISF 2.8, ГАЗель, S1–S5, схема v1.1, 1С) **не использовать**.
 
-- Продукт: **MechAI**, агент «Цифровой механик». Репозиторий уже создан и публичный: https://github.com/ashabalin336777-ai/MechAI (ветка `main`). Не пересоздавать. Историю коммитов проверяют — коммитить часто, сообщения осмысленные. Код продукта — только после старта спринта.
-- Секреты (ключи Neuraldeep, PIN, JWT, строки подключения, `.env`) — только в переменных окружения или секретах App Platform, никогда в git и исходниках.
-- Обязательны `.gitignore` (включая `.env`), `.env.example` без значений-секретов, `LICENSE` (MIT), README с инструкцией запуска (локально и App Platform).
-- Официальные руководства Cummins при неясной лицензии **не коммитить**. Синтетический корпус можно включить в образ; официальные файлы — ingest из S3 или скриптом.
-- До объявления итогов доступ к репозиторию не закрывать.
+## Контракты (точно по `mock/openapi_ml.json` и `mock/openapi_toir.json`)
+- `POST {MOCK_ML_URL}/diagnose` `{vehicle_id, session_id}` → `status normal|anomaly|check_failed`, `anomaly_type F01…F14|null`, `anomaly_title`, `anomaly_score`, `confidence`, `signal_quality good|warning|bad`, `description`, `model_version`.
+- `POST {MOCK_TOIR_URL}/tickets` все поля обязательны: `vehicle_id, session_id, anomaly_type, conclusion, urgency low|medium|high, operations[≥1], spare_parts[], references[≥1]{manual, pdf_page≥1}` → 201 `{ticket_id, status:"created"}`.
+- URL только из `.env`.
 
-## Стек (не менять без явной просьбы)
+## Стек (не менять без просьбы)
+Python 3.12, FastAPI, Jinja2, HTMX, Alpine.js, Pydantic v2, httpx, LangGraph, openai SDK → Neuraldeep `https://api.neuraldeep.ru/v1`, PostgreSQL + pgvector (Timeweb Managed), Docker Compose на Timeweb App Platform. Модели: `AGENT_MODEL=qwen3.6-fp8`, `EMBED_MODEL=bge-m3`, `RERANK_MODEL=bge-reranker`, `STT_MODEL=whisper-1`. Нет: Streamlit, React, Qdrant, Redis, Langfuse, Nginx, модели «вне РФ».
 
-- Python 3.12, FastAPI, Uvicorn, Jinja2, HTMX, Alpine.js, Pydantic
-- LangGraph + checkpointer в Postgres
-- PostgreSQL (Timeweb DBaaS) + pgvector + tsvector; **без Qdrant, без Langfuse, без Redis в MVP**
-- Файлы — Timeweb S3
-- LLM: Neuraldeep `https://api.neuraldeep.ru/v1` (openai SDK). Tool-loop — `FAST_MODEL` (qwen3.6-fp8), гипотезы/черновик — `REASONING_MODEL` (qwen3.8-27b, TTFT высокий)
-- Деплой: Docker Compose на Timeweb App Platform из **публичного** репозитория. В compose **нельзя** `volumes` и прочие запреты из ТЗ §13. Первый сервис получает домен. Порты 80/443 на хосте запрещены
-- UI: вертикальное мобильное PWA, гибрид B+E+D, **все строки интерфейса на русском**
+## Жёсткие правила агента
+- Инструменты отдельные: `get_vehicle`, `get_diagnosis`, `search_manual`, `get_history`, `draft_ticket`, `create_ticket` (+ опц. `get_sensor_telemetry`). Выбор инструмента — моделью, не цепочкой if-else.
+- `search_manual` всегда фильтрует по двигателю ТС (фильтр в коде инструмента).
+- Цифры и нормативы — только из найденных фрагментов этого диалога, со ссылкой `[обозначение, стр. N]`. Нет данных → «нет данных в руководстве на <двигатель>» + рекомендация дефектовки.
+- `check_failed`/`bad` → без выводов о двигателе, без заявки.
+- Заявка: только по команде механика и после подтверждения состава; при «нет инструкции» не отправлять.
+- Пороги и приоритет — `docs/TZ.md` §7, основание показывать механику.
+- Каждый шаг агента пишется в журнал (`agent_runs`, `agent_steps`): токены, мс, ток/с, ₽.
 
-## Правила реализации
+## Деплой
+Compose: первый сервис `app` (порт 8000, получает домен), затем `mock_ml` (8001), `mock_toir` (8002). Запрещено: `volumes`, `privileged`, `extra_hosts`, `network_mode: host`, `include`, `extends`, `external`, `name`, `driver_opts`, хост-порты 80/443. Запасной режим `MOUNT_MOCKS=1`. Стенд работает до 23:59 3.12.
 
-- Восемь инструментов: `get_engine_card`, `get_ml_diagnosis`, `search_manuals`, `get_manual_page`, `get_defect_history`, `ask_mechanic`, `draft_defect_request`, `submit_defect_request`
-- `submit_defect_request` только с `confirmation_token`, выданным UI, и только роль `мастер`
-- Ответ с гипотезой — только с цитатой страницы из `data/manuals/chunks.jsonl` (дословно)
-- Лимит инструментов: цель 8, максимум 10
-- Тесты обязательны на auth (lockout, хеш) и на отказ submit без токена / под администратором
-- Данные — синтетические, из `data/` (копия `agent_data`)
-- Не подключать Neuraldeep Drift как оркестратор
-- Стенд держать до питча **1–3 декабря**: `/health` без авторизации, seed демо-данных, режим деградации при недоступности LLM (понятное сообщение, не 500 и не скрытая подмена ответа модели)
+## Секреты
+Публичный репозиторий. Ключи, PIN, `JWT_SECRET`, `DATABASE_URL` — только в env / секретах App Platform. В git — `.env.example` без значений.
 
-## Стиль
-
-- Python: типы, ruff/форматирование, короткие модули, без «магических» глобальных синглтонов
-- Комментарии — по делу, на русском или английском; UI-копирайт — только русский
-- Не коммитить `.env`, ключи, PIN, дампы базы
+## Как работать
+- Одна фаза = один новый чат, прикреплять `@docs/prompts/NN_*.md` и только нужные файлы.
+- После фазы: `pytest -q`, ручная проверка, коммит.
+- Юнит-тесты не ходят в настоящий Neuraldeep (мок клиента). `eval/run_scenarios.py` — ходит.

@@ -1,23 +1,26 @@
 ---
-description: Стек и ограничения деплоя «Цифровой механик»
+description: Стек, деплой и модели MechAI
 alwaysApply: true
 ---
 
-Стек MVP: Python 3.12, FastAPI, Jinja2, HTMX, Alpine.js, Pydantic, LangGraph
-(чекпоинты в Postgres), openai SDK к https://api.neuraldeep.ru/v1,
-управляемый PostgreSQL с pgvector и tsvector, Timeweb S3.
+Стек: Python 3.12, FastAPI, Jinja2, HTMX, Alpine.js, Pydantic v2, httpx,
+LangGraph, openai SDK к https://api.neuraldeep.ru/v1, PostgreSQL + pgvector
+(Timeweb Managed, регион РФ). Не добавлять: Streamlit, React/Vite, Qdrant,
+Redis, Langfuse, Nginx, отдельный фронтенд-контейнер, Kubernetes.
 
-Не добавлять в MVP без явной просьбы: Streamlit, React/Vite, Qdrant,
-Langfuse, Redis/Valkey, Nginx, отдельный фронтенд-контейнер, Kubernetes.
+Хостинг — Timeweb App Platform + Docker Compose. Запрещено в compose:
+volumes, privileged, extra_hosts, network_mode host, include, extends,
+external, name, driver_opts, хост-порты 80/443. Первый сервис — app
+(порт 8000, получает домен), затем mock_ml (8001) и mock_toir (8002) из
+каталога mock/. Запасной режим MOUNT_MOCKS=1 монтирует заглушки в app.
 
-Хостинг — Timeweb App Platform + Docker Compose. В docker-compose.yml
-запрещены volumes, privileged, extra_hosts, network_mode host,
-include, extends, external, name, driver_opts. Хост-порты 80 и 443
-нельзя. Первый сервис в файле получает основной домен.
+Состояние — только в Postgres. vehicles.json и PDF копируются в образ (COPY).
+URL заглушек и датчиков — только из env (MOCK_ML_URL, MOCK_TOIR_URL, SENSORS_URL).
 
-Состояние только во внешней Postgres и в S3, не в локальных томах.
-Данные синтетики копируются в образ при сборке (COPY).
+Модели (только «в РФ»): AGENT_MODEL=qwen3.6-fp8 (tool loop + стрим),
+AGENT_FALLBACK_MODEL=qwen3.8-flash-next-ru-noreason, EMBED_MODEL=bge-m3,
+RERANK_MODEL=bge-reranker, STT_MODEL=whisper-1. qwen3.8-27b в горячий путь
+не ставить (TTFT ~19 с). На каждый LLM-вызов писать ttft_ms, токены, tok_per_s.
 
-Модели продукта: FAST_MODEL (qwen3.6-fp8) для tool-loop,
-REASONING_MODEL (qwen3.8-27b) только для гипотез и черновика заявки.
-Не вызывать 27b на каждый tool-call (высокая задержка TTFT).
+Код в mock/ — компонент заказчика, не редактировать (кроме нашего
+mock/Dockerfile и опционального mock/mock_sensors/).
