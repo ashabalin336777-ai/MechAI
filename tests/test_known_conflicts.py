@@ -4,8 +4,17 @@
 и безопасное правило; если модель этого не сделала, блок дописывается кодом.
 """
 
+import pymupdf
+import pytest
+
 from app.agent.runner import TurnRequest, load_base_prompt, run_turn
-from app.rag.conflicts import KnownConflict, load_conflicts, matching_conflicts, quote_for
+from app.rag.conflicts import (
+    KnownConflict,
+    load_conflicts,
+    matching_conflicts,
+    quote_for,
+    quote_for_ref,
+)
 from app.rag.search import Fragment
 from tests.agent_helpers import DIAG_SESSION, DIAG_VEHICLE, ScriptedChat, make_services, reply
 from tests.helpers import REPO_ROOT
@@ -17,10 +26,30 @@ X01_QUERY = "Когда регулировать тепловые зазоры �
 X01_SEARCH = "тепловой зазор клапанов холодный двигатель 15 минут регулировка тепловых зазоров"
 
 
-def _conflict() -> KnownConflict:
-    conflicts = load_conflicts(CONFLICTS_PATH)
-    assert len(conflicts) == 1
-    return conflicts[0]
+OIL_ID = "yamz236_oil_pressure"
+OIL_QUERY = "давление масла номинальной частоте минимальной холостого хода"
+
+
+def _conflict(conflict_id: str = "yamz236_valve_clearance_timing") -> KnownConflict:
+    conflicts = {conflict.id: conflict for conflict in load_conflicts(CONFLICTS_PATH)}
+    assert len(conflicts) == 2
+    return conflicts[conflict_id]
+
+
+def _real_page_fragment(file_name: str, designation: str, page: int) -> Fragment | None:
+    path = REPO_ROOT / "data" / "manuals" / file_name
+    if not path.exists():
+        return None
+    with pymupdf.open(path) as document:
+        text = document[page - 1].get_text("text")
+    return Fragment(
+        manual_id="yamz236_rk",
+        manual=designation,
+        pdf_page=page,
+        section=None,
+        text=text,
+        score=1.0,
+    )
 
 
 def _page_fragments(designation: str, page: int) -> list[Fragment]:
@@ -187,3 +216,59 @@ def test_single_formulation_is_not_reported_as_conflict() -> None:
 
     search = next(step for step in services.journal.steps if step.name == "search_manual")
     assert "conflicts" not in search.output
+
+
+def test_oil_pressure_rule_has_both_refs_and_narrow_safe_rule() -> None:
+    conflict = _conflict(OIL_ID)
+    assert [(ref.manual, ref.pdf_page) for ref in conflict.refs] == [
+        ("236.01.01 РК", 12),
+        ("236.01.01 РК", 267),
+    ]
+    assert conflict.refs[0].quote == (
+        "Давление в масляной системе при номинальных оборотах: 400-730 (4-7,3) кПа"
+    )
+    assert "400–700 кПа" in conflict.safe_rule
+
+
+def test_oil_pressure_rule_matches_its_query_but_not_a_single_term() -> None:
+    conflicts = [_conflict(OIL_ID)]
+    assert matching_conflicts(conflicts, "ЯМЗ-236М2", OIL_QUERY)
+    assert not matching_conflicts(conflicts, "ЯМЗ-236М2", "давление масла при прогреве")
+    assert not matching_conflicts(conflicts, "ЯМЗ-536", OIL_QUERY)
+
+
+def test_rule_quote_is_used_when_its_numbers_are_on_the_page() -> None:
+    conflict = _conflict(OIL_ID)
+    fragment = Fragment(
+        manual_id="yamz236_rk",
+        manual="236.01.01 РК",
+        pdf_page=12,
+        section=None,
+        text="Масляный насос\nДавление в масляной системе,\n400-730 (4-7,3)\n100 (1,0)",
+        score=1.0,
+    )
+    assert quote_for_ref(conflict, conflict.refs[0], fragment) == conflict.refs[0].quote
+
+
+def test_rule_quote_is_refused_when_its_numbers_are_missing_on_the_page() -> None:
+    conflict = _conflict(OIL_ID)
+    fragment = Fragment(
+        manual_id="yamz236_rk",
+        manual="236.01.01 РК",
+        pdf_page=12,
+        section=None,
+        text="Давление в масляной системе 400-700 (4-7) 100 (1,0)",
+        score=1.0,
+    )
+    assert quote_for_ref(conflict, conflict.refs[0], fragment) is None
+
+
+def test_real_pages_give_both_oil_pressure_formulations() -> None:
+    conflict = _conflict(OIL_ID)
+    page_12 = _real_page_fragment("yamz-236_rk_2014.pdf", "236.01.01 РК", 12)
+    page_267 = _real_page_fragment("yamz-236_rk_2014.pdf", "236.01.01 РК", 267)
+    if page_12 is None or page_267 is None:
+        pytest.skip("руководство ЯМЗ-236М2 (РК) не найдено в data/manuals")
+    assert quote_for_ref(conflict, conflict.refs[0], page_12) == conflict.refs[0].quote
+    quote_267 = quote_for_ref(conflict, conflict.refs[1], page_267)
+    assert quote_267 is not None and "400-700 кПа" in quote_267

@@ -13,7 +13,7 @@ from app.rag.conflicts import (
     ConflictQuote,
     KnownConflict,
     matching_conflicts,
-    quote_for,
+    quote_for_ref,
 )
 from app.rag.search import Fragment
 from app.tools.runtime import Runtime
@@ -53,7 +53,7 @@ def run(rt: Runtime, args: Args) -> dict:
             "message": _mismatch_text(turn.diagnosis),
         }
     allowed = set(rt.engine_manuals(engine))
-    query = _build_query(args.query, engine, turn.diagnosis)
+    query = _build_query(args.query, turn.diagnosis)
     found = [f for f in rt.deps.search(query, engine, args.top_k) if f.manual in allowed]
     extra, notices = _conflicts(rt, engine, args.query, found, allowed)
     fragments = found + [f for f in extra if not _same(f, found)]
@@ -131,7 +131,7 @@ def _notice(
         if ref.manual not in allowed:
             continue
         for fragment in rt.deps.fetch_pages(engine, ref.manual, [ref.pdf_page]):
-            quote = quote_for(conflict, fragment)
+            quote = quote_for_ref(conflict, ref, fragment)
             if quote is None:
                 continue
             quotes.append(ConflictQuote(manual=ref.manual, pdf_page=ref.pdf_page, quote=quote))
@@ -164,9 +164,15 @@ def _same(fragment: Fragment, others: list[Fragment]) -> bool:
 # поэтому подсказки расширяют выдачу, а не сужают её.
 TERM_HINTS: tuple[tuple[tuple[str, ...], str], ...] = (
     (
+        ("давлен", "масл", "холост"),
+        "система смазки масляный насос редукционный клапан",
+    ),
+    (
         ("давлен", "масл"),
-        "система смазки масляный насос редукционный клапан "
-        "давление в масляной системе кПа кгс/см2 номинальных оборотах холостого хода",
+        # Слова норматива из РЭ стр. 19 и РК стр. 267: номинальная частота, минимальные обороты
+        # холостого хода, магистраль. Общие слова («система», «насос», «кгс/см2») не добавляем:
+        # они поднимают в полнотексте страницы с прочими таблицами (проверено на РК стр. 12).
+        "давление масла кПа номинальной частоте минимальной холостого хода магистрали",
     ),
     (
         ("зазор", "клапан"),
@@ -191,12 +197,16 @@ TERM_HINTS: tuple[tuple[tuple[str, ...], str], ...] = (
 )
 
 
-def _build_query(query: str, engine: str, diagnosis: dict | None) -> str:
-    """Запрос: просьба модели + модель двигателя + название неисправности из ML (rag.mdc)."""
+def _build_query(query: str, diagnosis: dict | None) -> str:
+    """Запрос: просьба модели + название неисправности из ML + подсказки терминов (rag.mdc).
+
+    Модель двигателя сюда не добавляем: фильтр по двигателю уже в SQL, а название двигателя есть
+    почти на каждой странице руководства и сбивает ранжирование полнотекста.
+    """
     title = diagnosis["ml"].get("anomaly_title") if diagnosis else None
-    lowered = query.lower()
+    lowered = f"{query} {title or ''}".lower()
     hints = [hint for roots, hint in TERM_HINTS if all(root in lowered for root in roots)]
-    parts = [query, engine] + ([title] if title else []) + hints
+    parts = [query] + ([title] if title else []) + hints
     return " ".join(parts)
 
 

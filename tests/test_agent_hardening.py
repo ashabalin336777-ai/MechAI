@@ -67,13 +67,13 @@ def test_tool_error_text_reaches_journal_but_not_model() -> None:
 
 
 def test_search_query_gets_norm_terms_for_oil_pressure() -> None:
-    query = _build_query("давление масла на холостых оборотах", "ЯМЗ-236М2", None)
+    query = _build_query("давление масла на холостых оборотах", None)
 
     assert "масляный насос" in query
     assert "редукционный клапан" in query
 
 
 def test_search_query_does_not_pull_oil_terms_into_compression_question() -> None:
-    query = _build_query("давление компрессии по цилиндрам", "ЯМЗ-236М2", None)
+    query = _build_query("давление компрессии по цилиндрам", None)
 
     assert "масляный насос" not in query

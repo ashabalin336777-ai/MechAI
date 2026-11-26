@@ -12,12 +12,16 @@ from pydantic import BaseModel, Field
 
 from app.rag.search import Fragment
 
-SENTENCE_SPLIT_RE = re.compile(r"(?<=[.;])\s+|\n+")
+# Переносы строк PDF внутри предложения не границы: иначе цитата обрывается на полуслове.
+SENTENCE_SPLIT_RE = re.compile(r"(?<=[.;])\s+")
 
 
 class ConflictRef(BaseModel):
     manual: str = Field(min_length=3)
     pdf_page: int = Field(ge=1)
+    # Цитата, заданная правилом (для повёрнутых таблиц, где текст страницы перевёрнут).
+    # Проверяется не побуквенно, а по числам: каждое число цитаты должно быть на странице.
+    quote: str | None = Field(default=None, min_length=3)
 
 
 class KnownConflict(BaseModel):
@@ -69,10 +73,25 @@ def matching_conflicts(
     ]
 
 
+NUMBER_RE = re.compile(r"\d+(?:[-,.]\d+)*")
+
+
+def quote_for_ref(conflict: KnownConflict, ref: ConflictRef, fragment: Fragment) -> str | None:
+    """Цитата для одной ссылки правила: заданная в правиле (если все её числа есть на странице)
+    или предложение из фрагмента."""
+    if ref.quote is None:
+        return quote_for(conflict, fragment)
+    page_text = re.sub(r"\s+", "", fragment.text)
+    numbers = NUMBER_RE.findall(ref.quote)
+    if numbers and all(number in page_text for number in numbers):
+        return ref.quote
+    return None
+
+
 def quote_for(conflict: KnownConflict, fragment: Fragment) -> str | None:
     """Предложение из фрагмента, где больше всего ключевых слов правила. Текст — дословно."""
     best: tuple[int, str] | None = None
-    for sentence in SENTENCE_SPLIT_RE.split(fragment.text):
+    for sentence in SENTENCE_SPLIT_RE.split(" ".join(fragment.text.split())):
         clean = " ".join(sentence.split())
         hits = sum(1 for keyword in conflict.keywords if keyword in clean.lower())
         if hits and (best is None or hits > best[0]):
