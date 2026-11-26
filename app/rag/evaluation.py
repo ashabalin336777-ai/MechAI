@@ -16,6 +16,7 @@ import yaml
 from pydantic import BaseModel, Field, model_validator
 
 from app.config import Settings
+from app.db.eval_runs import EvalCase, EvalResult
 from app.rag.embeddings import EmbeddingClient
 from app.rag.rerank import RerankClient
 from app.rag.search import Fragment, search
@@ -110,8 +111,12 @@ def run_eval(
     return items
 
 
-def run_eval_report(settings: Settings) -> str:
-    """Полный прогон из настроек приложения. Возвращает отчёт в Markdown."""
+def run_eval_result(settings: Settings) -> EvalResult:
+    """Полный прогон из настроек приложения: отчёт в Markdown и сводка для eval_runs.
+
+    Критерий «пройдено»: для вопроса с эталоном — hit@5 по странице, для «нет инструкции» —
+    порог отсёк выдачу.
+    """
     questions = load_questions(settings.eval_questions_path)
     embedder = EmbeddingClient(
         settings.neuraldeep_api_key, settings.neuraldeep_base_url, settings.embed_model
@@ -121,13 +126,35 @@ def run_eval_report(settings: Settings) -> str:
     )
     with psycopg.connect(settings.database_url, connect_timeout=5) as conn:
         items = run_eval(conn, questions, embedder, reranker, settings.rag_min_score)
-    return render_report(
+    report_md = render_report(
         items,
         generated_at=datetime.now(),
         embed_model=settings.embed_model,
         rerank_model=settings.rerank_model,
         min_score=settings.rag_min_score,
     )
+    return EvalResult(
+        report_md=report_md,
+        passed=sum(1 for item in items if _item_passed(item)),
+        total=len(items),
+        cases=[_item_case(item) for item in items],
+    )
+
+
+def _item_passed(item: EvalItem) -> bool:
+    if item.question.no_data:
+        return bool(item.judgement.no_data_ok)
+    return bool(item.judgement.hit_at_5)
+
+
+def _item_case(item: EvalItem) -> EvalCase:
+    if item.question.no_data:
+        note = "порог отсёк выдачу" if item.judgement.no_data_ok else "выше порога есть фрагменты"
+    else:
+        note = f"hit@5: {'да' if item.judgement.hit_at_5 else 'нет'}, цифра: " + (
+            "да" if item.judgement.number_found else "нет"
+        )
+    return EvalCase(id=item.question.id, passed=_item_passed(item), note=note)
 
 
 def render_report(

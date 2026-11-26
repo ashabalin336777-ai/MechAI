@@ -1,85 +1,79 @@
-"""Админ-прогоны проверки: POST /admin/eval (202) и GET /admin/eval/status (Bearer ADMIN_TOKEN).
+"""Админ-прогоны проверки (Bearer ADMIN_TOKEN).
 
-Прогон идёт в фоновом потоке, как индексация: обрыв сети у клиента его не останавливает.
-Без ADMIN_TOKEN в настройках эндпоинтов нет (404). Токен не пишется в журнал.
-Состояние и отчёт хранятся в памяти процесса: при перезапуске сервиса теряются.
+POST /admin/eval?suite=rag|agent — создаёт запись в eval_runs и запускает прогон в фоне (202).
+GET /admin/eval/status[?run_id=] — запись прогона (по умолчанию последняя), с отчётом.
+GET /admin/eval/runs?limit=10 — последние прогоны без текста отчёта.
+
+Без ADMIN_TOKEN эндпоинтов нет (404). Токен и строка подключения в ответах не появляются.
 """
 
 import logging
 import threading
 from collections.abc import Callable
-from datetime import UTC, datetime
 from typing import Literal
 
 import psycopg
-from fastapi import APIRouter, HTTPException, Request
+from fastapi import APIRouter, HTTPException, Query, Request
 
-from app.agent.evaluation import run_agent_report
+from app.agent.evaluation import run_agent_result
 from app.agent.scenarios import load_scenarios
 from app.api.admin_auth import check_admin
+from app.db.eval_runs import EvalResult, PgEvalRunStore
 from app.rag.embeddings import EmbeddingError
-from app.rag.evaluation import run_eval_report
+from app.rag.evaluation import run_eval_result
 from app.rag.rerank import RerankError
 
 router = APIRouter(prefix="/admin/eval", tags=["admin"])
 logger = logging.getLogger("app")
+DB_UNAVAILABLE = "База данных недоступна"
 
 
 class EvalJob:
-    """Фоновый прогон проверки: один за раз, состояние в памяти процесса.
+    """Фоновый запуск прогона. Итог и ошибка пишутся в eval_runs, а не в память процесса."""
 
-    Сервер запускается одним воркером (Dockerfile), поэтому состояние общее для всех запросов.
-    """
+    def __init__(self, store: PgEvalRunStore) -> None:
+        self._store = store
 
-    def __init__(self) -> None:
-        self._lock = threading.Lock()
-        self.state = "idle"  # idle | running | done | error
-        self.suite: str | None = None
-        self.started_at: datetime | None = None
-        self.finished_at: datetime | None = None
-        self.report_md: str | None = None
-        self.error: str | None = None
+    def start(
+        self, suite: str, commit_sha: str | None, run: Callable[[], EvalResult]
+    ) -> int | None:
+        """Возвращает run_id или None, если другой прогон ещё идёт."""
+        run_id = self._store.create_run(suite, commit_sha)
+        if run_id is None:
+            return None
+        threading.Thread(target=self._run, args=(run_id, run), daemon=True).start()
+        return run_id
 
-    def start(self, suite: str, run: Callable[[], str]) -> bool:
-        with self._lock:
-            if self.state == "running":
-                return False
-            self.state = "running"
-            self.suite = suite
-            self.started_at = datetime.now(UTC)
-            self.finished_at = None
-            self.report_md = None
-            self.error = None
-        threading.Thread(target=self._run, args=(run,), daemon=True).start()
-        return True
-
-    def _run(self, run: Callable[[], str]) -> None:
+    def _run(self, run_id: int, run: Callable[[], EvalResult]) -> None:
         try:
-            report = run()
+            result = run()
         except (EmbeddingError, RerankError) as exc:
-            self._fail(f"Модели недоступны: {exc}")
+            self._fail(run_id, f"Модели недоступны: {exc}")
             return
         except psycopg.Error:
-            self._fail("База данных недоступна")
+            self._fail(run_id, DB_UNAVAILABLE)
             return
         except Exception as exc:  # фоновый поток: любой сбой должен быть виден в статусе
-            logger.error("прогон проверки завершился с ошибкой: %s", type(exc).__name__)
-            self._fail(f"Ошибка прогона: {type(exc).__name__}")
+            logger.error("прогон проверки %s завершился с ошибкой: %s", run_id, type(exc).__name__)
+            self._fail(run_id, f"Ошибка прогона: {type(exc).__name__}")
             return
-        self.report_md = report
-        self.finished_at = datetime.now(UTC)
-        self.state = "done"
-        logger.info("прогон проверки завершён: %s", self.suite)
+        try:
+            self._store.finish_run(run_id, result)
+        except psycopg.Error:
+            logger.error("итог прогона %s не записан: БД недоступна", run_id)
+            return
+        logger.info("прогон проверки %s завершён", run_id)
 
-    def _fail(self, message: str) -> None:
-        self.error = message
-        self.finished_at = datetime.now(UTC)
-        self.state = "error"
-        logger.error("прогон проверки: %s", message)
+    def _fail(self, run_id: int, message: str) -> None:
+        logger.error("прогон проверки %s: %s", run_id, message)
+        try:
+            self._store.fail_run(run_id, message)
+        except psycopg.Error:
+            logger.error("ошибка прогона %s не записана: БД недоступна", run_id)
 
 
 @router.post("", status_code=202)
-def start_eval(request: Request, suite: Literal["rag", "agent"] = "rag") -> dict[str, str]:
+def start_eval(request: Request, suite: Literal["rag", "agent"] = "rag") -> dict[str, str | int]:
     check_admin(request)
     settings = request.app.state.settings
     if not settings.database_url:
@@ -89,8 +83,8 @@ def start_eval(request: Request, suite: Literal["rag", "agent"] = "rag") -> dict
         services = request.app.state.agent
         prompt = request.app.state.agent_prompt
 
-        def run() -> str:
-            return run_agent_report(
+        def run() -> EvalResult:
+            return run_agent_result(
                 services,
                 scenarios,
                 prompt,
@@ -100,27 +94,39 @@ def start_eval(request: Request, suite: Literal["rag", "agent"] = "rag") -> dict
 
     else:
 
-        def run() -> str:
-            return run_eval_report(settings)
+        def run() -> EvalResult:
+            return run_eval_result(settings)
 
-    if not request.app.state.eval_job.start(suite, run):
+    commit_sha = settings.commit_sha or None
+    try:
+        run_id = request.app.state.eval_job.start(suite, commit_sha, run)
+    except psycopg.Error as exc:
+        raise HTTPException(status_code=503, detail=DB_UNAVAILABLE) from exc
+    if run_id is None:
         raise HTTPException(status_code=409, detail="Прогон уже идёт")
-    return {"status": "started", "suite": suite}
+    return {"status": "started", "suite": suite, "run_id": run_id}
 
 
 @router.get("/status")
-def eval_status(request: Request) -> dict:
+def eval_status(request: Request, run_id: int | None = None) -> dict:
     check_admin(request)
-    job = request.app.state.eval_job
-    return {
-        "state": job.state,
-        "suite": job.suite,
-        "started_at": _iso(job.started_at),
-        "finished_at": _iso(job.finished_at),
-        "error": job.error,
-        "report": job.report_md,
-    }
+    store: PgEvalRunStore = request.app.state.eval_store
+    try:
+        record = store.get_run(run_id) if run_id is not None else store.latest_run()
+    except psycopg.Error as exc:
+        raise HTTPException(status_code=503, detail=DB_UNAVAILABLE) from exc
+    if record is None:
+        detail = "Прогон не найден" if run_id is not None else "Прогонов ещё не было"
+        raise HTTPException(status_code=404, detail=detail)
+    return record.model_dump(mode="json")
 
 
-def _iso(moment: datetime | None) -> str | None:
-    return None if moment is None else moment.isoformat()
+@router.get("/runs")
+def eval_runs(request: Request, limit: int = Query(default=10, ge=1, le=100)) -> dict:
+    check_admin(request)
+    store: PgEvalRunStore = request.app.state.eval_store
+    try:
+        records = store.list_runs(limit)
+    except psycopg.Error as exc:
+        raise HTTPException(status_code=503, detail=DB_UNAVAILABLE) from exc
+    return {"runs": [record.model_dump(mode="json", exclude={"report_md"}) for record in records]}

@@ -45,6 +45,7 @@ services:
       JWT_SECRET: ${JWT_SECRET:-}
       LOG_RETENTION_DAYS: ${LOG_RETENTION_DAYS:-90}
       ADMIN_TOKEN: ${ADMIN_TOKEN:-}
+      COMMIT_SHA: ${COMMIT_SHA:-}
     depends_on:
       db:
         condition: service_healthy

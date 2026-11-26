@@ -16,6 +16,7 @@ from pydantic import BaseModel
 from app.agent.runner import AgentServices, TurnRequest, run_turn
 from app.agent.scenarios import CheckResult, Scenario, TurnOutcome, judge
 from app.db.agent_store import MemoryAgentStore
+from app.db.eval_runs import EvalCase, EvalResult
 from app.obs.journal import MemoryJournal
 
 Event = tuple[str, dict[str, Any]]
@@ -65,6 +66,25 @@ def run_scenario(template: AgentServices, scenario: Scenario, base_prompt: str) 
     )
 
 
+def run_agent_result(
+    template: AgentServices,
+    scenarios: list[Scenario],
+    base_prompt: str,
+    *,
+    model: str,
+    min_score: float,
+) -> EvalResult:
+    runs = [run_scenario(template, scenario, base_prompt) for scenario in scenarios]
+    return EvalResult(
+        report_md=render_report(
+            runs, generated_at=datetime.now(), model=model, min_score=min_score
+        ),
+        passed=sum(1 for run in runs if run.passed),
+        total=len(runs),
+        cases=[_run_case(run) for run in runs],
+    )
+
+
 def run_agent_report(
     template: AgentServices,
     scenarios: list[Scenario],
@@ -73,8 +93,17 @@ def run_agent_report(
     model: str,
     min_score: float,
 ) -> str:
-    runs = [run_scenario(template, scenario, base_prompt) for scenario in scenarios]
-    return render_report(runs, generated_at=datetime.now(), model=model, min_score=min_score)
+    return run_agent_result(
+        template, scenarios, base_prompt, model=model, min_score=min_score
+    ).report_md
+
+
+def _run_case(run: ScenarioRun) -> EvalCase:
+    failed = [check.name for check in run.checks if not check.ok]
+    notes = list(failed)
+    if run.outcome.error:
+        notes.insert(0, "ход завершился ошибкой")
+    return EvalCase(id=run.scenario.id, passed=run.passed, note="; ".join(notes)[:200])
 
 
 def _collect(

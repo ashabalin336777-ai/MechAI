@@ -48,6 +48,8 @@ class Settings(BaseSettings):
     admin_token: str = ""
     eval_questions_path: Path = Path("eval/questions.yaml")
     agent_scenarios_path: Path = Path("eval/agent_scenarios.yaml")
+    # Хэш коммита, из которого собрано приложение (для eval_runs). Пусто — в таблице NULL.
+    commit_sha: str = ""
 
 
 @lru_cache

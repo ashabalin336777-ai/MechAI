@@ -5,7 +5,7 @@ from datetime import datetime
 import pytest
 from pydantic import ValidationError
 
-from app.agent.evaluation import render_report, run_agent_report, run_scenario
+from app.agent.evaluation import render_report, run_agent_report, run_agent_result, run_scenario
 from app.agent.runner import load_base_prompt
 from app.agent.scenarios import Check, Scenario, ScenarioFile, TurnOutcome, judge, load_scenarios
 from app.rag.conflicts import load_conflicts
@@ -265,6 +265,25 @@ def test_agent_report_has_summary_and_pass_marks() -> None:
     assert "| X01_YAMZ236_CONFLICT |" in report
     assert "[PASS] обе формулировки со ссылками" in report
     assert "Заявка не отправлялась" in report
+
+
+def test_agent_result_has_summary_for_eval_runs() -> None:
+    llm = _scripted_llm()
+    template = make_services(llm)
+    template.deps.search = _search
+
+    result = run_agent_result(
+        template,
+        load_scenarios(SCENARIOS_PATH),
+        load_base_prompt(),
+        model="qwen3.8-flash-next-ru-noreason",
+        min_score=0.80,
+    )
+
+    assert (result.passed, result.total) == (5, 5)
+    assert len(result.cases) == 5
+    assert all(case.passed for case in result.cases)
+    assert "Итог: 5 из 5 PASS." in result.report_md
 
 
 def test_report_marks_failed_scenario() -> None:

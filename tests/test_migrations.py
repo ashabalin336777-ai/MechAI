@@ -30,6 +30,7 @@ EXPECTED_TABLES = {
     "recommendations",
     "agent_runs",
     "agent_steps",
+    "eval_runs",
     "schema_migrations",
 }
 

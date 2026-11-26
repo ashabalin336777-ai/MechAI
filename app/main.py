@@ -23,6 +23,7 @@ from app.clients.toir_client import ToirClient
 from app.config import Settings, get_settings
 from app.data.vehicles import VehicleStore
 from app.db.database import apply_migrations
+from app.db.eval_runs import PgEvalRunStore
 from app.mocks import mount_mocks
 from app.paths import STATIC_DIR
 from app.rag.ingest import IngestJob
@@ -60,7 +61,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.state.settings = settings
     app.state.migration_failed = False
     app.state.ingest_job = IngestJob()
-    app.state.eval_job = EvalJob()
+    app.state.eval_store = PgEvalRunStore(settings.database_url)
+    app.state.eval_job = EvalJob(app.state.eval_store)
     app.state.ml_client = MlClient(settings.mock_ml_url)
     app.state.toir_client = ToirClient(settings.mock_toir_url)
     app.state.vehicles = VehicleStore.load(settings.vehicles_path)
