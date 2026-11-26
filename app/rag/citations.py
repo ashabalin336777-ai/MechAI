@@ -33,7 +33,7 @@ def check_citations(answer: str, fragments: list[Fragment]) -> CitationCheck:
     }
 
     problems: list[str] = []
-    for sentence in _split_sentences(answer):
+    for sentence in split_sentences(answer):
         claims = list(CLAIM_RE.finditer(sentence))
         citations = [
             (_designation(desig), int(page)) for desig, page in CITATION_RE.findall(sentence)
@@ -57,7 +57,7 @@ def check_citations(answer: str, fragments: list[Fragment]) -> CitationCheck:
     return CitationCheck(ok=not problems, problems=problems)
 
 
-def _split_sentences(answer: str) -> list[str]:
+def split_sentences(answer: str) -> list[str]:
     """Фразы ответа. Ссылки прячутся за маркеры, чтобы точки внутри них не резали фразу."""
     stashed: dict[str, str] = {}
 

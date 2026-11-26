@@ -32,8 +32,12 @@ class Settings(BaseSettings):
     manuals_yadisk_url: str = "https://disk.yandex.ru/d/QdAA8p4m0ySe8Q"
 
     conf_low: float = Field(default=0.60, ge=0, le=1)
+    score_medium: float = Field(default=0.60, ge=0, le=1)
     score_high: float = Field(default=0.80, ge=0, le=1)
     rag_min_score: float = Field(default=0.80, ge=0, le=1)
+
+    agent_timeout_s: float = Field(default=45.0, gt=0)
+    agent_max_tool_calls: int = Field(default=8, ge=1, le=20)
 
     auth_mode: Literal["demo", "pin"] = "demo"
     jwt_secret: str = ""
