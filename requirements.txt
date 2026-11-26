@@ -1,0 +1,15 @@
+# Зависимости рантайма. Версии закреплены; обновлять осознанно.
+fastapi==0.165.0
+uvicorn==0.54.0
+jinja2==3.1.6
+python-multipart==0.0.34
+pydantic==2.14.4
+openai==3.60.0
+httpx==0.28.1
+langgraph==1.2.24
+langgraph-checkpoint-postgres==3.2.1
+psycopg[binary]==3.3.9
+argon2-cffi==25.1.0
+pyjwt==2.15.1
+boto3==1.44.12
+jsonschema==4.26.0
