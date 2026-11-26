@@ -39,6 +39,9 @@ class Settings(BaseSettings):
     jwt_secret: str = ""
     log_retention_days: int = Field(default=90, ge=1)
 
+    # Временный запуск индексации на стенде (app/api/admin_ingest.py). Пусто — эндпоинта нет.
+    ingest_token: str = ""
+
 
 @lru_cache
 def get_settings() -> Settings:

@@ -133,6 +133,21 @@ MOCK_TOIR_URL=http://127.0.0.1:8000/mock/toir
 
 Контракт заглушек тот же, код не меняется. Проверка: `https://<домен>/mock/ml/health`.
 
+## Индексация руководств на стенде (временный эндпоинт)
+
+Эмбеддинги `bge-m3` нужны из сети стенда, с рабочей машины Neuraldeep недоступен. Поэтому ingest запускается на сервере через временный эндпоинт `POST /admin/ingest`.
+
+1. В панели App Platform, сервис `app`, переменная `INGEST_TOKEN`: длинная случайная строка. В чат не присылать.
+2. Дождаться деплоя (`/openapi.json` содержит путь `/admin/ingest`).
+3. Запуск (PowerShell, вместо `<INGEST_TOKEN>` свой токен):
+   `Invoke-RestMethod -Method Post -Uri https://ashabalin336777-ai-mechai-3580.twc1.net/admin/ingest -Headers @{ "X-Ingest-Token" = "<INGEST_TOKEN>" }`
+4. Статус и отчёт в Markdown (повторять, пока `state` не станет `done` или `error`):
+   `Invoke-RestMethod -Uri https://ashabalin336777-ai-mechai-3580.twc1.net/admin/ingest/status -Headers @{ "X-Ingest-Token" = "<INGEST_TOKEN>" }`
+5. Повторный запуск идемпотентен: руководство с тем же sha256 пропускается.
+6. После индексации удалить эндпоинт (отдельный коммит), затем удалить `INGEST_TOKEN` в панели.
+
+Ингест пишет в таблицы `manuals` и `chunks` демо-арендатора. Файл `yamz-536_rk_2013.pdf` скачивается с Яндекс Диска и проверяется по sha256 из манифеста.
+
 ## Что ещё не сделано
 
 - Миграции применяются при старте `app` (`app/db/database.py`). Ingest руководств (`python -m app.rag.ingest`) появится в фазе 03.

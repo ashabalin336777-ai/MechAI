@@ -7,6 +7,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 
+from app.api.admin_ingest import router as admin_ingest_router
 from app.api.health import router as health_router
 from app.api.pages import router as pages_router
 from app.api.ready import router as ready_router
@@ -17,6 +18,7 @@ from app.data.vehicles import VehicleStore
 from app.db.database import apply_migrations
 from app.mocks import mount_mocks
 from app.paths import STATIC_DIR
+from app.rag.ingest import IngestJob
 
 logger = logging.getLogger("app")
 
@@ -37,6 +39,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app = FastAPI(title="Цифровой механик", version="0.2.0", lifespan=lifespan)
     app.state.settings = settings
     app.state.migration_failed = False
+    app.state.ingest_job = IngestJob()
     app.state.ml_client = MlClient(settings.mock_ml_url)
     app.state.toir_client = ToirClient(settings.mock_toir_url)
     app.state.vehicles = VehicleStore.load(settings.vehicles_path)
@@ -46,6 +49,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(health_router)
     app.include_router(ready_router)
     app.include_router(pages_router)
+    app.include_router(admin_ingest_router)
     return app
 
 

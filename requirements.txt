@@ -1,5 +1,5 @@
 ﻿# Зависимости рантайма. Версии закреплены; обновлять осознанно.
-# Остальные библиотеки (LangGraph, openai SDK, argon2, PyJWT, boto3) добавляются в своих фазах.
+# Остальные библиотеки (LangGraph, argon2, PyJWT, boto3) добавляются в своих фазах.
 fastapi==0.165.0
 uvicorn==0.54.0
 jinja2==3.1.6
@@ -7,3 +7,6 @@ pydantic==2.14.4
 pydantic-settings==2.16.3
 httpx==0.28.1
 psycopg[binary]==3.3.9
+openai==3.60.0
+pymupdf==2.2
+pyyaml==6.0.3

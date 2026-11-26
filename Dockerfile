@@ -17,7 +17,8 @@ COPY app ./app
 COPY data/manuals ./data/manuals
 COPY mock ./mock
 
-RUN useradd --create-home --uid 10001 appuser
+RUN useradd --create-home --uid 10001 appuser \
+    && chown appuser:appuser /app/data/manuals
 USER appuser
 
 EXPOSE 8000
