@@ -12,7 +12,7 @@ from app.rag.conflicts import (
     ConflictNotice,
     ConflictQuote,
     KnownConflict,
-    matching_conflicts,
+    conflict_triggers,
     quote_for_ref,
 )
 from app.rag.search import Fragment
@@ -110,11 +110,13 @@ def _conflicts(
     allowed: set[str],
 ) -> tuple[list[Fragment], list[ConflictNotice]]:
     """Обе формулировки противоречия (если найдены на страницах) и их уведомление для ответа."""
-    text = query + " " + " ".join(f.text for f in found)
     extra: list[Fragment] = []
     notices: list[ConflictNotice] = []
-    for conflict in matching_conflicts(rt.deps.conflicts, engine, text):
-        notice = _notice(rt, engine, conflict, allowed, extra)
+    for conflict in rt.deps.conflicts:
+        triggers = conflict_triggers(conflict, engine, query, found)
+        if not triggers:
+            continue
+        notice = _notice(rt, engine, conflict, allowed, extra, triggers)
         if notice is not None:
             notices.append(notice)
     return extra, notices
@@ -126,6 +128,7 @@ def _notice(
     conflict: KnownConflict,
     allowed: set[str],
     extra: list[Fragment],
+    triggers: list[str],
 ) -> ConflictNotice | None:
     quotes: list[ConflictQuote] = []
     for ref in conflict.refs:
@@ -142,7 +145,11 @@ def _notice(
     if len(quotes) < 2:
         return None
     return ConflictNotice(
-        id=conflict.id, topic=conflict.topic, quotes=quotes, safe_rule=conflict.safe_rule
+        id=conflict.id,
+        topic=conflict.topic,
+        quotes=quotes,
+        safe_rule=conflict.safe_rule,
+        trigger=triggers,
     )
 
 

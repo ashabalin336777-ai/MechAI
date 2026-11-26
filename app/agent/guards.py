@@ -185,7 +185,10 @@ def render_conflict_block(notices: list[ConflictNotice]) -> str:
     """
     blocks = []
     for notice in notices:
-        lines = [f"**В документации противоречие.** Тема: {notice.topic}."]
+        lines = [
+            "**В документации противоречие.** Формулировки в руководствах расходятся. "
+            f"Тема: {notice.topic}."
+        ]
         for quote in notice.quotes:
             lines.append(f"- «{quote.quote}» [{quote.manual}, стр. {quote.pdf_page}]")
         lines.append(f"Безопасное правило: {notice.safe_rule}.")

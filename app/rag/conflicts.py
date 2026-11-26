@@ -4,6 +4,7 @@
 заказчика. Совпадение — по ключевым словам в запросе механика и в найденных фрагментах.
 """
 
+import logging
 import re
 from pathlib import Path
 from typing import Literal
@@ -12,6 +13,8 @@ import yaml
 from pydantic import BaseModel, Field
 
 from app.rag.search import Fragment
+
+logger = logging.getLogger("app.rag")
 
 # Переносы строк PDF внутри предложения не границы: иначе цитата обрывается на полуслове.
 SENTENCE_SPLIT_RE = re.compile(r"(?<=[.;])\s+")
@@ -33,6 +36,8 @@ class KnownConflict(BaseModel):
     topic: str = Field(min_length=3)
     keywords: list[str] = Field(min_length=2)
     min_matches: int = Field(default=2, ge=1)
+    # Фразы в запросе механика, по которым правило срабатывает само (тема противоречия).
+    query_keywords: list[str] = Field(default_factory=list)
     refs: list[ConflictRef] = Field(min_length=2)
     safe_rule: str = Field(min_length=3)
 
@@ -50,6 +55,8 @@ class ConflictNotice(BaseModel):
     topic: str
     quotes: list[ConflictQuote]
     safe_rule: str
+    # Почему сработало: "pages" (две страницы правила в выдаче), "keywords" (тема в запросе/тексте).
+    trigger: list[str] = Field(default_factory=list)
 
 
 class _ConflictFile(BaseModel):
@@ -57,22 +64,47 @@ class _ConflictFile(BaseModel):
 
 
 def load_conflicts(path: Path) -> list[KnownConflict]:
-    """Правила из YAML. Файла нет — правил нет (агент работает без них, но не падает)."""
+    """Правила из YAML. Файла нет — правил нет (агент работает без них, но не падает).
+
+    Отсутствие файла пишем в лог: иначе блоки противоречия пропадают молча.
+    """
     if not path.exists():
+        logger.warning("файл известных противоречий не найден: %s", path)
         return []
     raw = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
     return _ConflictFile.model_validate(raw).conflicts
 
 
+def conflict_triggers(
+    conflict: KnownConflict, engine_model: str, query: str, found: list[Fragment]
+) -> list[str]:
+    """Почему правило сработало в этом ходе. Пусто — не сработало.
+
+    pages: в выдаче хода есть не меньше двух страниц правила (обе формулировки уже в поиске).
+    keywords: тема есть в запросе механика (query_keywords) или в тексте запроса и фрагментов
+    (не меньше min_matches ключевых слов).
+    """
+    if engine_model not in conflict.engine_models:
+        return []
+    triggers: list[str] = []
+    rule_pages = {(ref.manual, ref.pdf_page) for ref in conflict.refs}
+    if len({(f.manual, f.pdf_page) for f in found} & rule_pages) >= 2:
+        triggers.append("pages")
+    lowered_query = query.lower()
+    text = (query + " " + " ".join(f.text for f in found)).lower()
+    by_query = any(phrase in lowered_query for phrase in conflict.query_keywords)
+    by_text = sum(1 for keyword in conflict.keywords if keyword in text) >= conflict.min_matches
+    if by_query or by_text:
+        triggers.append("keywords")
+    return triggers
+
+
 def matching_conflicts(
     conflicts: list[KnownConflict], engine_model: str, text: str
 ) -> list[KnownConflict]:
-    lowered = text.lower()
+    """Правила, которые срабатывают по одному тексту запроса (без выдачи)."""
     return [
-        conflict
-        for conflict in conflicts
-        if engine_model in conflict.engine_models
-        and sum(1 for keyword in conflict.keywords if keyword in lowered) >= conflict.min_matches
+        conflict for conflict in conflicts if conflict_triggers(conflict, engine_model, text, [])
     ]
 
 

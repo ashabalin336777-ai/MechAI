@@ -10,6 +10,7 @@ import pytest
 from app.agent.runner import TurnRequest, load_base_prompt, run_turn
 from app.rag.conflicts import (
     KnownConflict,
+    conflict_triggers,
     load_conflicts,
     matching_conflicts,
     quote_for,
@@ -125,12 +126,12 @@ def test_quote_is_the_sentence_with_keywords_taken_verbatim() -> None:
     )
 
 
-def _run(services) -> list[tuple[str, dict]]:
+def _run(services, message: str = X01_QUERY) -> list[tuple[str, dict]]:
     events: list[tuple[str, dict]] = []
     request = TurnRequest(
         vehicle_id=DIAG_VEHICLE,
         session_id=DIAG_SESSION,
-        message=X01_QUERY,
+        message=message,
         user_action=None,
         ui_mode="standard",
         lang="ru",
@@ -139,14 +140,19 @@ def _run(services) -> list[tuple[str, dict]]:
     return events
 
 
-def _services(answer: str, pages_fetcher=_fetch):
+def _services(
+    answer: str,
+    pages_fetcher=_fetch,
+    search_pages: tuple[tuple[str, int], ...] = ((RK_269, 269),),
+    search_query: str = X01_SEARCH,
+):
     llm = ScriptedChat(
         [
             reply(
                 calls=[
                     (
                         "search_manual",
-                        {"query": X01_SEARCH, "vehicle_id": DIAG_VEHICLE, "top_k": 3},
+                        {"query": search_query, "vehicle_id": DIAG_VEHICLE, "top_k": 3},
                     )
                 ]
             ),
@@ -154,7 +160,12 @@ def _services(answer: str, pages_fetcher=_fetch):
         ]
     )
     services = make_services(llm)
-    services.deps.search = lambda query, engine, top_k: _page_fragments(RK_269, 269)
+    found = [
+        fragment
+        for designation, page in search_pages
+        for fragment in _page_fragments(designation, page)
+    ]
+    services.deps.search = lambda query, engine, top_k: found
     services.deps.conflicts = [_conflict()]
     services.deps.fetch_pages = pages_fetcher
     return services
@@ -333,3 +344,78 @@ def test_conflict_notice_records_code_phrase_and_drops_model_consult() -> None:
     step = next(step for step in services.journal.steps if step.name == "conflict_notice")
     assert step.output["phrase"] == phrase
     assert step.output["consult_removed"] == ["Уточните у специалиста."]
+
+
+PAGES_QUERY = "Порядок регулировки клапанов у ЯМЗ-236М2 по руководству?"
+PAGES_SEARCH = "тепловой зазор клапанов регулировка порядок"
+CONSULT = "Уточните у специалиста или производителя до регулировки."
+
+
+def test_two_pages_in_turn_trigger_the_block_with_the_missing_formulation() -> None:
+    # В ходе найдены только РЭ 31 и РК 269 (без ключевых слов в запросе): блок дособирает код.
+    services = _services(
+        "Регулировать на холодном двигателе.",
+        search_pages=((RE_31, 31), (RK_269, 269)),
+        search_query=PAGES_SEARCH,
+    )
+    events = _run(services, message=PAGES_QUERY)
+
+    answer = next(data["text"] for name, data in events if name == "answer_final")
+    assert "- «Проверить и подрегулировать тепловые зазоры" in answer
+    assert "[236.01.01 РК, стр. 276]" in answer
+    assert "Формулировки в руководствах расходятся" in answer
+    assert CONSULT in answer
+    step = next(step for step in services.journal.steps if step.name == "conflict_notice")
+    # Страницы правила в выдаче достаточны; тексты фрагментов дают и совпадение по ключевым словам.
+    assert "pages" in step.output["trigger"]["yamz236_valve_clearance_timing"]
+
+
+def test_query_keywords_trigger_the_block_and_record_it_in_the_journal() -> None:
+    services = _services("Регулировать на холодном двигателе.")
+    _run(services)
+
+    step = next(step for step in services.journal.steps if step.name == "conflict_notice")
+    assert step.output["trigger"] == {"yamz236_valve_clearance_timing": ["keywords"]}
+
+
+def test_oil_pressure_rule_triggers_by_pages_and_by_query() -> None:
+    conflict = _conflict(OIL_ID)
+    by_query = conflict_triggers(conflict, "ЯМЗ-236М2", OIL_QUERY, [])
+    assert by_query == ["keywords"]
+
+    pages = [
+        Fragment(manual_id="x", manual="236.01.01 РК", pdf_page=12, section=None, text="", score=1),
+        Fragment(
+            manual_id="x", manual="236.01.01 РК", pdf_page=267, section=None, text="", score=1
+        ),
+    ]
+    assert conflict_triggers(conflict, "ЯМЗ-236М2", "давление масла при прогреве", pages) == [
+        "pages"
+    ]
+
+
+def test_pages_trigger_needs_two_rule_pages_and_the_right_engine() -> None:
+    conflict = _conflict()
+    one_page = [
+        Fragment(manual_id="x", manual=RE_31, pdf_page=31, section=None, text="", score=1),
+    ]
+    assert conflict_triggers(conflict, "ЯМЗ-236М2", "давление масла", one_page) == []
+    two_pages = one_page + [
+        Fragment(manual_id="x", manual=RK_269, pdf_page=269, section=None, text="", score=1),
+    ]
+    assert conflict_triggers(conflict, "ЯМЗ-236М2", "давление масла", two_pages) == ["pages"]
+    assert conflict_triggers(conflict, "ЯМЗ-536", "давление масла", two_pages) == []
+
+
+def test_docker_image_copies_the_conflict_rules() -> None:
+    lines = (REPO_ROOT / "Dockerfile").read_text(encoding="utf-8").splitlines()
+    assert "COPY data/known_conflicts.yaml ./data/known_conflicts.yaml" in [
+        line.strip() for line in lines
+    ]
+    assert CONFLICTS_PATH.exists()
+
+
+def test_missing_rules_file_is_logged(tmp_path, caplog) -> None:
+    with caplog.at_level("WARNING", logger="app.rag"):
+        assert load_conflicts(tmp_path / "known_conflicts.yaml") == []
+    assert "известных противоречий не найден" in caplog.text

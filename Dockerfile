@@ -15,6 +15,7 @@ RUN pip install -r requirements.txt
 
 COPY app ./app
 COPY data/manuals ./data/manuals
+COPY data/known_conflicts.yaml ./data/known_conflicts.yaml
 COPY eval/questions.yaml ./eval/questions.yaml
 COPY eval/agent_scenarios.yaml ./eval/agent_scenarios.yaml
 COPY mock ./mock

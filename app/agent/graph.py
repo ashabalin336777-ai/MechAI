@@ -236,6 +236,7 @@ def build_graph(deps: AgentDeps, checkpointer: Any) -> Any:
                     name="conflict_notice",
                     output={
                         "notices": [notice.id for notice in deps.turn.conflicts],
+                        "trigger": {notice.id: notice.trigger for notice in deps.turn.conflicts},
                         "removed": block.removed,
                         "consult_removed": block.consult_removed,
                         "phrase": CONSULT_PHRASE,
