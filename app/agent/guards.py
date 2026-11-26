@@ -26,9 +26,20 @@ INJECTION_RE = re.compile(
 )
 
 
+INJECTION_CLAUSE_RE = re.compile(
+    r"[^.!?\n\"]*(?:" + INJECTION_RE.pattern + r")[^.!?\n\"]*", re.IGNORECASE
+)
+REDACTED_CLAUSE = "[инструкция из данных удалена]"
+
+
 def find_injection_markers(text: str) -> list[str]:
     """Совпадения с известными маркерами команд в данных инструмента (ТЗ §6.4, п.5)."""
     return sorted({match.group(0).lower() for match in INJECTION_RE.finditer(text)})
+
+
+def redact_injection(text: str) -> str:
+    """Вырезаем целое предложение с командой: модель не видит её и не может процитировать."""
+    return INJECTION_CLAUSE_RE.sub(REDACTED_CLAUSE, text)
 
 
 def wrap_tool_data(payload_json: str) -> str:

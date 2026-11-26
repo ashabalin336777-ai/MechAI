@@ -98,6 +98,9 @@ def _collect(
     steps = [step for step in journal.steps if step.run_id == run_id]
     outcome.tools = [step.name for step in steps if step.kind == "tool"]
     outcome.journal = [step.name for step in steps]
+    outcome.tool_errors = [
+        f"{step.name}: {step.error}" for step in steps if step.kind == "tool" and step.error
+    ]
     citations = [step for step in steps if step.name == "citation_check"]
     if citations:
         result = citations[-1].output or {}
@@ -163,6 +166,8 @@ def _details(run: ScenarioRun) -> list[str]:
     ]
     if outcome.error:
         lines += [f"Ошибка хода: {outcome.error}", ""]
+    if outcome.tool_errors:
+        lines += [f"Ошибки инструментов: {'; '.join(outcome.tool_errors)}", ""]
     lines.append("Проверки:")
     for check in run.checks:
         status = "PASS" if check.ok else "FAIL"

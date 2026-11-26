@@ -60,10 +60,21 @@ def run(rt: Runtime, args: Args) -> dict:
     }
 
 
+# Термины, которыми руководство называет узел, когда механик говорит иначе.
+# Добавляем только при совпадении всех корней в запросе, чтобы не сбивать соседние темы.
+TERM_HINTS: tuple[tuple[tuple[str, ...], str], ...] = (
+    (("давлен", "масл"), "система смазки масляный насос редукционный клапан"),
+    (("зазор", "клапан"), "регулировка тепловых зазоров клапанов"),
+    (("затяж",), "момент затяжки"),
+)
+
+
 def _build_query(query: str, engine: str, diagnosis: dict | None) -> str:
     """Запрос: просьба модели + модель двигателя + название неисправности из ML (rag.mdc)."""
     title = diagnosis["ml"].get("anomaly_title") if diagnosis else None
-    parts = [query, engine] + ([title] if title else [])
+    lowered = query.lower()
+    hints = [hint for roots, hint in TERM_HINTS if all(root in lowered for root in roots)]
+    parts = [query, engine] + ([title] if title else []) + hints
     return " ".join(parts)
 
 

@@ -8,6 +8,7 @@ import json
 import logging
 import time
 from collections.abc import Callable
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
 from typing import Annotated, Any, TypedDict
 
@@ -16,7 +17,13 @@ from langgraph.graph import END, START, StateGraph
 from langgraph.graph.message import add_messages
 from pydantic import ValidationError
 
-from app.agent.guards import check_answer, find_injection_markers, sanitize_answer, wrap_tool_data
+from app.agent.guards import (
+    check_answer,
+    find_injection_markers,
+    redact_injection,
+    sanitize_answer,
+    wrap_tool_data,
+)
 from app.agent.llm import ChatModel
 from app.obs.journal import Journal, StepRecord
 from app.rag.search import Fragment
@@ -30,6 +37,12 @@ NO_TOOLS_LEFT_NOTE = (
     "Лимит вызовов инструментов исчерпан: ответь механику по уже полученным данным."
 )
 MIN_CALL_TIMEOUT_S = 5.0
+# Данные машины грузим кодом параллельно до первого вызова модели: результаты уже в контексте.
+PREFETCH_TOOLS = ("get_vehicle", "get_diagnosis", "get_history")
+# Инструмент, который можно вызвать не больше N раз за ход (остальное — текст отказа модели).
+MAX_CALLS_PER_TOOL = {"search_manual": 2}
+PREFETCHED_TEXT = "Этот инструмент уже вызван в начале хода: его данные есть в контексте."
+LIMIT_TEXT = "Лимит вызовов этого инструмента в ходе исчерпан: ответь по уже полученным данным."
 
 
 class AgentState(TypedDict):
@@ -37,6 +50,7 @@ class AgentState(TypedDict):
     retrieved: list[dict[str, Any]]
     diagnosis: dict[str, Any] | None
     tool_calls: int
+    tool_usage: dict[str, int]
     started_at: float
 
 
@@ -85,16 +99,42 @@ def build_graph(deps: AgentDeps, checkpointer: Any) -> Any:
         deps.turn.diagnosis = state.get("diagnosis")
         return {}
 
+    def prefetch(state: AgentState) -> dict[str, Any]:
+        vehicle_id = deps.turn.vehicle_id
+        session_id = deps.turn.session_id
+        calls = [
+            _call("get_vehicle", {"vehicle_id": vehicle_id}, "prefetch_vehicle"),
+            _call(
+                "get_diagnosis",
+                {"vehicle_id": vehicle_id, "session_id": session_id},
+                "prefetch_diagnosis",
+            ),
+            _call("get_history", {"vehicle_id": vehicle_id}, "prefetch_history"),
+        ]
+        with ThreadPoolExecutor(max_workers=len(calls)) as pool:
+            outcomes = list(pool.map(lambda call: _call_tool(deps, runtime, call), calls))
+        messages: list[AnyMessage] = [AIMessage(content="", tool_calls=calls)]
+        messages += [
+            _finish_tool(deps, call, result, error)
+            for call, (result, error) in zip(calls, outcomes, strict=True)
+        ]
+        _flush_events(deps)
+        return {"messages": messages, "diagnosis": deps.turn.diagnosis}
+
     def agent(state: AgentState) -> dict[str, Any]:
         elapsed = time.monotonic() - state["started_at"]
         if elapsed >= timeout_s:
             return {"messages": [AIMessage(content=TIMEOUT_TEXT)]}
         calls = state["tool_calls"]
+        usage = state.get("tool_usage") or {}
         messages = [{"role": "system", "content": deps.system_prompt}]
         if calls >= deps.max_tool_calls:
             messages.append({"role": "system", "content": NO_TOOLS_LEFT_NOTE})
         messages += to_openai(state["messages"])
-        tools = openai_tools(deps.registry) if calls < deps.max_tool_calls else None
+        offered = {
+            name: spec for name, spec in deps.registry.items() if _refusal(name, usage) is None
+        }
+        tools = openai_tools(offered) if calls < deps.max_tool_calls and offered else None
         reply = deps.llm.complete(
             messages,
             tools,
@@ -118,13 +158,21 @@ def build_graph(deps: AgentDeps, checkpointer: Any) -> Any:
         last = state["messages"][-1]
         outputs: list[AnyMessage] = []
         count = state["tool_calls"]
+        usage = dict(state.get("tool_usage") or {})
         for call in last.tool_calls:
             count += 1
-            outputs.append(_run_tool(deps, runtime, call, count))
+            refusal = _refusal(call["name"], usage)
+            if refusal is not None:
+                result, error = {"ok": False, "error": refusal}, "tool_refused"
+            else:
+                usage[call["name"]] = usage.get(call["name"], 0) + 1
+                result, error = _call_tool(deps, runtime, call)
+            outputs.append(_finish_tool(deps, call, result, error))
             _flush_events(deps)
         return {
             "messages": outputs,
             "tool_calls": count,
+            "tool_usage": usage,
             "retrieved": [fragment.model_dump() for fragment in deps.turn.retrieved],
             "diagnosis": deps.turn.diagnosis,
         }
@@ -157,11 +205,13 @@ def build_graph(deps: AgentDeps, checkpointer: Any) -> Any:
 
     builder = StateGraph(AgentState)
     builder.add_node("prepare", prepare)
+    builder.add_node("prefetch", prefetch)
     builder.add_node("agent", agent)
     builder.add_node("tools", tools_node)
     builder.add_node("finalize", finalize)
     builder.add_edge(START, "prepare")
-    builder.add_edge("prepare", "agent")
+    builder.add_edge("prepare", "prefetch")
+    builder.add_edge("prefetch", "agent")
     builder.add_conditional_edges(
         "agent", route_after_agent, {"tools": "tools", "finalize": "finalize"}
     )
@@ -203,14 +253,32 @@ def to_openai(messages: list[AnyMessage]) -> list[dict[str, Any]]:
     return converted
 
 
-def _run_tool(deps: AgentDeps, runtime: Runtime, call: dict[str, Any], count: int) -> ToolMessage:
-    name = call["name"]
-    spec = deps.registry.get(name)
+def _call(name: str, args: dict[str, Any], call_id: str) -> dict[str, Any]:
+    return {"name": name, "args": args, "id": call_id}
+
+
+def _refusal(name: str, usage: dict[str, int]) -> str | None:
+    """Текст отказа, если инструмент уже получен в начале хода или исчерпан лимит."""
+    if name in PREFETCH_TOOLS:
+        return PREFETCHED_TEXT
+    limit = MAX_CALLS_PER_TOOL.get(name)
+    if limit is not None and usage.get(name, 0) >= limit:
+        return LIMIT_TEXT
+    return None
+
+
+def _call_tool(deps: AgentDeps, runtime: Runtime, call: dict[str, Any]) -> tuple[dict, str | None]:
+    spec = deps.registry.get(call["name"])
     if spec is None:
-        result: dict[str, Any] = {"ok": False, "error": "Такого инструмента нет."}
-        error = "unknown_tool"
-    else:
-        result, error = _execute(spec, runtime, call["args"])
+        return {"ok": False, "error": "Такого инструмента нет."}, "unknown_tool"
+    return _execute(spec, runtime, call["args"])
+
+
+def _finish_tool(
+    deps: AgentDeps, call: dict[str, Any], result: dict[str, Any], error: str | None
+) -> ToolMessage:
+    """Журнал и ответ модели: команды из данных вырезаем до показа модели (ТЗ §6.4, п.5)."""
+    name = call["name"]
     payload = json.dumps(result, ensure_ascii=False, default=str)
     markers = find_injection_markers(payload)
     if markers:
@@ -223,6 +291,7 @@ def _run_tool(deps: AgentDeps, runtime: Runtime, call: dict[str, Any], count: in
                 output={"tool": name, "markers": markers},
             )
         )
+        payload = redact_injection(payload)
     deps.record(
         StepRecord(
             run_id=deps.run_id,
@@ -246,9 +315,12 @@ def _execute(
         return {"ok": False, "error": f"неверные аргументы: {exc.errors()[0]['msg']}"}, "bad_args"
     try:
         return spec.run(runtime, args), None
-    except Exception:  # граница инструмента: модель получает текст, а не трассу
+    except Exception as exc:  # граница инструмента: модель получает текст, а не трассу
         logger.exception("инструмент %s упал", spec.name)
-        return {"ok": False, "error": "Инструмент временно недоступен, повторите."}, "tool_error"
+        detail = f"{type(exc).__name__}: {str(exc)[:200]}"
+        return {"ok": False, "error": "Инструмент временно недоступен, повторите."}, (
+            f"tool_error: {detail}"
+        )
 
 
 def _flush_events(deps: AgentDeps) -> None:

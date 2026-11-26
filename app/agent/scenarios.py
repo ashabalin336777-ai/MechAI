@@ -76,6 +76,7 @@ class TurnOutcome(BaseModel):
     answer: str = ""
     citation_ok: bool | None = None
     citation_problems: list[str] = Field(default_factory=list)
+    tool_errors: list[str] = Field(default_factory=list)
     draft: bool = False
     error: str | None = None
 

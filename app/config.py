@@ -36,7 +36,7 @@ class Settings(BaseSettings):
     score_high: float = Field(default=0.80, ge=0, le=1)
     rag_min_score: float = Field(default=0.80, ge=0, le=1)
 
-    agent_timeout_s: float = Field(default=45.0, gt=0)
+    agent_timeout_s: float = Field(default=90.0, gt=0)
     agent_max_tool_calls: int = Field(default=8, ge=1, le=20)
 
     auth_mode: Literal["demo", "pin"] = "demo"

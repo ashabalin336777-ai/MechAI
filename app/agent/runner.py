@@ -87,6 +87,7 @@ def run_turn(services: AgentServices, request: TurnRequest, base_prompt: str, em
     payload = {
         "messages": [HumanMessage(content=_user_text(request))],
         "tool_calls": 0,
+        "tool_usage": {},
         "started_at": time.monotonic(),
     }
     status = "ok"
