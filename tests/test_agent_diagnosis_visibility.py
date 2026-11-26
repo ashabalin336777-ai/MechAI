@@ -63,3 +63,22 @@ def test_repeated_turns_keep_one_diagnosis_row_per_session() -> None:
 
     diagnoses = services.deps.store.diagnoses
     assert list(diagnoses) == [(DIAG_VEHICLE, DIAG_SESSION)]
+
+
+def test_repeated_turns_keep_one_recommendation_per_kind() -> None:
+    llm = ScriptedChat([reply(content="Повторите запись."), reply(content="Повторите запись.")])
+    services = make_services(llm)
+    request = TurnRequest(
+        vehicle_id="P456AT178",
+        session_id="S-0003",
+        message="Что показала проверка?",
+        user_action=None,
+        ui_mode="standard",
+        lang="ru",
+    )
+
+    run_turn(services, request, load_base_prompt(), lambda name, data: None)
+    run_turn(services, request, load_base_prompt(), lambda name, data: None)
+
+    recommendations = services.deps.store.recommendations
+    assert list(recommendations) == [("P456AT178", "S-0003", "repeat_recording")]

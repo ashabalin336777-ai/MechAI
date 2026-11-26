@@ -61,7 +61,7 @@ class MemoryAgentStore:
     def __init__(self) -> None:
         self._lock = threading.Lock()
         self.diagnoses: dict[tuple[str, str], str] = {}
-        self.recommendations: list[tuple[str, str, str]] = []
+        self.recommendations: dict[tuple[str, str, str], str] = {}
         self._drafts: dict[str, DraftRecord] = {}
         self._tickets: list[tuple[str, str, str, dict[str, Any], datetime]] = []
 
@@ -75,7 +75,7 @@ class MemoryAgentStore:
         self, vehicle_id: str, session_id: str, kind: RecommendationKind, text: str
     ) -> None:
         with self._lock:
-            self.recommendations.append((vehicle_id, session_id, kind))
+            self.recommendations[(vehicle_id, session_id, kind)] = text
 
     def save_draft(self, draft: DraftRecord) -> None:
         with self._lock:
@@ -145,7 +145,9 @@ class PgAgentStore:
         with self._connect() as conn:
             conn.execute(
                 "INSERT INTO recommendations (tenant_id, vehicle_id, session_id, kind, text) "
-                "VALUES (%s, %s, %s, %s, %s)",
+                "VALUES (%s, %s, %s, %s, %s) "
+                "ON CONFLICT (tenant_id, vehicle_id, session_id, kind) DO UPDATE SET "
+                "text = EXCLUDED.text, created_at = now()",
                 (TENANT_ID, vehicle_id, session_id, kind, text),
             )
 
