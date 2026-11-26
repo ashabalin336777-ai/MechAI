@@ -320,3 +320,16 @@ def test_real_pages_contain_the_verbatim_quotes_of_the_rule() -> None:
         if page is None:
             pytest.skip("руководство ЯМЗ-236М2 не найдено в data/manuals")
         assert quote_for_ref(conflict, ref, page) == ref.quote, (ref.manual, ref.pdf_page)
+
+
+def test_conflict_notice_records_code_phrase_and_drops_model_consult() -> None:
+    services = _services("Регулировать на холодном двигателе. Уточните у специалиста.")
+    events = _run(services)
+
+    answer = next(data["text"] for name, data in events if name == "answer_final")
+    phrase = "Уточните у специалиста или производителя до регулировки."
+    assert answer.count(phrase) == 1
+    assert "Уточните у специалиста." not in answer
+    step = next(step for step in services.journal.steps if step.name == "conflict_notice")
+    assert step.output["phrase"] == phrase
+    assert step.output["consult_removed"] == ["Уточните у специалиста."]

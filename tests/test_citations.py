@@ -1,6 +1,11 @@
 """Проверка цитат: цифра без ссылки, ссылка на неполученную страницу, нормализация единиц."""
 
-from app.rag.citations import check_citations, fix_citations, unsupported_claims
+from app.rag.citations import (
+    check_citations,
+    fix_citations,
+    split_sentences,
+    unsupported_claims,
+)
 from app.rag.search import Fragment
 
 DESIGNATION = "536.01.02 РК"
@@ -116,6 +121,47 @@ def test_sentence_with_two_citations_is_not_guessed() -> None:
     fixed = fix_citations(answer, fragments)
     assert fixed.text == answer
     assert fixed.fixes == []
+
+
+def test_list_item_keeps_claim_and_citation_together() -> None:
+    """Раньше точка внутри пункта отделяла цифру от ссылки, и пункт падал «без ссылки»."""
+    fragments = [_fragment("Зазор 0,15 мм.")]
+    answer = "- Зазор 0,15 мм. Проверить щупом [536.01.02 РК, стр. 45]."
+    assert check_citations(answer, fragments).ok
+
+
+def test_list_item_continuation_line_belongs_to_the_item() -> None:
+    fragments = [_fragment("Зазор 0,15 мм.")]
+    answer = "1. Зазор 0,15 мм.\n   Проверить щупом [536.01.02 РК, стр. 45]."
+    assert check_citations(answer, fragments).ok
+    assert split_sentences(answer) == [answer]
+
+
+def test_unsupported_list_item_is_the_only_problem() -> None:
+    fragments = [_fragment("Зазор 0,15 мм.")]
+    answer = "- Зазор 0,15 мм [536.01.02 РК, стр. 45].\n- Допуск 0,25 мм [536.01.02 РК, стр. 45]."
+    result = check_citations(answer, fragments)
+    assert not result.ok
+    assert len(result.problems) == 1
+    assert "0,25" in result.problems[0]
+
+
+def test_paragraph_is_still_split_by_sentences() -> None:
+    assert split_sentences("Зазор 0,15 мм. Допуск 0,25 мм.") == [
+        "Зазор 0,15 мм.",
+        "Допуск 0,25 мм.",
+    ]
+
+
+def test_list_item_citation_moves_to_page_that_has_the_number() -> None:
+    fragments = [
+        _fragment("Давление 300 кПа при номинальной частоте.", page=19, manual="РЭ 1"),
+        _fragment("Не менее 100 кПа при минимальной частоте.", page=267, manual="РК 2"),
+    ]
+    answer = "- Минимальное давление 100 кПа [РЭ 1, стр. 19]."
+    fixed = fix_citations(answer, fragments)
+    assert fixed.text == "- Минимальное давление 100 кПа [РК 2, стр. 267]."
+    assert check_citations(fixed.text, fragments).ok
 
 
 def test_fix_changes_only_its_sentence() -> None:

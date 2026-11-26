@@ -5,11 +5,16 @@
 
 import re
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from app.agent.verdict import Verdict
 from app.clients.toir_client import Reference
-from app.rag.citations import check_citations, split_sentences, unsupported_claims
+from app.rag.citations import (
+    check_citations,
+    is_list_item,
+    split_sentences,
+    unsupported_claims,
+)
 from app.rag.conflicts import ConflictNotice
 from app.rag.search import Fragment
 
@@ -59,10 +64,11 @@ def check_answer(answer: str, fragments: list[Fragment]) -> AnswerCheck:
 
 
 def sanitize_answer(answer: str, fragments: list[Fragment]) -> str:
-    """Фразы с непроверенными цифрами или ссылками заменяем пометкой (ТЗ §6.4, п.1).
+    """Непроверенное убираем (ТЗ §6.4, п.1): пункт списка — целиком, без заглушки;
+    обычную фразу заменяем пометкой.
 
     Переносы строк и отступы между фразами сохраняем: по ним интерфейс строит заголовки и списки.
-    Заменяется только сама фраза, разделители из исходного текста остаются как были.
+    Пункт списка удаляем вместе с переводом строки после него, чтобы не оставлять пустых строк.
     """
     out: list[str] = []
     cursor = 0
@@ -71,11 +77,15 @@ def sanitize_answer(answer: str, fragments: list[Fragment]) -> str:
         if start < 0:
             continue
         out.append(answer[cursor:start])
+        end = start + len(sentence)
         if not sentence.strip() or check_citations(sentence, fragments).ok:
             out.append(sentence)
+        elif is_list_item(sentence):
+            if answer[end : end + 1] == "\n":
+                end += 1
         else:
             out.append(UNCONFIRMED_MARK)
-        cursor = start + len(sentence)
+        cursor = end
     out.append(answer[cursor:])
     return "".join(out).strip()
 
@@ -154,6 +164,17 @@ CONFLICT_TALK_RE = re.compile(
 class ConflictBlock(BaseModel):
     text: str
     removed: list[str]
+    consult_removed: list[str] = Field(default_factory=list)
+
+
+# Фраза для механика: её добавляет только код, в блоке противоречия.
+CONSULT_PHRASE = "Уточните у специалиста или производителя до регулировки."
+# «уточните у специалиста» из текста модели: вырезаем вместе с разделителем перед ним.
+CONSULT_CLAUSE_RE = re.compile(
+    r"\s*[,;]?\s*(?:уточн\w*\s+у\s+специалист|у\s+специалиста\s+или\s+производител)[^.!?\n]*[.!?]?",
+    re.IGNORECASE,
+)
+BULLET_RE = re.compile(r"^\s*(?:[-*•]|\d+[.)])\s*")
 
 
 def render_conflict_block(notices: list[ConflictNotice]) -> str:
@@ -168,27 +189,44 @@ def render_conflict_block(notices: list[ConflictNotice]) -> str:
         for quote in notice.quotes:
             lines.append(f"- «{quote.quote}» [{quote.manual}, стр. {quote.pdf_page}]")
         lines.append(f"Безопасное правило: {notice.safe_rule}.")
-        lines.append(
-            "Причину расхождения не определяем. "
-            "Уточните у специалиста или производителя до регулировки."
-        )
+        lines.append("Причину расхождения не определяем. " + CONSULT_PHRASE)
         blocks.append("\n".join(lines))
     return "\n\n".join(blocks)
 
 
 def apply_conflict_block(answer: str, notices: list[ConflictNotice]) -> ConflictBlock:
-    """Ответ с противоречием: строки модели о трактовке убираем, блок кода ставим в конец."""
+    """Ответ с противоречием: строки модели о трактовке убираем, её «уточните у специалиста»
+    тоже, блок кода ставим в конец с фразой для механика."""
     if not notices:
         return ConflictBlock(text=answer, removed=[])
     kept: list[str] = []
     removed: list[str] = []
+    consult_removed: list[str] = []
     for line in answer.split("\n"):
         if CONFLICT_TALK_RE.search(line):
             if line.strip():
                 removed.append(line.strip())
-        else:
+            continue
+        rest, found = _drop_consult(line)
+        if not found:
             kept.append(line)
+            continue
+        consult_removed.extend(found)
+        if BULLET_RE.sub("", rest).strip(" .!?"):
+            kept.append(rest)
     body = "\n".join(kept).strip()
     block = render_conflict_block(notices)
     text = f"{body}\n\n{block}" if body else block
-    return ConflictBlock(text=text, removed=removed)
+    return ConflictBlock(text=text, removed=removed, consult_removed=consult_removed)
+
+
+def _drop_consult(line: str) -> tuple[str, list[str]]:
+    """Строка без «уточните у специалиста» модели и сами удалённые фрагменты."""
+    found = [match.group(0).strip(" ,;") for match in CONSULT_CLAUSE_RE.finditer(line)]
+    if not found:
+        return line, []
+    ends_sentence = CONSULT_CLAUSE_RE.search(line).group(0).rstrip().endswith((".", "!", "?"))
+    rest = CONSULT_CLAUSE_RE.sub("", line).rstrip()
+    if ends_sentence and rest and rest[-1] not in ".!?:":
+        rest += "."
+    return rest, found

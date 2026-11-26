@@ -19,6 +19,7 @@ from langgraph.graph.message import add_messages
 from pydantic import ValidationError
 
 from app.agent.guards import (
+    CONSULT_PHRASE,
     apply_conflict_block,
     check_answer,
     find_injection_markers,
@@ -236,6 +237,8 @@ def build_graph(deps: AgentDeps, checkpointer: Any) -> Any:
                     output={
                         "notices": [notice.id for notice in deps.turn.conflicts],
                         "removed": block.removed,
+                        "consult_removed": block.consult_removed,
+                        "phrase": CONSULT_PHRASE,
                     },
                 )
             )

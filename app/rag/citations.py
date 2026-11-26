@@ -15,6 +15,8 @@ CITATION_RE = re.compile(r"\[([^\[\]]+?),\s*стр\.\s*(\d+)\]")
 UNIT = r"(?:Н·м|Н\s?м|кгс·см|кгс·м|кПа|МПа|бар|мм|см|мкм|м|°[CС]|кг|г|мл|л|%|об/мин|мин|кВт|Вт|В|А)"
 CLAIM_RE = re.compile(rf"(?<![\w.,])(\d+(?:[.,]\d+)?)\s?({UNIT})(?![\wа-яА-ЯёЁ])")
 SENTENCE_SPLIT_RE = re.compile(r"(?<=[.!?])\s+|\n+")
+LIST_ITEM_RE = re.compile(r"^\s*(?:[-*•]|\d+[.)])\s+")
+HEADING_RE = re.compile(r"^\s*#{1,6}\s")
 
 
 class CitationCheck(BaseModel):
@@ -150,7 +152,12 @@ def unsupported_claims(text: str, fragments: list[Fragment]) -> list[str]:
 
 
 def split_sentences(answer: str) -> list[str]:
-    """Фразы ответа. Ссылки прячутся за маркеры, чтобы точки внутри них не резали фразу."""
+    """Фразы ответа.
+
+    Пункт списка (маркер «-», «•», «1.») — одна фраза целиком, вместе с продолжением строк:
+    цифра и её ссылка внутри пункта проверяются вместе. Обычный текст режется по знакам конца
+    предложения. Ссылки прячутся за маркеры, чтобы точки внутри них не резали фразу.
+    """
     stashed: dict[str, str] = {}
 
     def hide(match: re.Match[str]) -> str:
@@ -159,13 +166,31 @@ def split_sentences(answer: str) -> list[str]:
         return marker
 
     masked = CITATION_RE.sub(hide, answer)
-    sentences = SENTENCE_SPLIT_RE.split(masked)
+    blocks: list[tuple[bool, str]] = []
+    for line in masked.split("\n"):
+        if LIST_ITEM_RE.match(line):
+            blocks.append((True, line))
+        elif blocks and blocks[-1][0] and line.strip() and not HEADING_RE.match(line):
+            blocks[-1] = (True, f"{blocks[-1][1]}\n{line}")
+        else:
+            blocks.append((False, line))
+    sentences: list[str] = []
+    for is_item, text in blocks:
+        if is_item:
+            sentences.append(text)
+        else:
+            sentences.extend(piece for piece in SENTENCE_SPLIT_RE.split(text) if piece.strip())
     restored = []
     for sentence in sentences:
         for marker, citation in stashed.items():
             sentence = sentence.replace(marker, citation)
         restored.append(sentence)
     return restored
+
+
+def is_list_item(sentence: str) -> bool:
+    """Фраза из split_sentences — пункт списка (начинается с маркера)."""
+    return LIST_ITEM_RE.match(sentence) is not None
 
 
 def _designation(value: str) -> str:

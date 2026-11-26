@@ -3,7 +3,9 @@
 import pytest
 
 from app.agent.guards import (
+    CONSULT_PHRASE,
     UNCONFIRMED_MARK,
+    apply_conflict_block,
     check_answer,
     check_ticket_draft,
     find_injection_markers,
@@ -12,6 +14,7 @@ from app.agent.guards import (
 )
 from app.agent.verdict import Verdict
 from app.clients.toir_client import Reference
+from app.rag.conflicts import ConflictNotice, ConflictQuote
 from app.rag.search import Fragment
 from tests.agent_helpers import YAMZ236_RK, YAMZ536_RE
 
@@ -96,7 +99,36 @@ def test_sanitize_keeps_line_breaks_for_markdown() -> None:
     assert "\n\n## Этапы работ\n" in cleaned
     assert "\n2. Проверить затяжку" in cleaned
     assert "0,3" not in cleaned
-    assert UNCONFIRMED_MARK in cleaned
+    assert "Снять головку" not in cleaned
+    assert "1. " not in cleaned
+
+
+def test_unconfirmed_list_item_is_removed_without_placeholder() -> None:
+    answer = (
+        f"- Момент 150 Н·м [{YAMZ236_RK}, стр. 267].\n"
+        f"- Зазор 0,3 мм [{YAMZ236_RK}, стр. 267].\n"
+        f"- Проверить затяжку [{YAMZ236_RK}, стр. 267]."
+    )
+    cleaned = sanitize_answer(answer, [_fragment()])
+    assert UNCONFIRMED_MARK not in cleaned
+    assert "0,3" not in cleaned
+    assert cleaned == (
+        f"- Момент 150 Н·м [{YAMZ236_RK}, стр. 267].\n- Проверить затяжку [{YAMZ236_RK}, стр. 267]."
+    )
+
+
+def test_list_item_with_two_sentences_is_judged_as_one_phrase() -> None:
+    """Пункт списка — одна фраза: цифра и ссылка в нём проверяются вместе, а не по точкам."""
+    answer = f"- Момент 150 Н·м. Затяжка в два приёма [{YAMZ236_RK}, стр. 267]."
+    assert check_answer(answer, [_fragment()]).ok is True
+    assert sanitize_answer(answer, [_fragment()]) == answer
+
+
+def test_paragraph_sentence_still_gets_placeholder_next_to_list() -> None:
+    answer = f"Зазор 0,3 мм без ссылки.\n- Момент 150 Н·м [{YAMZ236_RK}, стр. 267]."
+    cleaned = sanitize_answer(answer, [_fragment()])
+    assert cleaned.startswith(UNCONFIRMED_MARK)
+    assert "- Момент 150 Н·м" in cleaned
 
 
 @pytest.mark.parametrize(
@@ -201,3 +233,45 @@ def test_ticket_guard_needs_verdict_first() -> None:
         urgency="high",
     )
     assert check.ok is False
+
+
+def _conflict_notice() -> ConflictNotice:
+    return ConflictNotice(
+        id="yamz236_valve_clearance_timing",
+        topic="Когда регулировать тепловые зазоры клапанов",
+        quotes=[
+            ConflictQuote(manual=YAMZ236_RK, pdf_page=269, quote="Цитата один."),
+            ConflictQuote(manual=YAMZ236_RK, pdf_page=276, quote="Цитата два."),
+        ],
+        safe_rule="на холодном двигателе",
+    )
+
+
+def test_conflict_block_has_code_phrase_once_and_drops_model_consult() -> None:
+    answer = (
+        "Регулировать на холодном двигателе, уточните у специалиста.\n"
+        "- Уточните у специалиста или производителя.\n"
+        "Вывод: мерить после остывания."
+    )
+    block = apply_conflict_block(answer, [_conflict_notice()])
+    assert block.text.count(CONSULT_PHRASE) == 1
+    body = block.text.split("\n\n**В документации противоречие")[0]
+    assert body == "Регулировать на холодном двигателе.\nВывод: мерить после остывания."
+    assert block.consult_removed == [
+        "уточните у специалиста.",
+        "Уточните у специалиста или производителя.",
+    ]
+
+
+def test_conflict_block_without_model_consult_adds_phrase_from_code() -> None:
+    block = apply_conflict_block("Регулировать на холодном двигателе.", [_conflict_notice()])
+    assert block.text.count(CONSULT_PHRASE) == 1
+    assert block.consult_removed == []
+    assert block.text.startswith("Регулировать на холодном двигателе.")
+
+
+def test_no_notices_leaves_answer_untouched() -> None:
+    answer = "Регулировать, уточните у специалиста."
+    block = apply_conflict_block(answer, [])
+    assert block.text == answer
+    assert block.consult_removed == []
