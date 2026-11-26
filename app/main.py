@@ -1,22 +1,42 @@
-"""Точка входа FastAPI: страницы, healthcheck, клиенты заглушек, парк ТС, запасной режим."""
+"""Точка входа FastAPI: страницы, health и ready, клиенты заглушек, парк ТС, миграции."""
+
+import logging
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 
 from app.api.health import router as health_router
 from app.api.pages import router as pages_router
+from app.api.ready import router as ready_router
 from app.clients.ml_client import MlClient
 from app.clients.toir_client import ToirClient
 from app.config import Settings, get_settings
 from app.data.vehicles import VehicleStore
+from app.db.database import apply_migrations
 from app.mocks import mount_mocks
 from app.paths import STATIC_DIR
+
+logger = logging.getLogger("app")
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI) -> AsyncIterator[None]:
+    """Миграции при старте. Если БД недоступна, приложение стартует, а /ready вернёт 503."""
+    settings: Settings = app.state.settings
+    if settings.database_url:
+        result = apply_migrations(settings.database_url)
+        app.state.migration_failed = result.state == "migration_failed"
+        logger.info("миграции: состояние %s, применено %d", result.state, result.migrations_applied)
+    yield
 
 
 def create_app(settings: Settings | None = None) -> FastAPI:
     settings = settings or get_settings()
-    app = FastAPI(title="Цифровой механик", version="0.2.0")
+    app = FastAPI(title="Цифровой механик", version="0.2.0", lifespan=lifespan)
     app.state.settings = settings
+    app.state.migration_failed = False
     app.state.ml_client = MlClient(settings.mock_ml_url)
     app.state.toir_client = ToirClient(settings.mock_toir_url)
     app.state.vehicles = VehicleStore.load(settings.vehicles_path)
@@ -24,6 +44,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         mount_mocks(app)
     app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
     app.include_router(health_router)
+    app.include_router(ready_router)
     app.include_router(pages_router)
     return app
 

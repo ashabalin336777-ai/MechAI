@@ -39,12 +39,12 @@ def test_index_is_russian_stub(app_with_stubs: FastAPI) -> None:
     assert 'lang="ru"' in response.text
 
 
-def test_database_status_when_url_is_set(app_with_stubs: FastAPI) -> None:
+def test_database_status_when_url_is_set_but_unreachable(app_with_stubs: FastAPI) -> None:
     app_with_stubs.state.settings = Settings(
-        vehicles_path=VEHICLES_PATH, database_url="postgresql://user:pass@host/db"
+        vehicles_path=VEHICLES_PATH, database_url="postgresql://user:pass@127.0.0.1:1/db"
     )
     body = TestClient(app_with_stubs).get("/health").json()
-    assert body["services"]["database"] == "not_checked"
+    assert body["services"]["database"] == "unavailable"
 
 
 def test_mount_mocks_serves_stubs_under_app() -> None:

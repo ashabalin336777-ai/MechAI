@@ -34,6 +34,13 @@ services:
       SENSORS_URL: ${SENSORS_URL:-}
       MOUNT_MOCKS: ${MOUNT_MOCKS:-0}
       DATABASE_URL: postgresql://mechai:${POSTGRES_PASSWORD:?задайте POSTGRES_PASSWORD в локальном .env}@db:5432/mechai
+      VEHICLES_PATH: ${VEHICLES_PATH:-mock/data/vehicles.json}
+      FAULT_TYPES_PATH: ${FAULT_TYPES_PATH:-mock/data/fault_types.json}
+      MANUALS_DIR: ${MANUALS_DIR:-data/manuals}
+      MANUALS_YADISK_URL: ${MANUALS_YADISK_URL:-https://disk.yandex.ru/d/QdAA8p4m0ySe8Q}
+      CONF_LOW: ${CONF_LOW:-0.60}
+      SCORE_HIGH: ${SCORE_HIGH:-0.80}
+      RAG_MIN_SCORE: ${RAG_MIN_SCORE:-0.35}
       AUTH_MODE: ${AUTH_MODE:-demo}
       JWT_SECRET: ${JWT_SECRET:-}
       LOG_RETENTION_DAYS: ${LOG_RETENTION_DAYS:-90}

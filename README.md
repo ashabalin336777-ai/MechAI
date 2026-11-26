@@ -86,11 +86,13 @@ docker compose -f docker-compose.local.yml up --build
 
 ## Деплой на Timeweb App Platform
 
+Пошаговая инструкция с полями панели и полным списком переменных: [docs/deploy.md](docs/deploy.md). Секреты в репозиторий не кладём.
+
 1. Репозиторий публичный: https://github.com/ashabalin336777-ai/MechAI (ветка `main`).
 2. В панели App Platform подключить аккаунт GitHub (не URL), выбрать фреймворк **Docker Compose**, регион РФ.
 3. Задать переменные окружения и секреты в панели (см. `.env.example`).
 4. Первый сервис в `docker-compose.yml` (`app`, порт `8000`) получает основной домен и HTTPS. Порты 80 и 443 в compose не указывать.
-5. Проверить `https://<домен>/health`.
+5. Проверить `https://<домен>/health` и `https://<домен>/ready`. `/ready` отвечает 200 и без БД (`database: not_configured`), при сбое БД — 503.
 
 Ограничения compose в App Platform: без `volumes`, `privileged`, `extra_hosts`, `network_mode: host`, `include`, `extends`, `external`, `name`, `driver_opts`.
 
