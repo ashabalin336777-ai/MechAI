@@ -9,6 +9,11 @@ BATCH_SIZE = 32
 TIMEOUT_S = 60.0
 
 
+def vector_literal(vector: Sequence[float]) -> str:
+    """Текст вектора для приведения к типу vector: "[0.1,0.2,...]"."""
+    return "[" + ",".join(repr(float(value)) for value in vector) + "]"
+
+
 class EmbeddingError(Exception):
     """Сервис эмбеддингов недоступен или вернул данные не той размерности."""
 

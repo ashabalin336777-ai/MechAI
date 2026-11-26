@@ -39,6 +39,10 @@ class Settings(BaseSettings):
     jwt_secret: str = ""
     log_retention_days: int = Field(default=90, ge=1)
 
+    # Постоянный админ-доступ к POST /admin/eval (Bearer). Пусто — эндпоинта нет (404).
+    admin_token: str = ""
+    eval_questions_path: Path = Path("eval/questions.yaml")
+
 
 @lru_cache
 def get_settings() -> Settings:

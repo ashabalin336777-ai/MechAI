@@ -7,6 +7,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 
+from app.api.admin_eval import router as admin_eval_router
 from app.api.health import router as health_router
 from app.api.pages import router as pages_router
 from app.api.ready import router as ready_router
@@ -46,6 +47,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(health_router)
     app.include_router(ready_router)
     app.include_router(pages_router)
+    app.include_router(admin_eval_router)
     return app
 
 

@@ -15,7 +15,7 @@ import psycopg
 from app.config import Settings, get_settings
 from app.db.database import describe_error
 from app.rag.chunking import ChunkDraft, build_manual_text
-from app.rag.embeddings import EmbeddingClient, EmbeddingError
+from app.rag.embeddings import EmbeddingClient, EmbeddingError, vector_literal
 from app.rag.manifest import ManualEntry, load_manifest
 from app.rag.manuals import ManualFileError, ensure_manual_file
 
@@ -121,7 +121,7 @@ def _store(
             chunk.pdf_page,
             chunk.section,
             chunk.text,
-            _vector_literal(vector),
+            vector_literal(vector),
         )
         for chunk, vector in zip(chunks, vectors, strict=True)
     ]
@@ -154,10 +154,6 @@ def _store(
                 "embedding) VALUES (%s, %s, %s, %s, %s, %s, %s::vector)",
                 rows,
             )
-
-
-def _vector_literal(vector: list[float]) -> str:
-    return "[" + ",".join(repr(float(value)) for value in vector) + "]"
 
 
 def render_report(report: IngestReport) -> str:

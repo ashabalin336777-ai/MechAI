@@ -137,6 +137,13 @@ MOCK_TOIR_URL=http://127.0.0.1:8000/mock/toir
 
 Выполнена на стенде 26.11.2026: 6 руководств, 1672 чанка, ошибок нет. Отчёт: [eval/ingest_report.md](../eval/ingest_report.md). Временный эндпоинт `/admin/ingest` удалён. Переменную `INGEST_TOKEN` в панели App Platform можно удалить.
 
+## Проверка поиска по руководствам (POST /admin/eval)
+
+Постоянный админ-эндпоинт: `POST /admin/eval` с заголовком `Authorization: Bearer <ADMIN_TOKEN>`. Без `ADMIN_TOKEN` эндпоинта нет (404). Прогоняет `eval/questions.yaml` и возвращает отчёт в Markdown (поле `report`): вопрос, двигатель, топ-5 фрагментов с руководством и страницей PDF. Отчёт сохраняется в `eval/rag_report.md`. В фазе 06 этот же эндпоинт расширится сценариями С1–С3.
+
+PowerShell (вместо `<ADMIN_TOKEN>` свой токен, значение в чат не присылать):
+`(Invoke-RestMethod -Method Post -Uri https://ashabalin336777-ai-mechai-3580.twc1.net/admin/eval -Headers @{ Authorization = "Bearer <ADMIN_TOKEN>" }).report`
+
 ## Что ещё не сделано
 
 - Миграции применяются при старте `app` (`app/db/database.py`). Повторный ingest локально: `python -m app.rag.ingest` (нужны `DATABASE_URL` и `NEURALDEEP_API_KEY`).

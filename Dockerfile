@@ -15,6 +15,7 @@ RUN pip install -r requirements.txt
 
 COPY app ./app
 COPY data/manuals ./data/manuals
+COPY eval/questions.yaml ./eval/questions.yaml
 COPY mock ./mock
 
 RUN useradd --create-home --uid 10001 appuser \
