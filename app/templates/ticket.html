@@ -14,7 +14,7 @@
 
   <div id="ticket-body" hidden>
     <dl class="ticket-sections">
-      <div class="ticket-section"><dt>Машина</dt><dd>{{ vehicle.vehicle_id }} · {{ vehicle.make }} {{ vehicle.model }} · {{ vehicle.engine_model }}</dd></div>
+      <div class="ticket-section"><dt>Машина</dt><dd>{{ vehicle.vehicle_id }} · {{ display_vehicle_name(vehicle) }} · {{ vehicle.engine_model }}</dd></div>
       <div class="ticket-section"><dt>Проверка</dt><dd>{{ session.session_id }} · {{ session.checked_at.strftime("%d.%m.%Y") }}</dd></div>
       <div class="ticket-section"><dt>Тип неисправности</dt><dd id="t-type"></dd></div>
       <div class="ticket-section"><dt>Диагноз</dt><dd id="t-conclusion"></dd></div>

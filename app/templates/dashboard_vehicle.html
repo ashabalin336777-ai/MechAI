@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% block content %}
 <a class="back" href="/dashboard">← К парку</a>
-<h1 class="page-title">{{ vehicle.vehicle_id }} · {{ vehicle.make }} {{ vehicle.model }}</h1>
+<h1 class="page-title">{{ vehicle.vehicle_id }} · {{ display_vehicle_name(vehicle) }}</h1>
 <p class="muted">гар. № {{ vehicle.garage_no }} · {{ vehicle.engine_model }} · {{ vehicle.fuel }}</p>
 
 <div class="dash-vehicle">

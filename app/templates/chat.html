@@ -6,7 +6,7 @@
          data-auto="{{ 'yes' if auto_diagnosis else 'no' }}">
   <header class="chat-head">
     <a class="back" href="/vehicles/{{ vehicle.vehicle_id }}?session={{ session.session_id }}">← Машина</a>
-    <h1 class="chat-title">{{ vehicle.vehicle_id }} · {{ vehicle.make }} {{ vehicle.model }}</h1>
+    <h1 class="chat-title">{{ vehicle.vehicle_id }} · {{ display_vehicle_name(vehicle) }}</h1>
     <p class="muted">{{ vehicle.engine_model }} · проверка {{ session.session_id }}</p>
   </header>
 

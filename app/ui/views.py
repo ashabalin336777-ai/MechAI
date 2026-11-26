@@ -6,7 +6,7 @@
 from pydantic import BaseModel
 
 from app.agent.verdict import Thresholds, Verdict, VerdictInput, compute_verdict
-from app.data.vehicles import SessionRecord, Vehicle
+from app.data.vehicles import SessionRecord, Vehicle, display_vehicle_name
 from app.tools.get_diagnosis import previous_score
 
 STATUS_LABELS = {
@@ -80,7 +80,7 @@ def confidence_text(value: float | None) -> str:
 
 
 def fleet_row(vehicle: Vehicle, thresholds: Thresholds) -> FleetRow:
-    title = f"{vehicle.make} {vehicle.model}".strip()
+    title = display_vehicle_name(vehicle)
     session = vehicle.last_session
     if session is None:
         return FleetRow(

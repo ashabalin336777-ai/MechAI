@@ -10,7 +10,7 @@ from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 
 from app.agent.verdict import Thresholds
-from app.data.vehicles import SessionRecord, Vehicle
+from app.data.vehicles import SessionRecord, Vehicle, display_vehicle_name
 from app.paths import TEMPLATES_DIR
 from app.ui.views import (
     dashboard,
@@ -22,6 +22,7 @@ from app.ui.views import (
 
 router = APIRouter()
 templates = Jinja2Templates(directory=TEMPLATES_DIR)
+templates.env.globals["display_vehicle_name"] = display_vehicle_name
 
 
 def _thresholds(request: Request) -> Thresholds:

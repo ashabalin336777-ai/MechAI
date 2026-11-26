@@ -1,6 +1,7 @@
 """Парк ТС и история проверок из vehicles.json (VEHICLES_PATH). Заглушка списка не отдаёт, читаем файл сами."""
 
 import json
+import re
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Literal
@@ -45,6 +46,46 @@ class Vehicle(BaseModel):
     @property
     def last_session(self) -> SessionRecord | None:
         return self.sessions[-1] if self.sessions else None
+
+
+SEPARATORS_RE = re.compile(r"[\s\-–—]+")
+
+
+def display_name(make: str, model: str | None) -> str:
+    """Название ТС для экрана: марка и модель, без повтора марки.
+
+    Модели нет, она совпадает с маркой или начинается с марки как слово («МАЗ-5337», «УАЗ Патриот»)
+    — показываем один вариант. «МАЗДА» при марке «МАЗ» — отдельное слово, поэтому «МАЗ МАЗДА».
+    Сравнение без учёта регистра, пробелов и дефисов.
+    """
+    make_text = " ".join(make.split())
+    model_text = " ".join((model or "").split())
+    if not model_text:
+        return make_text
+    if not make_text:
+        return model_text
+    make_key = _key(make_text)
+    if not make_key:
+        return model_text
+    if _key(model_text) == make_key:
+        return make_text
+    if _starts_with_word(model_text, make_key):
+        return model_text
+    return f"{make_text} {model_text}"
+
+
+def display_vehicle_name(vehicle: Vehicle) -> str:
+    return display_name(vehicle.make, vehicle.model)
+
+
+def _key(value: str) -> str:
+    return SEPARATORS_RE.sub("", value).casefold()
+
+
+def _starts_with_word(model: str, make_key: str) -> bool:
+    """Модель начинается с марки целым словом: между буквами марки допускаются пробелы и дефисы."""
+    pattern = r"[\s\-–—]*".join(re.escape(char) for char in make_key)
+    return re.match(rf"{pattern}(?![^\W\d_])", model, re.IGNORECASE) is not None
 
 
 class VehicleStore:

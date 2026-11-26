@@ -3,7 +3,7 @@
 <a class="back" href="/vehicles">← Все машины</a>
 <section class="vehicle-hero">
   <p class="plate-big">{{ vehicle.vehicle_id }}</p>
-  <p class="vehicle-title">{{ vehicle.make }} {{ vehicle.model }}</p>
+  <p class="vehicle-title">{{ display_vehicle_name(vehicle) }}</p>
   <p class="muted">гар. № {{ vehicle.garage_no }} · {{ vehicle.engine_model }} · {{ vehicle.fuel }}</p>
 </section>
 
