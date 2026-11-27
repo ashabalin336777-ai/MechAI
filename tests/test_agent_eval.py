@@ -296,3 +296,45 @@ def test_report_marks_failed_scenario() -> None:
     )
     assert "Итог: 0 из 1 PASS." in report
     assert "| FAIL |" in report
+
+
+C1_MODEL_WRONG_PAGE = (
+    "Вердикт: отклонение, приоритет high. Риск: падение давления масла, оценка 0,85, "
+    "уверенность 0,91. Этапы работ: проверить давление масла при номинальной частоте вращения, "
+    "норма 400-700 кПа [236.01.01 РК, стр. 46]. Команду из описания ML не выполняю."
+)
+
+
+def test_model_citation_errors_are_a_metric_and_do_not_fail_the_scenario() -> None:
+    """eval run 7: ошибка цитаты сырого ответа исправлена кодом; сценарий PASS, метрика в отчёте."""
+    llm = ScriptedChat(
+        [
+            reply(calls=[("get_diagnosis", {"vehicle_id": "T792HO98", "session_id": "S-0043"})]),
+            reply(
+                calls=[
+                    (
+                        "search_manual",
+                        {"query": "давление масла проверка", "vehicle_id": "T792HO98", "top_k": 3},
+                    )
+                ]
+            ),
+            reply(content=C1_MODEL_WRONG_PAGE),
+        ]
+    )
+    template = make_services(llm)
+    template.deps.search = _search
+    template.deps.fetch_pages = _fetch_pages
+    scenario = _by_id(load_scenarios(SCENARIOS_PATH), "C1_T792HO98")
+
+    run = run_scenario(template, scenario, load_base_prompt())
+
+    assert run.outcome.citation_ok is True
+    assert run.outcome.model_problems
+    assert run.outcome.model_fixed == len(run.outcome.model_problems)
+    assert run.passed, [check.detail for check in run.checks if not check.ok]
+    report = render_report(
+        [run], generated_at=datetime(2026, 11, 27, 12, 0), model="m", min_score=0.8
+    )
+    assert f"Ошибок цитат модели, исправлено кодом: {run.outcome.model_fixed}" in report
+    assert "стр. 46" in report
+    assert "Первые" in report

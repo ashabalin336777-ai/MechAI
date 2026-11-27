@@ -175,3 +175,37 @@ def test_fix_changes_only_its_sentence() -> None:
         "Зазор 0,15 мм [536.01.02 РК, стр. 45].\nМинимум 100 кПа [536.01.02 РК, стр. 46]."
     )
     assert len(fixed.fixes) == 1
+
+
+RE_MANUAL = "236-3902150-Б РЭ"
+C1_ANSWER = "Давление масла может быть ниже 100 кПа [236.01.01 РК, стр. 46]."
+
+
+def test_c1_wrong_page_46_is_replaced_by_a_page_of_this_turn_with_the_number() -> None:
+    """C1 (eval run 7): стр. 46 не содержит «100 кПа», ссылку ставим на страницу хода, где есть."""
+    fragments = [
+        _fragment("На холостом ходу не менее 100 кПа.", page=19, manual=RE_MANUAL),
+        _fragment("Не менее 100 кПа при минимальной частоте.", page=267),
+    ]
+    fixed = fix_citations(C1_ANSWER, fragments)
+    assert fixed.text == f"Давление масла может быть ниже 100 кПа [{RE_MANUAL}, стр. 19]."
+    assert [(fix.old, fix.new) for fix in fixed.fixes] == [
+        ("[236.01.01 РК, стр. 46]", f"[{RE_MANUAL}, стр. 19]")
+    ]
+    assert check_citations(fixed.text, fragments).ok
+
+
+def test_uncited_claim_gets_citation_from_the_page_that_has_it() -> None:
+    fragments = [_fragment("Зазор 0,15 мм.", page=45)]
+    fixed = fix_citations("Зазор клапанов 0,15 мм.", fragments)
+    assert fixed.text == "Зазор клапанов 0,15 мм [536.01.02 РК, стр. 45]."
+    assert [fix.old for fix in fixed.fixes] == [""]
+    assert check_citations(fixed.text, fragments).ok
+
+
+def test_uncited_claim_found_nowhere_gets_no_citation() -> None:
+    fragments = [_fragment("Зазор 0,25 мм.", page=45)]
+    answer = "Зазор клапанов 0,77 мм."
+    fixed = fix_citations(answer, fragments)
+    assert fixed.text == answer
+    assert fixed.fixes == []

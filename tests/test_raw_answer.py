@@ -1,6 +1,6 @@
 """Сырой ответ модели в журнале (шаг raw_answer) и первые нарушения цитат в отчёте eval."""
 
-from app.agent.evaluation import violation_excerpts
+from app.agent.evaluation import fixed_by_code, violation_excerpts
 from app.agent.guards import RAW_ANSWER_LIMIT_BYTES, raw_answer_snapshot
 
 
@@ -43,3 +43,13 @@ def test_only_first_three_violations_are_listed() -> None:
 def test_violation_without_raw_text_has_empty_excerpt() -> None:
     [(_, excerpt)] = violation_excerpts("", ["цифра «5 мм» без ссылки"])
     assert excerpt == ""
+
+
+def test_model_error_counted_as_fixed_when_final_answer_has_no_such_problem() -> None:
+    model = [
+        "ссылка [X, стр. 46] не соответствует полученным фрагментам",
+        "цифра «1 мм» без ссылки",
+    ]
+    assert fixed_by_code(model, []) == 2
+    assert fixed_by_code(model, ["цифра «1 мм» без ссылки"]) == 1
+    assert fixed_by_code([], []) == 0

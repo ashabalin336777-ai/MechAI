@@ -198,47 +198,48 @@ def build_graph(deps: AgentDeps, checkpointer: Any) -> Any:
 
     def finalize(state: AgentState) -> dict[str, Any]:
         last = state["messages"][-1]
-        text = str(last.content)
-        check = check_answer(text, deps.turn.fetched_now)
-        if not check.ok:
-            fixed = fix_citations(text, deps.turn.fetched_now)
-            if fixed.fixes:
-                text = fixed.text
-                deps.record(
-                    StepRecord(
-                        run_id=deps.run_id,
-                        n=deps.next_step(),
-                        kind="guardrail",
-                        name="citation_fixed",
-                        output={"fixes": [fix.model_dump() for fix in fixed.fixes]},
-                    )
-                )
-                check = check_answer(text, deps.turn.fetched_now)
-        if not check.ok:
-            text = _regenerate(deps, state, check.problems)
-            check = check_answer(text, deps.turn.fetched_now)
-        # Текст, который проверяли кодом (до sanitize): по нему нарушения в отчёте eval.
+        model_text = str(last.content)
+        fragments = deps.turn.fetched_now
+        # Ответ модели до правок кодом: по нему eval считает ошибки цитат самой модели.
         deps.record(
             StepRecord(
                 run_id=deps.run_id,
                 n=deps.next_step(),
                 kind="guardrail",
                 name="raw_answer",
-                output=raw_answer_snapshot(text),
+                output=raw_answer_snapshot(model_text),
             )
         )
+        text = model_text
+        check = check_answer(text, fragments)
+        regenerated = False
         if not check.ok:
-            text = sanitize_answer(text, deps.turn.fetched_now)
+            text = _fix_citations_step(deps, text)
+            check = check_answer(text, fragments)
+        if not check.ok:
+            text = _regenerate(deps, state, check.problems)
+            regenerated = True
+            text = _fix_citations_step(deps, text)
+            check = check_answer(text, fragments)
+        if not check.ok:
+            text = sanitize_answer(text, fragments)
+        text = tidy_answer(text, [conflict.topic for conflict in deps.tools.conflicts])
+        # Итог — по тексту для механика; блок противоречия собирает код после этой проверки.
+        final = check_answer(text, fragments)
         deps.record(
             StepRecord(
                 run_id=deps.run_id,
                 n=deps.next_step(),
                 kind="guardrail",
                 name="citation_check",
-                output={"ok": check.ok, "problems": check.problems},
+                output={
+                    "ok": final.ok,
+                    "problems": final.problems,
+                    "model_problems": check_answer(model_text, fragments).problems,
+                    "regenerated": regenerated,
+                },
             )
         )
-        text = tidy_answer(text, [conflict.topic for conflict in deps.tools.conflicts])
         if not text:
             text = NO_DATA_ANSWER
         if deps.turn.conflicts:
@@ -441,6 +442,26 @@ def _flush_events(deps: AgentDeps) -> None:
             continue
         deps.emit(name, data)
     deps.turn.events.clear()
+
+
+def _fix_citations_step(deps: AgentDeps, text: str) -> str:
+    """Замена неверных ссылок кодом; каждая замена — шаг citation_fixed (from → to)."""
+    fixed = fix_citations(text, deps.turn.fetched_now)
+    if fixed.fixes:
+        deps.record(
+            StepRecord(
+                run_id=deps.run_id,
+                n=deps.next_step(),
+                kind="guardrail",
+                name="citation_fixed",
+                output={
+                    "fixes": [
+                        {"from": fix.old, "to": fix.new, "claim": fix.claim} for fix in fixed.fixes
+                    ]
+                },
+            )
+        )
+    return fixed.text
 
 
 def _regenerate(deps: AgentDeps, state: AgentState, problems: list[str]) -> str:

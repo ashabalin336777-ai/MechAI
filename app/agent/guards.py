@@ -11,6 +11,7 @@ from pydantic import BaseModel, Field
 from app.agent.verdict import Verdict
 from app.clients.toir_client import Reference
 from app.rag.citations import (
+    CLAIM_RE,
     check_citations,
     is_list_item,
     split_sentences,
@@ -115,8 +116,9 @@ def tidy_answer(answer: str, topics: list[str]) -> str:
     """Чистка после sanitize_answer.
 
     Раздел, заголовок которого совпадает с темой правила противоречия, — пересказ блока, который
-    вставит код. Удаляем его целиком вместе с заголовком. Заглушки, висящие «Рекомендуем.»,
-    пустые пункты и заголовки без текста удаляем строками.
+    вставит код. Удаляем его целиком вместе с заголовком. Заглушку «не подтверждено» после фразы
+    без числовых нормативов убираем. Висящие «Рекомендуем.», пустые пункты и заголовки без текста
+    удаляем строками.
     """
     plain_topics = [_plain_heading(topic) for topic in topics]
     sections: list[list[str]] = [[]]
@@ -127,6 +129,7 @@ def tidy_answer(answer: str, topics: list[str]) -> str:
             sections[-1].append(line)
     kept: list[str] = []
     for section in sections:
+        section = [_drop_unneeded_mark(line) for line in section]
         heading = section[0] if section and HEADING_LINE_RE.match(section[0]) else None
         if heading is not None and _retells_conflict(heading, plain_topics):
             continue
@@ -139,6 +142,26 @@ def tidy_answer(answer: str, topics: list[str]) -> str:
 
 def _plain_heading(text: str) -> str:
     return text.strip().strip("#*").strip().rstrip(".:").lower()
+
+
+SENTENCE_START_RE = re.compile(r"(?<=[.!?])\s+(?=[А-ЯЁA-Z*#\-•(\[])")
+
+
+def _drop_unneeded_mark(line: str) -> str:
+    """Заглушка стоит после фразы. Если в этой фразе нет числового норматива, заглушку убираем."""
+    result = ""
+    rest = line
+    while True:
+        index = rest.find(UNCONFIRMED_MARK)
+        if index < 0:
+            return result + rest
+        before = rest[:index].rstrip()
+        phrase = SENTENCE_START_RE.split(before)[-1]
+        if CLAIM_RE.search(phrase):
+            result += rest[: index + len(UNCONFIRMED_MARK)]
+        else:
+            result += before
+        rest = rest[index + len(UNCONFIRMED_MARK) :]
 
 
 def _retells_conflict(heading: str, plain_topics: list[str]) -> bool:

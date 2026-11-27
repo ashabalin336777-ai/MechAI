@@ -15,6 +15,7 @@ CITATION_RE = re.compile(r"\[([^\[\]]+?),\s*стр\.\s*(\d+)\]")
 UNIT = r"(?:Н·м|Н\s?м|кгс·см|кгс·м|кПа|МПа|бар|мм|см|мкм|м|°[CС]|кг|г|мл|л|%|об/мин|мин|кВт|Вт|В|А)"
 CLAIM_RE = re.compile(rf"(?<![\w.,])(\d+(?:[.,]\d+)?)\s?({UNIT})(?![\wа-яА-ЯёЁ])")
 SENTENCE_SPLIT_RE = re.compile(r"(?<=[.!?])\s+|\n+")
+TAIL_PUNCTUATION_RE = re.compile(r"[.!?;:]*\s*$")
 # Сокращения, после которых точка не конец фразы: «стр. 267», «см. стр.», «т.е.», «и т.п.».
 ABBREVIATION_RE = re.compile(
     r"(?<![\wа-яА-ЯёЁ])(?:стр|ст|рис|табл|пп|п|см|гл|разд|мин|макс|прим|т\.е|т\.д|т\.п)\.",
@@ -79,10 +80,12 @@ class CitationFixes(BaseModel):
 
 
 def fix_citations(answer: str, fragments: list[Fragment]) -> CitationFixes:
-    """Ссылка на страницу без цифры → ссылка на страницу ЭТОГО хода, где цифра дословно есть.
+    """Неверная ссылка заменяется ссылкой на страницу ЭТОГО хода, где цифра дословно есть.
 
-    Исправляем однозначный случай: во фразе одна ссылка, и все её цифры без подтверждения есть на
-    одной и той же другой странице из fragments. Иначе фразу не трогаем: её вырежет sanitize_answer.
+    Во фразе одна ссылка: если её страница не содержит цифр фразы, ссылка заменяется на страницу,
+    где все эти цифры есть. Во фразе без ссылки ссылка дописывается, если цифры есть на одной
+    странице этого хода. Иначе фразу не трогаем: её вырежет sanitize_answer, только если цифры
+    нет ни в одном фрагменте хода.
     """
     sources = [
         (
@@ -114,8 +117,10 @@ def _fix_sentence(
 ) -> str:
     citations = list(CITATION_RE.finditer(sentence))
     claims = list(CLAIM_RE.finditer(sentence))
-    if len(citations) != 1 or not claims:
+    if not claims or len(citations) > 1:
         return sentence
+    if not citations:
+        return _cite_uncited(sentence, claims, sources, fixes)
     citation = citations[0]
     cited = (_designation(citation.group(1)), int(citation.group(2)))
     cited_keys = set().union(*(keys for _, page, desig, keys in sources if (desig, page) == cited))
@@ -124,21 +129,48 @@ def _fix_sentence(
     ]
     if not missing:
         return sentence
+    pages = _common_pages(missing, sources, exclude=cited)
+    if not pages:
+        return sentence
+    manual, page = pages[0]
+    new = f"[{manual}, стр. {page}]"
+    fixes.append(CitationFix(old=citation.group(0), new=new, claim=missing[0].group(0)))
+    return sentence[: citation.start()] + new + sentence[citation.end() :]
+
+
+def _cite_uncited(
+    sentence: str,
+    claims: list[re.Match[str]],
+    sources: list[tuple[str, int, str, set[tuple[float, str]]]],
+    fixes: list[CitationFix],
+) -> str:
+    pages = _common_pages(claims, sources, exclude=None)
+    if not pages:
+        return sentence
+    manual, page = pages[0]
+    new = f"[{manual}, стр. {page}]"
+    fixes.append(CitationFix(old="", new=new, claim=claims[0].group(0)))
+    end = TAIL_PUNCTUATION_RE.search(sentence)
+    cut = end.start() if end else len(sentence)
+    return f"{sentence[:cut]} {new}{sentence[cut:]}"
+
+
+def _common_pages(
+    claims: list[re.Match[str]],
+    sources: list[tuple[str, int, str, set[tuple[float, str]]]],
+    exclude: tuple[str, int] | None,
+) -> list[tuple[str, int]]:
+    """Страницы этого хода (кроме exclude), где есть все цифры фразы; порядок — как в выдаче."""
     candidates: list[tuple[str, int]] | None = None
-    for claim in missing:
+    for claim in claims:
         key = _claim_key(claim.group(1), claim.group(2))
         pages = [
             (manual, page)
             for manual, page, desig, keys in sources
-            if key in keys and (desig, page) != cited
+            if key in keys and (desig, page) != exclude
         ]
         candidates = pages if candidates is None else [p for p in candidates if p in pages]
-    if not candidates:
-        return sentence
-    manual, page = candidates[0]
-    new = f"[{manual}, стр. {page}]"
-    fixes.append(CitationFix(old=citation.group(0), new=new, claim=missing[0].group(0)))
-    return sentence[: citation.start()] + new + sentence[citation.end() :]
+    return list(dict.fromkeys(candidates or []))
 
 
 def _claim_keys(text: str) -> set[tuple[float, str]]:

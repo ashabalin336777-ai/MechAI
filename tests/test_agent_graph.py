@@ -255,3 +255,86 @@ def test_number_on_another_page_of_this_turn_moves_the_citation_and_is_logged() 
     assert len(fixes) == 1
     assert fixes[0].output["fixes"][0]["claim"] == "100 кПа"
     assert len(llm.calls) == 2
+
+
+RE_MANUAL = "236-3902150-Б РЭ"
+C1_WRONG_PAGE = f"Давление масла может быть ниже 100 кПа [{YAMZ236_RK}, стр. 46]."
+
+
+def _pages_of_this_turn() -> list[Fragment]:
+    page_19 = Fragment(
+        manual_id="yamz236_re",
+        manual=RE_MANUAL,
+        pdf_page=19,
+        section=None,
+        text="На холостом ходу давление масла не менее 100 кПа.",
+        score=0.9,
+    )
+    return [page_19, manual_fragment("Давление масла не менее 100 кПа при минимальной частоте.")]
+
+
+def test_c1_wrong_page_is_replaced_by_page_of_this_turn_and_not_cut() -> None:
+    """C1 (eval run 7): стр. 46 не получена и не содержит 100 кПа — ссылка заменяется кодом."""
+    llm = ScriptedChat(
+        [
+            reply(
+                calls=[
+                    (
+                        "search_manual",
+                        {"query": "давление масла", "vehicle_id": DIAG_VEHICLE, "top_k": 3},
+                    )
+                ]
+            ),
+            reply(content=C1_WRONG_PAGE),
+        ]
+    )
+    services = make_services(llm)
+    services.deps.search = lambda query, engine, top_k: _pages_of_this_turn()
+
+    events = _run(services, _turn(DIAG_VEHICLE, DIAG_SESSION))
+
+    final = next(data["text"] for name, data in events if name == "answer_final")
+    assert final == f"Давление масла может быть ниже 100 кПа [{RE_MANUAL}, стр. 19]."
+    assert len(llm.calls) == 2
+    fixes = [s for s in services.journal.steps if s.name == "citation_fixed"]
+    assert fixes[0].output["fixes"] == [
+        {
+            "from": f"[{YAMZ236_RK}, стр. 46]",
+            "to": f"[{RE_MANUAL}, стр. 19]",
+            "claim": "100 кПа",
+        }
+    ]
+    check = next(s for s in services.journal.steps if s.name == "citation_check")
+    assert check.output["ok"] is True
+    assert check.output["model_problems"]
+    assert check.output["regenerated"] is False
+
+
+def test_fix_is_applied_again_to_regenerated_answer() -> None:
+    """Первый ответ — цифра нигде не найдена, регенерация ставит стр. 46: её исправляем кодом."""
+    llm = ScriptedChat(
+        [
+            reply(
+                calls=[
+                    (
+                        "search_manual",
+                        {"query": "давление масла", "vehicle_id": DIAG_VEHICLE, "top_k": 3},
+                    )
+                ]
+            ),
+            reply(content=f"Давление масла 200 кПа [{YAMZ236_RK}, стр. 267]."),
+            reply(content=C1_WRONG_PAGE),
+        ]
+    )
+    services = make_services(llm)
+    services.deps.search = lambda query, engine, top_k: _pages_of_this_turn()[1:]
+
+    events = _run(services, _turn(DIAG_VEHICLE, DIAG_SESSION))
+
+    final = next(data["text"] for name, data in events if name == "answer_final")
+    assert final == f"Давление масла может быть ниже 100 кПа [{YAMZ236_RK}, стр. 267]."
+    assert UNCONFIRMED_MARK not in final
+    assert len(llm.calls) == 3
+    check = next(s for s in services.journal.steps if s.name == "citation_check")
+    assert check.output["ok"] is True
+    assert check.output["regenerated"] is True

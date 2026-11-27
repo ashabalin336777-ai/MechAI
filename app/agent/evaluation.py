@@ -6,6 +6,7 @@ checkpointer новый. Поэтому прогон ничего не пише�
 """
 
 import re
+from collections import Counter
 from dataclasses import replace
 from datetime import datetime
 from decimal import Decimal
@@ -136,6 +137,8 @@ def _collect(
         result = citations[-1].output or {}
         outcome.citation_ok = result.get("ok")
         outcome.citation_problems = list(result.get("problems", []))
+        outcome.model_problems = list(result.get("model_problems", []))
+        outcome.model_fixed = fixed_by_code(outcome.model_problems, outcome.citation_problems)
     raw = [step for step in steps if step.name == "raw_answer"]
     if raw:
         outcome.raw_answer = str((raw[-1].output or {}).get("text", ""))
@@ -164,10 +167,41 @@ def render_report(
         "|---|---|---|---|---|---|---|---|",
     ]
     lines += [_summary_row(run) for run in runs]
+    lines += _model_errors_section(runs)
     lines += ["", "## Детали", ""]
     for run in runs:
         lines += _details(run)
     return "\n".join(lines) + "\n"
+
+
+def fixed_by_code(model_problems: list[str], final_problems: list[str]) -> int:
+    """Сколько ошибок цитат модели код убрал: ошибка модели, которой нет в финальном ответе."""
+    still_there = sum((Counter(model_problems) & Counter(final_problems)).values())
+    return len(model_problems) - still_there
+
+
+def _model_errors_section(runs: list[ScenarioRun]) -> list[str]:
+    found = sum(len(run.outcome.model_problems) for run in runs)
+    fixed = sum(run.outcome.model_fixed for run in runs)
+    lines = [
+        "",
+        "## Ошибки цитат модели",
+        "",
+        f"Ошибок цитат модели, исправлено кодом: {fixed} (выявлено всего: {found}). "
+        "Сценарий эти ошибки не валят: проверка идёт по финальному ответу.",
+    ]
+    pairs = [
+        (run.scenario.id, pair)
+        for run in runs
+        for pair in violation_excerpts(run.outcome.raw_answer, run.outcome.model_problems)
+    ]
+    shown = pairs[:VIOLATION_LIMIT]
+    if shown:
+        lines += ["", f"Первые {len(shown)} примера (сырой ответ модели до правок кодом):", ""]
+    for scenario_id, (problem, excerpt) in shown:
+        phrase = f"«{excerpt}»" if excerpt else "не найдена в сыром тексте"
+        lines += [f"- {scenario_id}: {problem}", f"  фраза: {phrase}"]
+    return lines
 
 
 def _summary_row(run: ScenarioRun) -> str:
@@ -175,6 +209,8 @@ def _summary_row(run: ScenarioRun) -> str:
     verdict = f"{outcome.light or '—'}, приоритет {outcome.urgency or '—'}"
     tools = ", ".join(dict.fromkeys(outcome.tools)) or "нет"
     citations = {True: "ок", False: "нарушено", None: "—"}[outcome.citation_ok]
+    if outcome.model_fixed:
+        citations += f" (модель: исправлено кодом {outcome.model_fixed})"
     cost = "—" if run.cost_rub is None else f"{run.cost_rub:.4f}"
     result = "PASS" if run.passed else "FAIL"
     return (
@@ -206,13 +242,14 @@ def _details(run: ScenarioRun) -> list[str]:
         status = "PASS" if check.ok else "FAIL"
         suffix = "" if check.ok else f" — {check.detail}"
         lines.append(f"- [{status}] {check.name}{suffix}")
+    if outcome.model_problems:
+        lines.append(
+            f"Ошибки цитат модели: {len(outcome.model_problems)}, "
+            f"исправлено кодом: {outcome.model_fixed}."
+        )
     if outcome.citation_problems:
-        lines += ["", "Первые нарушения цитат (строка ответа модели до правок кодом):"]
-        for problem, excerpt in violation_excerpts(outcome.raw_answer, outcome.citation_problems):
-            lines.append(f"- {problem}")
-            lines.append(
-                f"  фраза: «{excerpt}»" if excerpt else "  фраза: не найдена в сыром тексте"
-            )
+        lines += ["", "Нарушения цитат в финальном ответе:"]
+        lines += [f"- {problem}" for problem in outcome.citation_problems]
     lines += ["", "Ответ агента:", ""]
     answer = outcome.answer.strip() or "_пусто_"
     lines += [f"> {line}" if line else ">" for line in answer.splitlines()]

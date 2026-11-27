@@ -56,3 +56,18 @@ def test_empty_bullets_and_headings_without_body_are_removed() -> None:
 def test_section_is_kept_when_heading_is_not_a_conflict_topic() -> None:
     answer = "**Давление масла на холостом ходу**\n- пункт про давление."
     assert tidy_answer(answer, [OIL_TOPIC]) == answer
+
+
+def test_mark_after_phrase_without_numeric_norm_is_removed() -> None:
+    answer = (
+        "**Риск**\n\nПодшипники могут работать без подачи масла. (не подтверждено руководством)\n"
+    )
+    result = tidy_answer(answer, [])
+    assert UNCONFIRMED_MARK not in result
+    assert result == "**Риск**\n\nПодшипники могут работать без подачи масла."
+
+
+def test_mark_after_phrase_with_numeric_norm_is_kept() -> None:
+    answer = "Давление 400-700 кПа [236.01.01 РК, стр. 267]. (не подтверждено руководством)"
+    result = tidy_answer(answer, [])
+    assert result == answer

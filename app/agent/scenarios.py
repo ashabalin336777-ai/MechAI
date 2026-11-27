@@ -76,10 +76,14 @@ class TurnOutcome(BaseModel):
     tools: list[str] = Field(default_factory=list)
     journal: list[str] = Field(default_factory=list)
     answer: str = ""
-    # Текст модели до правок кодом (шаг raw_answer): показываем нарушения в отчёте.
+    # Текст модели до правок кодом (шаг raw_answer): из него берём примеры ошибок цитат модели.
     raw_answer: str = ""
+    # Итог проверки цитат по финальному ответу (то, что видит механик): проверка сценария.
     citation_ok: bool | None = None
     citation_problems: list[str] = Field(default_factory=list)
+    # Ошибки цитат самой модели (до правок кода) и сколько из них код исправил. Сценарий не валят.
+    model_problems: list[str] = Field(default_factory=list)
+    model_fixed: int = 0
     tool_errors: list[str] = Field(default_factory=list)
     draft: bool = False
     error: str | None = None
