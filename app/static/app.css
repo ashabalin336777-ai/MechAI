@@ -113,6 +113,9 @@ a {
 }
 
 .brand {
+  min-height: var(--target);
+  display: inline-flex;
+  align-items: center;
   font-weight: 800;
   color: var(--text);
   text-decoration: none;
@@ -211,6 +214,9 @@ a {
 
 .chip {
   min-height: var(--target);
+  display: inline-flex;
+  align-items: center;
+  text-decoration: none;
   padding: 8px 14px;
   border: 1px solid var(--primary);
   border-radius: 999px;
@@ -388,13 +394,18 @@ textarea {
 
 .verdict-facts {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 8px;
   font-size: 0.85em;
 }
 
+.verdict-facts > div:last-child {
+  grid-column: 1 / -1;
+}
+
 .verdict-facts dt {
   color: var(--muted);
+  overflow-wrap: normal;
 }
 
 .verdict-facts dd {
@@ -546,6 +557,47 @@ textarea {
   border: 0;
   border-top: 1px solid var(--border);
   margin: 10px 0;
+}
+
+/* Таблица ответа (в том числе из OCR): прокрутка внутри блока, страница не сдвигается. */
+.table-wrap {
+  max-width: 100%;
+  margin: 8px 0;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+}
+
+.table-wrap:focus-visible {
+  outline: 3px solid var(--primary);
+  outline-offset: 2px;
+}
+
+.answer table {
+  width: max-content;
+  min-width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9em;
+}
+
+.answer th,
+.answer td {
+  max-width: 260px;
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--border);
+  text-align: left;
+  vertical-align: top;
+  overflow-wrap: anywhere;
+}
+
+.answer th {
+  background: var(--secondary);
+  font-weight: 700;
+}
+
+.answer tr:last-child td {
+  border-bottom: 0;
 }
 
 .term {

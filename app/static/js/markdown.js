@@ -8,6 +8,7 @@
 
   var HEADING_RE = /^(#{1,6})\s+(.+)$/;
   var RULE_RE = /^(-{3,}|\*{3,}|_{3,})$/;
+  var TABLE_SEP_RE = /^\|?\s*:?-{3,}:?\s*(\|\s*:?-{3,}:?\s*)*\|?$/;
   var UL_RE = /^[-*•]\s+/;
   var OL_RE = /^(\d+)[.)]\s+/;
   var CITE_RE = /\[([^\[\]]+?),\s*стр\.\s*(\d+)\]/g;
@@ -20,6 +21,62 @@
 
   function isBlockStart(line) {
     return HEADING_RE.test(line) || RULE_RE.test(line) || UL_RE.test(line) || OL_RE.test(line);
+  }
+
+  /* Таблица начинается строкой с «|» и строкой-разделителем вида |---|---|. */
+  function isTableStart(lines, i) {
+    if (i + 1 >= lines.length) return false;
+    var head = lines[i].trim();
+    var sep = lines[i + 1].trim();
+    return head.indexOf("|") !== -1 && sep.indexOf("|") !== -1 && TABLE_SEP_RE.test(sep);
+  }
+
+  function splitRow(line) {
+    var row = line.trim();
+    if (row.charAt(0) === "|") row = row.slice(1);
+    if (row.charAt(row.length - 1) === "|") row = row.slice(0, -1);
+    return row.split("|").map(function (cell) {
+      return cell.trim();
+    });
+  }
+
+  /* Таблица в блоке с прокруткой: широкие OCR-таблицы не ломают страницу. */
+  function renderTable(lines, start) {
+    var head = splitRow(lines[start]);
+    var rows = [];
+    var i = start + 2;
+    while (i < lines.length) {
+      var line = lines[i].trim();
+      if (!line || line.indexOf("|") === -1) break;
+      rows.push(splitRow(line));
+      i++;
+    }
+    var th = head
+      .map(function (cell) {
+        return "<th>" + inline(cell) + "</th>";
+      })
+      .join("");
+    var tr = rows
+      .map(function (cells) {
+        return (
+          "<tr>" +
+          cells
+            .map(function (cell) {
+              return "<td>" + inline(cell) + "</td>";
+            })
+            .join("") +
+          "</tr>"
+        );
+      })
+      .join("");
+    var html =
+      '<div class="table-wrap" role="region" tabindex="0" aria-label="Таблица: прокрутите вправо, чтобы увидеть все столбцы">' +
+      "<table><thead><tr>" +
+      th +
+      "</tr></thead><tbody>" +
+      tr +
+      "</tbody></table></div>";
+    return { html: html, next: i };
   }
 
   function renderList(lines, start, pattern, tag) {
@@ -61,6 +118,12 @@
         i++;
         continue;
       }
+      if (isTableStart(lines, i)) {
+        var table = renderTable(lines, i);
+        html.push(table.html);
+        i = table.next;
+        continue;
+      }
       if (UL_RE.test(line)) {
         var ul = renderList(lines, i, UL_RE, "ul");
         html.push(ul.html);
@@ -76,7 +139,7 @@
       var para = [];
       while (i < lines.length) {
         var text = lines[i].trim();
-        if (!text || isBlockStart(text)) break;
+        if (!text || isBlockStart(text) || isTableStart(lines, i)) break;
         para.push(inline(text));
         i++;
       }
