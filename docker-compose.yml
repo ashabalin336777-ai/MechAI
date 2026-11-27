@@ -40,6 +40,7 @@ services:
       LOG_RETENTION_DAYS: ${LOG_RETENTION_DAYS:-90}
       ADMIN_TOKEN: ${ADMIN_TOKEN:-}
       COMMIT_SHA: ${COMMIT_SHA:-}
+      GIT_SHA: ${GIT_SHA:-}
     depends_on:
       - mock_ml
       - mock_toir

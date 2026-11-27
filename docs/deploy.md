@@ -90,6 +90,10 @@ python -c "import urllib.parse; print(urllib.parse.quote(input('пароль: ')
 | `AUTH_MODE` | `demo` | нет | `demo` без входа; `pin` — фаза 09 |
 | `JWT_SECRET` | `<openssl rand -hex 32>` | да | для режима `pin`, сгенерировать и хранить только в панели |
 | `LOG_RETENTION_DAYS` | `90` | нет | срок хранения журнала агента |
+| `GIT_SHA` | `<полный SHA коммита>` | нет | версия в `/health` (поле `git_sha`); пусто — `unknown` |
+| `COMMIT_SHA` | `<полный SHA коммита>` | нет | SHA в `eval_runs` и отчётах; задаётся тем же значением, что `GIT_SHA` |
+
+**Версия стенда.** Образ собирается из GitHub без build-аргументов, поэтому `GIT_SHA` и `COMMIT_SHA` задаются вручную в панели App Platform после каждого деплоя. Значение: полный хэш коммита, который задеплоен (`git rev-parse HEAD` в локальном репозитории, либо `git log -1` для нужной ветки). Пока переменная пуста, `/health` покажет `unknown`. Проверка: `https://<домен>/health` возвращает `git_sha` с тем же хэшем.
 
 Пока не используется на стенде: `POSTGRES_PASSWORD` (только для локального `docker-compose.local.yml`).
 
