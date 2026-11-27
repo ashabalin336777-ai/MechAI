@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+{% block content %}
+<a class="back" href="/admin/logs?tab=eval">← Прогоны проверки</a>
+<h1 class="page-title">Прогон {{ view.id }}</h1>
+
+<dl class="facts panel">
+  <div><dt>Запуск (НСК)</dt><dd>{{ view.started }}</dd></div>
+  <div><dt>Набор</dt><dd>{{ view.suite }}</dd></div>
+  <div><dt>Статус</dt><dd>{{ view.status }}</dd></div>
+  <div><dt>Итог</dt><dd>{{ view.result }}</dd></div>
+  <div><dt>Коммит</dt><dd>{{ view.commit }}</dd></div>
+  {% if view.error != "—" %}<div><dt>Ошибка</dt><dd>{{ view.error }}</dd></div>{% endif %}
+</dl>
+
+<h2 class="panel-title">Отчёт</h2>
+<pre class="raw report">{{ report }}</pre>
+{% endblock %}

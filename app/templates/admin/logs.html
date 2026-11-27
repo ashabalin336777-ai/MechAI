@@ -1,0 +1,96 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="logs-head">
+  <h1 class="page-title">Журнал агента</h1>
+  <p class="muted">Только чтение. Время по Новосибирску. Чтобы открыть ход или отчёт, нажмите ссылку в строке.</p>
+</div>
+
+<nav class="tabs" aria-label="Разделы журнала">
+  <a class="chip{% if tab == 'runs' %} chip-on{% endif %}" href="/admin/logs?tab=runs"
+     {% if tab == 'runs' %}aria-current="page"{% endif %}>Ходы агента</a>
+  <a class="chip{% if tab == 'eval' %} chip-on{% endif %}" href="/admin/logs?tab=eval"
+     {% if tab == 'eval' %}aria-current="page"{% endif %}>Прогоны проверки</a>
+</nav>
+
+{% if error %}
+<section class="notice notice-error" role="alert">
+  <p>{{ error }}</p>
+</section>
+{% elif tab == 'runs' %}
+<nav class="tabs" aria-label="Статус хода">
+  {% for key, label in filters.items() %}
+  <a class="chip{% if status == key %} chip-on{% endif %}"
+     href="/admin/logs?tab=runs&amp;status={{ key }}"
+     {% if status == key %}aria-current="true"{% endif %}>{{ label }}</a>
+  {% endfor %}
+</nav>
+<div class="table-wrap" tabindex="0" role="region" aria-label="Ходы агента: прокрутите вправо, чтобы увидеть все столбцы">
+  <table class="log-table">
+    <thead>
+      <tr>
+        <th>Время</th>
+        <th>ТС</th>
+        <th>Проверка</th>
+        <th>Статус</th>
+        <th>Длительность</th>
+        <th>Токены вх / вых</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for run in runs %}
+      <tr>
+        <td><a class="table-link" href="/admin/logs/runs/{{ run.id }}">{{ run.started }}</a></td>
+        <td>{{ run.vehicle }}</td>
+        <td>{{ run.session }}</td>
+        <td><span class="status-tag status-{{ run.status_key }}">{{ run.status }}</span></td>
+        <td>{{ run.duration }}</td>
+        <td>{{ run.tokens }}</td>
+      </tr>
+      {% else %}
+      <tr>
+        <td colspan="6">По этому фильтру ходов пока нет.</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% else %}
+<div class="table-wrap" tabindex="0" role="region" aria-label="Прогоны проверки: прокрутите вправо, чтобы увидеть все столбцы">
+  <table class="log-table">
+    <thead>
+      <tr>
+        <th>Запуск</th>
+        <th>Набор</th>
+        <th>Статус</th>
+        <th>Итог</th>
+        <th>Коммит</th>
+        <th>Отчёт</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for e in evals %}
+      <tr>
+        <td>{{ e.started }}</td>
+        <td>{{ e.suite }}</td>
+        <td>
+          {{ e.status }}
+          {% if e.error != "—" %}<br><span class="muted small">{{ e.error }}</span>{% endif %}
+        </td>
+        <td>{{ e.result }}</td>
+        <td>{{ e.commit }}</td>
+        <td><a class="table-link" href="/admin/logs/eval/{{ e.id }}">Открыть отчёт</a></td>
+      </tr>
+      {% else %}
+      <tr>
+        <td colspan="6">Прогонов проверки пока не было.</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endif %}
+
+<form class="logout" method="post" action="/admin/logs/logout">
+  <button class="btn btn-secondary" type="submit">Выйти из журнала</button>
+</form>
+{% endblock %}

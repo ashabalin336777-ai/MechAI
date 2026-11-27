@@ -14,6 +14,7 @@ from app.api.admin_eval import EvalJob
 from app.api.admin_eval import router as admin_eval_router
 from app.api.admin_ingest import router as admin_ingest_router
 from app.api.admin_json import use_admin_json_charset
+from app.api.admin_logs import router as admin_logs_router
 from app.api.admin_ocr import router as admin_ocr_router  # TODO: удалить перед финальным коммитом
 from app.api.chat import router as chat_router
 from app.api.health import router as health_router
@@ -24,6 +25,7 @@ from app.clients.ml_client import MlClient
 from app.clients.toir_client import ToirClient
 from app.config import Settings, get_settings
 from app.data.vehicles import VehicleStore
+from app.db.agent_journal import PgJournalReader
 from app.db.database import apply_migrations
 from app.db.eval_runs import PgEvalRunStore
 from app.mocks import mount_mocks
@@ -68,6 +70,9 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.state.ocr_job = OcrJob()  # TODO: удалить вместе с admin_ocr
     app.state.eval_store = PgEvalRunStore(settings.database_url)
     app.state.eval_job = EvalJob(app.state.eval_store)
+    app.state.journal_reader = (
+        PgJournalReader(settings.database_url) if settings.database_url else None
+    )
     app.state.ml_client = MlClient(settings.mock_ml_url)
     app.state.toir_client = ToirClient(settings.mock_toir_url)
     app.state.vehicles = VehicleStore.load(settings.vehicles_path)
@@ -83,6 +88,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(ready_router)
     app.include_router(pages_router)
     app.include_router(admin_eval_router)
+    app.include_router(admin_logs_router)
     app.include_router(admin_ingest_router)  # временно, см. docs/deploy.md
     app.include_router(admin_ocr_router)  # TODO: удалить перед финальным коммитом
     app.include_router(chat_router)

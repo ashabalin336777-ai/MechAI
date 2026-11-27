@@ -969,3 +969,162 @@ textarea {
     flex-direction: row;
   }
 }
+
+/* Журнал агента (/admin/logs): только чтение, цели касания как на остальных экранах. */
+.logs-head {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.chip-on {
+  background: var(--primary);
+  color: var(--primary-text);
+}
+
+.log-table {
+  width: max-content;
+  min-width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9em;
+}
+
+.log-table th,
+.log-table td {
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--border);
+  text-align: left;
+  vertical-align: top;
+  white-space: nowrap;
+}
+
+.log-table th {
+  background: var(--secondary);
+  font-weight: 700;
+}
+
+.table-link {
+  min-height: var(--target);
+  display: inline-flex;
+  align-items: center;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.status-tag {
+  display: inline-flex;
+  align-items: center;
+  min-height: 32px;
+  padding: 2px 10px;
+  border-radius: 999px;
+  font-size: 0.85em;
+  font-weight: 700;
+  background: var(--secondary);
+}
+
+.status-ok {
+  color: var(--green);
+}
+
+.status-error {
+  color: var(--red);
+}
+
+.status-running {
+  color: var(--primary);
+}
+
+.facts {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 8px;
+  margin: 0;
+}
+
+.facts > div {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  overflow-wrap: anywhere;
+}
+
+.facts dt {
+  color: var(--muted);
+  font-size: 0.85em;
+}
+
+.facts dd {
+  margin: 0;
+  font-weight: 600;
+}
+
+.step-detail {
+  padding: 12px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+
+.step-detail summary {
+  min-height: var(--target);
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+
+.step-n {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 32px;
+  min-height: 32px;
+  border-radius: 999px;
+  background: var(--secondary);
+}
+
+.step-label {
+  margin: 12px 0 4px;
+  font-size: 1em;
+}
+
+pre.raw {
+  margin: 0;
+  padding: 10px;
+  max-width: 100%;
+  overflow-x: auto;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  border-radius: 10px;
+  background: var(--secondary);
+  font-size: 0.85em;
+}
+
+pre.report {
+  font-size: 0.8em;
+}
+
+.access-form {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.logout {
+  margin-top: 8px;
+}
+
+@media (min-width: 900px) {
+  .facts {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}

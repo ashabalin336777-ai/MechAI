@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% block content %}
+<a class="back" href="/admin/logs?tab=runs">← Ходы агента</a>
+<h1 class="page-title">Ход {{ detail.run.id }}</h1>
+
+<dl class="facts panel">
+  <div><dt>Время (НСК)</dt><dd>{{ detail.run.started }}</dd></div>
+  <div><dt>ТС</dt><dd>{{ detail.run.vehicle }}</dd></div>
+  <div><dt>Проверка</dt><dd>{{ detail.run.session }}</dd></div>
+  <div><dt>Статус</dt><dd>{{ detail.run.status }}</dd></div>
+  <div><dt>Длительность</dt><dd>{{ detail.run.duration }}</dd></div>
+  <div><dt>Токены вх / вых</dt><dd>{{ detail.run.tokens }}</dd></div>
+  <div><dt>Скорость</dt><dd>{{ detail.tok_per_s }}</dd></div>
+  <div><dt>Стоимость</dt><dd>{{ detail.cost }}</dd></div>
+</dl>
+
+<h2 class="panel-title">Шаги</h2>
+{% for step in detail.steps %}
+<details class="step-detail"{% if step.error %} open{% endif %}>
+  <summary>
+    <span class="step-n">{{ step.n }}</span>
+    <span>{{ step.title }}</span>
+    <span class="muted small">{{ step.ms }}</span>
+    {% if step.error %}<span class="status-tag status-error">ошибка</span>{% endif %}
+  </summary>
+  <dl class="facts">
+    <div><dt>Модель</dt><dd>{{ step.model }}</dd></div>
+    <div><dt>Токены вх / вых</dt><dd>{{ step.tokens }}</dd></div>
+    {% if step.error %}<div><dt>Ошибка</dt><dd>{{ step.error }}</dd></div>{% endif %}
+  </dl>
+  <h3 class="step-label">Вход</h3>
+  <pre class="raw">{{ step.input_text }}</pre>
+  <h3 class="step-label">Выход</h3>
+  <pre class="raw">{{ step.output_text }}</pre>
+</details>
+{% else %}
+<p class="muted">В этом ходе шагов нет.</p>
+{% endfor %}
+{% endblock %}
