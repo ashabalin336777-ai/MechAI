@@ -6,6 +6,7 @@ from datetime import datetime
 import pymupdf
 import pytest
 
+from app.rag.chunking import image_only_pages
 from app.rag.evaluation import (
     EvalItem,
     EvalQuestion,
@@ -46,9 +47,10 @@ def _question(**overrides) -> EvalQuestion:
     return EvalQuestion(**data)
 
 
-def test_question_file_has_ten_engine_questions_and_three_no_data() -> None:
+def test_question_file_has_eleven_engine_questions_and_three_no_data() -> None:
+    """10 вопросов по тексту и Q11 — ответ на стр. 280 (скан, проверяется OCR-прогоном)."""
     questions = load_questions(QUESTIONS_PATH)
-    assert sum(1 for q in questions if not q.no_data) == 10
+    assert sum(1 for q in questions if not q.no_data) == 11
     assert sum(1 for q in questions if q.no_data) == 3
     assert len({q.id for q in questions}) == len(questions)
 
@@ -74,6 +76,8 @@ def test_expected_numbers_are_on_the_expected_pdf_page(question: EvalQuestion) -
     path = MANUALS_DIR / manifest[question.expected_manual].file
     if not path.exists():
         pytest.skip(f"{path.name} нет локально")
+    if question.expected_page in image_only_pages(path):
+        pytest.skip("страница только рисунок: цифры сверяет OCR-прогон, не текст PDF")
     with pymupdf.open(path) as document:
         page_text = " ".join(document[question.expected_page - 1].get_text("text").split())
     normalized = page_text.lower().replace(",", ".").replace(" ", "")

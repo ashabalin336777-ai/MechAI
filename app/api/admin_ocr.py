@@ -1,10 +1,12 @@
-"""ВРЕМЕННЫЕ эндпоинты OCR-разведки (Bearer ADMIN_TOKEN).
+"""ВРЕМЕННЫЕ эндпоинты OCR (Bearer ADMIN_TOKEN): проверка моделей и распознавание страниц-рисунков.
 
 GET /admin/ocr/models: список моделей Neuraldeep с пометкой vision (ключ не возвращается).
-POST /admin/ocr/probe: рендер одной страницы в PNG и дословное распознавание. В БД ничего не пишет.
+POST /admin/ocr/probe: рендер одной страницы в PNG и дословное распознавание, в БД не пишет.
+POST /admin/ocr/ingest: распознать страницы-рисунки, чанки source='ocr' (202, run_id).
+GET /admin/ocr/ingest/status?run_id=N: прогресс прогона (без run_id — последний).
 
 TODO: удалить перед финальным коммитом: модуль, include_router в app/main.py,
-tests/test_admin_ocr.py.
+app/rag/ocr.py, app/rag/ocr_job.py, tests/test_admin_ocr.py.
 """
 
 import logging
@@ -16,6 +18,7 @@ from app.api.admin_auth import check_admin
 from app.clients.vision_client import ModelInfo, VisionClient, VisionError
 from app.rag.manifest import ManualEntry
 from app.rag.manuals import ManualFileError, ensure_manual_file
+from app.rag.ocr_job import OcrRunStatus
 from app.rag.ocr_render import page_count, render_page_png
 
 router = APIRouter(prefix="/admin/ocr", tags=["admin"])
@@ -33,6 +36,11 @@ class OcrProbeResponse(BaseModel):
     elapsed_ms: int
     tokens_in: int | None
     tokens_out: int | None
+
+
+class OcrStartResponse(BaseModel):
+    status: str
+    run_id: int
 
 
 def _vision_client(request: Request) -> VisionClient:
@@ -98,3 +106,28 @@ def ocr_probe(
         tokens_in=result.tokens_in,
         tokens_out=result.tokens_out,
     )
+
+
+@router.post("/ingest", status_code=202, response_model=OcrStartResponse)
+def ocr_ingest_start(request: Request) -> OcrStartResponse:
+    check_admin(request)
+    settings = request.app.state.settings
+    if not settings.database_url:
+        raise HTTPException(status_code=503, detail="База данных не настроена")
+    if not settings.neuraldeep_api_key:
+        raise HTTPException(status_code=503, detail="Ключ Neuraldeep не задан")
+    run_id = request.app.state.ocr_job.start(settings)
+    if run_id is None:
+        raise HTTPException(status_code=409, detail="OCR уже идёт")
+    return OcrStartResponse(status="started", run_id=run_id)
+
+
+@router.get("/ingest/status", response_model=OcrRunStatus)
+def ocr_ingest_status(
+    request: Request, run_id: int | None = Query(default=None, ge=1)
+) -> OcrRunStatus:
+    check_admin(request)
+    run = request.app.state.ocr_job.get(run_id)
+    if run is None:
+        raise HTTPException(status_code=404, detail="Прогона OCR нет")
+    return run.snapshot()

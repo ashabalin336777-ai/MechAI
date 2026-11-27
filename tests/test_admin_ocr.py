@@ -1,5 +1,7 @@
 """Временные эндпоинты /admin/ocr: доступ, 404/422/503, без сети и ключа в ответе."""
 
+import time
+
 import pytest
 from fastapi.testclient import TestClient
 
@@ -7,6 +9,8 @@ from app.api import admin_ocr
 from app.clients.vision_client import VisionResult, detect_vision
 from app.config import Settings
 from app.main import create_app
+from app.rag.ocr import PageOutcome
+from app.rag.ocr_job import OcrJob
 from tests.helpers import REPO_ROOT, VEHICLES_PATH
 
 TOKEN = "admin-token-for-ocr-tests-9"
@@ -94,3 +98,62 @@ def test_probe_without_api_key_is_503(fake_vision: None) -> None:
     response = client.post(PROBE, headers=HEADERS)
     assert response.status_code == 503
     assert response.json()["detail"] == "Ключ Neuraldeep не задан"
+
+
+INGEST = "/admin/ocr/ingest"
+STATUS = "/admin/ocr/ingest/status"
+
+
+def _fake_runner(settings, on_total, on_outcome) -> None:  # noqa: ANN001
+    on_total(2)
+    on_outcome(
+        PageOutcome(manual_id="yamz236_rk", page=280, stored=True, model="m", chunks=3, tokens_in=1)
+    )
+    on_outcome(
+        PageOutcome(manual_id="yamz236_rk", page=281, stored=False, error=f"сбой {API_KEY} и т.д.")
+    )
+
+
+def _with_database(client: TestClient) -> TestClient:
+    client.app.state.settings = client.app.state.settings.model_copy(
+        update={"database_url": "postgresql://user:pass@db.example:5432/mechai"}
+    )
+    client.app.state.ocr_job = OcrJob(runner=_fake_runner)
+    return client
+
+
+def test_ingest_endpoints_absent_without_admin_token() -> None:
+    client = _client(token="")
+    assert client.post(INGEST).status_code == 404
+    assert client.get(STATUS).status_code == 404
+
+
+def test_ingest_requires_database() -> None:
+    response = _client().post(INGEST, headers=HEADERS)
+    assert response.status_code == 503
+    assert response.json()["detail"] == "База данных не настроена"
+
+
+def test_ingest_returns_202_and_progress_without_key() -> None:
+    client = _with_database(_client())
+    started = client.post(INGEST, headers=HEADERS)
+    assert started.status_code == 202
+    run_id = started.json()["run_id"]
+
+    status = client.get(f"{STATUS}?run_id={run_id}", headers=HEADERS)
+    deadline = time.monotonic() + 5
+    while status.json()["state"] == "running" and time.monotonic() < deadline:
+        time.sleep(0.02)
+        status = client.get(f"{STATUS}?run_id={run_id}", headers=HEADERS)
+
+    body = status.json()
+    assert body["state"] == "done"
+    assert (body["total"], body["done"], body["stored"], body["chunks"]) == (2, 2, 1, 3)
+    assert body["models"] == {"m": 1}
+    assert [failure["pdf_page"] for failure in body["failed"]] == [281]
+    assert API_KEY not in status.text
+
+
+def test_unknown_run_is_404() -> None:
+    client = _with_database(_client())
+    assert client.get(f"{STATUS}?run_id=99", headers=HEADERS).status_code == 404

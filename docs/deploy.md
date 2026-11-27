@@ -184,6 +184,27 @@ $st.report_md | Set-Content -Encoding UTF8 eval\reports\agent_run_$($run.run_id)
 ```
 
 Пока `status` равен `running`, повторно опрашивать статус (обычно несколько минут). Когда `status` стал `done`, отчёт в `report_md`. Если `status` равен `error`, причина в `error_message`: короткий текст без строки подключения и ключей.
+## OCR страниц-рисунков (временный)
+
+Страницы руководств, где текста меньше 100 символов (сканы, таблицы-картинки), распознаёт vision-модель `OCR_MODEL` (по умолчанию `gemma-4-31b-noreason`, запасная `OCR_FALLBACK_MODEL` — `qwen3.6-35b-a3b-noreason`). Текст пишется в `chunks` с `source='ocr'`. Повторный запуск пропускает уже распознанные страницы и дублей не создаёт. Переиндексация текста (`/admin/ingest`) OCR-чанки не удаляет.
+
+Запуск асинхронный: `POST` отвечает 202 и `run_id`, прогресс — в статусе. Прогресс хранится в памяти процесса: при перезапуске сервиса прогон прерывается, повторный запуск безопасен. Оба эндпоинта требуют Bearer `ADMIN_TOKEN`.
+
+PowerShell (вместо `<ADMIN_TOKEN>` свой токен, в чат не присылать):
+
+```powershell
+$h = @{ Authorization = "Bearer <ADMIN_TOKEN>" }
+$base = "https://ashabalin336777-ai-mechai-3580.twc1.net/admin/ocr"
+$run = Invoke-RestMethod -Method Post -Uri "$base/ingest" -Headers $h
+$st = Invoke-RestMethod -Uri "$base/ingest/status?run_id=$($run.run_id)" -Headers $h
+"$($st.state): $($st.done) из $($st.total), сохранено $($st.stored), чанков $($st.chunks), ошибок $($st.failed.Count)"
+$st.failed | Format-Table pdf_page, manual_id, error -AutoSize
+```
+
+Пока `state` равен `running`, повторять статус. Итог: `models` — сколько страниц распознала каждая модель, `tokens_in` и `tokens_out` — расход токенов.
+
+Удалить перед финальным коммитом: `app/api/admin_ocr.py`, `app/rag/ocr.py`, `app/rag/ocr_job.py`, строки `admin_ocr_router` и `OcrJob` в `app/main.py`, тесты `tests/test_admin_ocr.py`, `tests/test_ocr.py`, `tests/test_ocr_db.py`. Миграция `0008_chunk_source.sql` и поле `source` остаются.
+
 ## Что ещё не сделано
 
 - Миграции применяются при старте `app` (`app/db/database.py`). Повторный ingest локально: `python -m app.rag.ingest` (нужны `DATABASE_URL` и `NEURALDEEP_API_KEY`).

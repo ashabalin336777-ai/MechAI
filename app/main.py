@@ -30,6 +30,7 @@ from app.mocks import mount_mocks
 from app.paths import STATIC_DIR
 from app.rag.ingest import IngestJob
 from app.rag.manifest import Manifest, load_manifest
+from app.rag.ocr_job import OcrJob  # TODO: удалить вместе с admin_ocr
 
 logger = logging.getLogger("app")
 # PWA: браузеры ждут манифест с типом application/manifest+json.
@@ -64,6 +65,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.state.settings = settings
     app.state.migration_failed = False
     app.state.ingest_job = IngestJob()
+    app.state.ocr_job = OcrJob()  # TODO: удалить вместе с admin_ocr
     app.state.eval_store = PgEvalRunStore(settings.database_url)
     app.state.eval_job = EvalJob(app.state.eval_store)
     app.state.ml_client = MlClient(settings.mock_ml_url)
