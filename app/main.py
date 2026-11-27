@@ -14,6 +14,7 @@ from app.api.admin_eval import EvalJob
 from app.api.admin_eval import router as admin_eval_router
 from app.api.admin_ingest import router as admin_ingest_router
 from app.api.admin_json import use_admin_json_charset
+from app.api.admin_ocr import router as admin_ocr_router  # TODO: удалить перед финальным коммитом
 from app.api.chat import router as chat_router
 from app.api.health import router as health_router
 from app.api.pages import router as pages_router
@@ -81,6 +82,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(pages_router)
     app.include_router(admin_eval_router)
     app.include_router(admin_ingest_router)  # временно, см. docs/deploy.md
+    app.include_router(admin_ocr_router)  # TODO: удалить перед финальным коммитом
     app.include_router(chat_router)
     app.include_router(tickets_router)
     return app
