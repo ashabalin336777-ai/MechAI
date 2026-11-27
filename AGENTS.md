@@ -15,7 +15,7 @@
 
 ## Данные
 - ТС и проверки: `mock/data/vehicles.json` (50 ТС, 195 проверок). Справочник F01–F14: `mock/data/fault_types.json`. Код в `mock/` **не менять** (это компонент заказчика).
-- Руководства: `data/manuals/*.pdf` + `data/manuals/manifest.yaml`. `yamz-536_rk_2013.pdf` (99 МБ) в git не кладём — `scripts/fetch_manuals.py` скачивает его с Яндекс Диска заказчика.
+- Руководства: `data/manuals/*.pdf` + `data/manuals/manifest.yaml`. `yamz-536_rk_2013.pdf` (99 МБ) в git не кладём — ingest скачивает его с Яндекс Диска заказчика (`app/rag/manuals.py`).
 - Старые данные (Cummins ISF 2.8, ГАЗель, S1–S5, схема v1.1, 1С) **не использовать**.
 
 ## Контракты (точно по `mock/openapi_ml.json` и `mock/openapi_toir.json`)
