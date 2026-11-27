@@ -397,6 +397,19 @@ def test_oil_pressure_rule_triggers_by_pages_and_by_query() -> None:
     ]
 
 
+def test_keywords_in_found_pages_do_not_trigger_the_rule() -> None:
+    # Слова правила есть в найденной странице, но механик спросил о другом: блок не нужен.
+    page = Fragment(
+        manual_id="x",
+        manual=RE_31,
+        pdf_page=31,
+        section=None,
+        text="Тепловые зазоры регулировать на холодном двигателе после остановки, 15 мин.",
+        score=1.0,
+    )
+    assert conflict_triggers(_conflict(), "ЯМЗ-236М2", "Порядок регулировки клапанов", [page]) == []
+
+
 def test_pages_trigger_needs_two_rule_pages_and_the_right_engine() -> None:
     conflict = _conflict()
     one_page = [

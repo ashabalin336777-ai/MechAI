@@ -20,12 +20,14 @@ from pydantic import ValidationError
 
 from app.agent.guards import (
     CONSULT_PHRASE,
+    NO_DATA_ANSWER,
     apply_conflict_block,
     check_answer,
     find_injection_markers,
     raw_answer_snapshot,
     redact_injection,
     sanitize_answer,
+    tidy_answer,
     wrap_tool_data,
 )
 from app.agent.llm import ChatModel, root_cause
@@ -197,16 +199,6 @@ def build_graph(deps: AgentDeps, checkpointer: Any) -> Any:
     def finalize(state: AgentState) -> dict[str, Any]:
         last = state["messages"][-1]
         text = str(last.content)
-        # Сырой текст до правок кодом: по нему видно, что именно модель написала и что упало.
-        deps.record(
-            StepRecord(
-                run_id=deps.run_id,
-                n=deps.next_step(),
-                kind="guardrail",
-                name="raw_answer",
-                output=raw_answer_snapshot(text),
-            )
-        )
         check = check_answer(text, deps.turn.fetched_now)
         if not check.ok:
             fixed = fix_citations(text, deps.turn.fetched_now)
@@ -225,6 +217,16 @@ def build_graph(deps: AgentDeps, checkpointer: Any) -> Any:
         if not check.ok:
             text = _regenerate(deps, state, check.problems)
             check = check_answer(text, deps.turn.fetched_now)
+        # Текст, который проверяли кодом (до sanitize): по нему нарушения в отчёте eval.
+        deps.record(
+            StepRecord(
+                run_id=deps.run_id,
+                n=deps.next_step(),
+                kind="guardrail",
+                name="raw_answer",
+                output=raw_answer_snapshot(text),
+            )
+        )
         if not check.ok:
             text = sanitize_answer(text, deps.turn.fetched_now)
         deps.record(
@@ -236,6 +238,9 @@ def build_graph(deps: AgentDeps, checkpointer: Any) -> Any:
                 output={"ok": check.ok, "problems": check.problems},
             )
         )
+        text = tidy_answer(text, [conflict.topic for conflict in deps.tools.conflicts])
+        if not text:
+            text = NO_DATA_ANSWER
         if deps.turn.conflicts:
             block = apply_conflict_block(text, deps.turn.conflicts)
             text = block.text

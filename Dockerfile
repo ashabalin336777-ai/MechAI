@@ -3,7 +3,10 @@
 # Копируем только data/manuals, а не весь data/: остальное в data/ в образ не нужно.
 FROM python:3.12-slim
 
-ENV PYTHONDONTWRITEBYTECODE=1 \
+# Хэш коммита передаётся при сборке (build-аргумент GIT_SHA) и виден в /health.
+ARG GIT_SHA=unknown
+ENV GIT_SHA=${GIT_SHA} \
+    PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     PIP_NO_CACHE_DIR=1 \
     PIP_DISABLE_PIP_VERSION_CHECK=1

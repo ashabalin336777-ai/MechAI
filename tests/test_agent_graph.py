@@ -2,7 +2,7 @@
 
 from typing import Any
 
-from app.agent.guards import UNCONFIRMED_MARK
+from app.agent.guards import NO_DATA_ANSWER, UNCONFIRMED_MARK
 from app.agent.runner import TurnRequest, load_base_prompt, run_turn
 from app.rag.search import Fragment
 from tests.agent_helpers import (
@@ -131,7 +131,8 @@ def test_unsupported_number_is_regenerated_then_sanitized() -> None:
     events = _run(services, _turn(DIAG_VEHICLE, DIAG_SESSION))
 
     final = next(data for name, data in events if name == "answer_final")
-    assert UNCONFIRMED_MARK in final["text"]
+    assert final["text"] == NO_DATA_ANSWER
+    assert UNCONFIRMED_MARK not in final["text"]
     assert "200" not in final["text"]
     assert len(llm.calls) == 3
 

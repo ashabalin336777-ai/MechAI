@@ -27,6 +27,14 @@ def test_violation_excerpt_is_the_model_line_with_the_checked_number() -> None:
     assert excerpt == "Давление не менее 100 кПа (см. стр. 267) [РК, стр. 267]."
 
 
+def test_long_line_is_cut_to_a_window_around_the_number() -> None:
+    raw = "а" * 500 + " 100 кПа " + "б" * 500
+    [(_, excerpt)] = violation_excerpts(raw, ["цифра «100 кПа» без ссылки"])
+    assert "100 кПа" in excerpt
+    assert excerpt.startswith("…") and excerpt.endswith("…")
+    assert len(excerpt) <= 2 * 200 + len("100 кПа") + 2
+
+
 def test_only_first_three_violations_are_listed() -> None:
     problems = [f"цифра «{n} кПа» без ссылки" for n in range(1, 6)]
     assert len(violation_excerpts("", problems)) == 3

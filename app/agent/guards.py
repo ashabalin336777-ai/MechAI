@@ -20,6 +20,7 @@ from app.rag.conflicts import ConflictNotice
 from app.rag.search import Fragment
 
 UNCONFIRMED_MARK = "(не подтверждено руководством)"
+NO_DATA_ANSWER = "В руководстве на этот двигатель этих данных нет. Рекомендую дефектовку узла."
 
 INJECTION_RE = re.compile(
     r"SYSTEM\s*:"
@@ -99,6 +100,54 @@ def sanitize_answer(answer: str, fragments: list[Fragment]) -> str:
         cursor = end
     out.append(answer[cursor:])
     return "".join(out).strip()
+
+
+HEADING_LINE_RE = re.compile(r"^\s*(?:#{1,6}\s|\*\*[^*\n]+\*\*\s*$)")
+LEFTOVER_LINE_RE = re.compile(
+    rf"^\s*(?:{re.escape(UNCONFIRMED_MARK)}|рекоменду(?:ем|ю|ется))\.?\s*$"
+    r"|^\s*(?:[-*•]|\d+[.)])\s*$",
+    re.IGNORECASE,
+)
+MIN_TOPIC_HEADING = 12
+
+
+def tidy_answer(answer: str, topics: list[str]) -> str:
+    """Чистка после sanitize_answer.
+
+    Раздел, заголовок которого совпадает с темой правила противоречия, — пересказ блока, который
+    вставит код. Удаляем его целиком вместе с заголовком. Заглушки, висящие «Рекомендуем.»,
+    пустые пункты и заголовки без текста удаляем строками.
+    """
+    plain_topics = [_plain_heading(topic) for topic in topics]
+    sections: list[list[str]] = [[]]
+    for line in answer.split("\n"):
+        if HEADING_LINE_RE.match(line):
+            sections.append([line])
+        else:
+            sections[-1].append(line)
+    kept: list[str] = []
+    for section in sections:
+        heading = section[0] if section and HEADING_LINE_RE.match(section[0]) else None
+        if heading is not None and _retells_conflict(heading, plain_topics):
+            continue
+        lines = [line for line in section if not LEFTOVER_LINE_RE.match(line)]
+        if heading is not None and not any(line.strip() for line in lines[1:]):
+            continue
+        kept.extend(lines)
+    return re.sub(r"\n{3,}", "\n\n", "\n".join(kept)).strip()
+
+
+def _plain_heading(text: str) -> str:
+    return text.strip().strip("#*").strip().rstrip(".:").lower()
+
+
+def _retells_conflict(heading: str, plain_topics: list[str]) -> bool:
+    title = _plain_heading(heading)
+    if len(title) < MIN_TOPIC_HEADING:
+        return False
+    return any(
+        topic and (title == topic or title in topic or topic in title) for topic in plain_topics
+    )
 
 
 class TicketCheck(BaseModel):

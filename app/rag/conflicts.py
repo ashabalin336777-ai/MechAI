@@ -35,7 +35,6 @@ class KnownConflict(BaseModel):
     engine_models: list[str] = Field(min_length=1)
     topic: str = Field(min_length=3)
     keywords: list[str] = Field(min_length=2)
-    min_matches: int = Field(default=2, ge=1)
     # Фразы в запросе механика, по которым правило срабатывает само (тема противоречия).
     query_keywords: list[str] = Field(default_factory=list)
     refs: list[ConflictRef] = Field(min_length=2)
@@ -55,7 +54,7 @@ class ConflictNotice(BaseModel):
     topic: str
     quotes: list[ConflictQuote]
     safe_rule: str
-    # Почему сработало: "pages" (две страницы правила в выдаче), "keywords" (тема в запросе/тексте).
+    # Почему сработало: "pages" (две страницы правила в выдаче), "keywords" (тема в запросе).
     trigger: list[str] = Field(default_factory=list)
 
 
@@ -81,8 +80,8 @@ def conflict_triggers(
     """Почему правило сработало в этом ходе. Пусто — не сработало.
 
     pages: в выдаче хода есть не меньше двух страниц правила (обе формулировки уже в поиске).
-    keywords: тема есть в запросе механика (query_keywords) или в тексте запроса и фрагментов
-    (не меньше min_matches ключевых слов).
+    keywords: в запросе механика есть фраза темы (query_keywords). Текст фрагментов не учитываем:
+    иначе правило срабатывает на чужие вопросы, где те же слова встречаются в найденных страницах.
     """
     if engine_model not in conflict.engine_models:
         return []
@@ -90,11 +89,7 @@ def conflict_triggers(
     rule_pages = {(ref.manual, ref.pdf_page) for ref in conflict.refs}
     if len({(f.manual, f.pdf_page) for f in found} & rule_pages) >= 2:
         triggers.append("pages")
-    lowered_query = query.lower()
-    text = (query + " " + " ".join(f.text for f in found)).lower()
-    by_query = any(phrase in lowered_query for phrase in conflict.query_keywords)
-    by_text = sum(1 for keyword in conflict.keywords if keyword in text) >= conflict.min_matches
-    if by_query or by_text:
+    if any(phrase in query.lower() for phrase in conflict.query_keywords):
         triggers.append("keywords")
     return triggers
 

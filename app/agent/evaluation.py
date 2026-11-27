@@ -239,11 +239,23 @@ def violation_excerpts(
     return excerpts
 
 
+EXCERPT_RADIUS = 200
+
+
 def _line_with(raw: str, claim: str) -> str:
+    """Строка сырого ответа с цифрой; длинная строка сокращается окном вокруг цифры."""
     index = raw.find(claim)
     if not claim or index < 0:
         return ""
     start = raw.rfind("\n", 0, index) + 1
     end = raw.find("\n", index)
-    line = raw[start : end if end >= 0 else len(raw)].strip()
-    return line[:300]
+    segment = raw[start : end if end >= 0 else len(raw)]
+    line = segment.strip()
+    local = index - start - (len(segment) - len(segment.lstrip()))
+    if len(line) <= 2 * EXCERPT_RADIUS + len(claim):
+        return line
+    left = max(0, local - EXCERPT_RADIUS)
+    right = min(len(line), local + len(claim) + EXCERPT_RADIUS)
+    prefix = "…" if left > 0 else ""
+    suffix = "…" if right < len(line) else ""
+    return prefix + line[left:right] + suffix

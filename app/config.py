@@ -50,6 +50,8 @@ class Settings(BaseSettings):
     agent_scenarios_path: Path = Path("eval/agent_scenarios.yaml")
     # Хэш коммита, из которого собрано приложение (для eval_runs). Пусто — в таблице NULL.
     commit_sha: str = ""
+    # Хэш коммита образа: Dockerfile получает ARG GIT_SHA. Пусто — в /health будет unknown.
+    git_sha: str = ""
 
 
 @lru_cache

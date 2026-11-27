@@ -22,6 +22,7 @@ class ServicesHealth(BaseModel):
 
 class HealthResponse(BaseModel):
     status: Literal["ok", "degraded"]
+    git_sha: str
     services: ServicesHealth
 
 
@@ -45,4 +46,8 @@ def health(request: Request) -> HealthResponse:
         database=current_database_state(request),
     )
     all_ok = ml_ok and toir_ok and services.database in ("ok", "not_configured")
-    return HealthResponse(status="ok" if all_ok else "degraded", services=services)
+    return HealthResponse(
+        status="ok" if all_ok else "degraded",
+        git_sha=state.settings.git_sha or "unknown",
+        services=services,
+    )
