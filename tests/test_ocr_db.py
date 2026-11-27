@@ -1,4 +1,4 @@
-"""OCR в PostgreSQL: повторная запись страницы не дублирует чанки, текст не затрагивается.
+"""OCR в PostgreSQL: повтор записи не дублирует чанки, статусы страниц, текст не трогается.
 
 Запускаются, если задан TEST_DATABASE_URL (PostgreSQL с pgvector). Схему не очищают: тестовое
 руководство создаётся и удаляется само. Пример (PowerShell):
@@ -39,6 +39,9 @@ def _cleanup() -> None:
     with psycopg.connect(TEST_DATABASE_URL) as conn:
         conn.execute(
             "DELETE FROM chunks WHERE tenant_id = %s AND manual_id = %s", (TENANT_ID, MANUAL_ID)
+        )
+        conn.execute(
+            "DELETE FROM ocr_pages WHERE tenant_id = %s AND manual_id = %s", (TENANT_ID, MANUAL_ID)
         )
         conn.execute("DELETE FROM manuals WHERE tenant_id = %s AND id = %s", (TENANT_ID, MANUAL_ID))
 
@@ -89,13 +92,26 @@ def _count(source: str) -> int:
 
 
 def test_replacing_ocr_page_twice_keeps_one_set(store: PgOcrStore) -> None:
-    store.replace_page(ENTRY, PAGE, _chunks("Таблица 6.12, 147 (200)"), _vectors(1))
-    store.replace_page(ENTRY, PAGE, _chunks("Таблица 6.12, 147 (200)"), _vectors(1))
+    store.replace_page(ENTRY, PAGE, _chunks("Таблица 6.12, 147 (200)"), _vectors(1), "m", 25)
+    store.replace_page(ENTRY, PAGE, _chunks("Таблица 6.12, 147 (200)"), _vectors(1), "m", 25)
 
     assert _count("ocr") == 1
-    assert store.ocr_pages(MANUAL_ID) == {PAGE}
+    assert store.done_pages(MANUAL_ID) == {PAGE}
     assert store.manual_exists(MANUAL_ID) is True
     assert store.manual_exists("no_such_manual") is False
+
+
+def test_skipped_drawing_page_is_done_and_has_no_chunks(store: PgOcrStore) -> None:
+    store.mark_page(ENTRY, PAGE, "skipped_drawing", "распознано слишком мало текста", "m", 3)
+
+    assert store.done_pages(MANUAL_ID) == {PAGE}
+    assert _count("ocr") == 0
+
+
+def test_failed_page_is_not_done(store: PgOcrStore) -> None:
+    store.mark_page(ENTRY, PAGE, "failed", "таймаут")
+
+    assert store.done_pages(MANUAL_ID) == set()
 
 
 def test_ocr_replace_keeps_text_chunks_of_same_page(store: PgOcrStore) -> None:
@@ -112,8 +128,12 @@ def test_ocr_replace_keeps_text_chunks_of_same_page(store: PgOcrStore) -> None:
                 vector_literal([0.0] * EMBED_DIM),
             ),
         )
-    store.replace_page(ENTRY, PAGE, _chunks("распознано"), _vectors(1))
-    store.replace_page(ENTRY, PAGE, _chunks("распознано"), _vectors(1))
+    store.replace_page(ENTRY, PAGE, _chunks("распознано"), _vectors(1), "m", 9)
+    store.replace_page(ENTRY, PAGE, _chunks("распознано"), _vectors(1), "m", 9)
 
-    assert _count("text") == 1
+    with psycopg.connect(TEST_DATABASE_URL) as conn:
+        text_count = conn.execute(
+            "SELECT count(*) FROM chunks WHERE manual_id = %s AND source = 'text'", (MANUAL_ID,)
+        ).fetchone()[0]
+    assert text_count == 1
     assert _count("ocr") == 1

@@ -17,10 +17,10 @@ from app.rag.ocr import PageOutcome, run_ocr_pages, scrub
 Runner = Callable[[Settings, Callable[[int], None], Callable[[PageOutcome], None]], None]
 
 
-class OcrFailure(BaseModel):
+class OcrPageNote(BaseModel):
     manual_id: str
     pdf_page: int
-    error: str
+    detail: str
 
 
 class OcrRunStatus(BaseModel):
@@ -30,7 +30,8 @@ class OcrRunStatus(BaseModel):
     done: int
     stored: int
     chunks: int
-    failed: list[OcrFailure]
+    skipped: list[OcrPageNote]  # распознано слишком мало текста: рисунок без текста, не повторяем
+    failed: list[OcrPageNote]  # ошибка: при следующем запуске повторим
     models: dict[str, int]  # сколько страниц распознала каждая модель
     tokens_in: int
     tokens_out: int
@@ -49,7 +50,8 @@ class OcrRun:
     done: int = 0
     stored: int = 0
     chunks: int = 0
-    failed: list[OcrFailure] = field(default_factory=list)
+    skipped: list[OcrPageNote] = field(default_factory=list)
+    failed: list[OcrPageNote] = field(default_factory=list)
     models: dict[str, int] = field(default_factory=dict)
     tokens_in: int = 0
     tokens_out: int = 0
@@ -63,20 +65,16 @@ class OcrRun:
     def record(self, outcome: PageOutcome, secrets: tuple[str, ...] = ()) -> None:
         with self._lock:
             self.done += 1
-            if outcome.stored:
+            self.tokens_in += outcome.tokens_in
+            self.tokens_out += outcome.tokens_out
+            if outcome.status == "stored":
                 self.stored += 1
                 self.chunks += outcome.chunks
                 self.models[outcome.model] = self.models.get(outcome.model, 0) + 1
-                self.tokens_in += outcome.tokens_in
-                self.tokens_out += outcome.tokens_out
+            elif outcome.status == "skipped_drawing":
+                self.skipped.append(_note(outcome, secrets))
             else:
-                self.failed.append(
-                    OcrFailure(
-                        manual_id=outcome.manual_id,
-                        pdf_page=outcome.page,
-                        error=scrub(outcome.error, secrets),
-                    )
-                )
+                self.failed.append(_note(outcome, secrets))
 
     def finish(self, error: str | None = None) -> None:
         with self._lock:
@@ -93,6 +91,7 @@ class OcrRun:
                 done=self.done,
                 stored=self.stored,
                 chunks=self.chunks,
+                skipped=list(self.skipped),
                 failed=list(self.failed),
                 models=dict(self.models),
                 tokens_in=self.tokens_in,
@@ -101,6 +100,14 @@ class OcrRun:
                 finished_at=self.finished_at,
                 error=self.error,
             )
+
+
+def _note(outcome: PageOutcome, secrets: tuple[str, ...]) -> OcrPageNote:
+    return OcrPageNote(
+        manual_id=outcome.manual_id,
+        pdf_page=outcome.page,
+        detail=scrub(outcome.error, secrets),
+    )
 
 
 class OcrJob:

@@ -1,4 +1,4 @@
-"""OCR страниц-рисунков: идемпотентность, source='ocr', повторы и запасная модель, цитаты.
+"""OCR страниц-рисунков: идемпотентность, source='ocr', повторы и запасная модель, цитаты, пропуски.
 
 Без сети и БД: модель и хранилище подменены. Страница 280 рендерится из настоящего PDF.
 """
@@ -10,6 +10,7 @@ from app.rag.chunking import ChunkDraft, image_only_pages
 from app.rag.citations import check_citations
 from app.rag.manifest import Manifest, ManualEntry, load_manifest
 from app.rag.ocr import (
+    DONE_STATUSES,
     OcrError,
     OcrTask,
     clean_ocr_text,
@@ -17,6 +18,7 @@ from app.rag.ocr import (
     plan_tasks,
     process_task,
 )
+from app.rag.ocr_job import OcrRun
 from app.rag.search import Fragment
 from tests.helpers import REPO_ROOT
 
@@ -36,19 +38,29 @@ def _entry() -> ManualEntry:
 
 
 class FakeStore:
-    def __init__(self) -> None:
+    def __init__(self, done: set[int] | None = None) -> None:
         self.rows: dict[tuple[str, int], list[ChunkDraft]] = {}
-        self.vectors: dict[tuple[str, int], list[list[float]]] = {}
+        self.status: dict[tuple[str, int], str] = {}
+        self._done = set(done or ())
 
     def manual_exists(self, manual_id: str) -> bool:
         return manual_id == "yamz236_rk"
 
-    def ocr_pages(self, manual_id: str) -> set[int]:
-        return {page for (manual, page) in self.rows if manual == manual_id}
+    def done_pages(self, manual_id: str) -> set[int]:
+        done = {
+            page
+            for (manual, page), s in self.status.items()
+            if manual == manual_id and s in DONE_STATUSES
+        }
+        return done | self._done
 
-    def replace_page(self, entry, page, chunks, vectors) -> None:  # noqa: ANN001
+    def replace_page(self, entry, page, chunks, vectors, model, text_chars) -> None:  # noqa: ANN001
         self.rows[(entry.id, page)] = list(chunks)
-        self.vectors[(entry.id, page)] = vectors
+        self.status[(entry.id, page)] = "stored"
+
+    def mark_page(self, entry, page, status, error, model="", text_chars=0) -> None:  # noqa: ANN001
+        self.status[(entry.id, page)] = status
+        self.rows.pop((entry.id, page), None)
 
 
 class FakeVision:
@@ -91,7 +103,7 @@ def test_clean_removes_only_trailing_page_number() -> None:
     assert clean_ocr_text(TABLE + "281", PAGE).endswith("281")
 
 
-def test_pending_pages_skip_stored() -> None:
+def test_pending_pages_skip_done() -> None:
     assert pending_pages([10, 280, 300], {280}) == [10, 300]
     assert pending_pages([10], set()) == [10]
 
@@ -105,7 +117,7 @@ def test_process_stores_ocr_chunks_with_source_and_page() -> None:
     vision = FakeVision({MODELS[0]: [TABLE + "280"]})
     outcome = process_task(_task(), vision, FakeEmbedder(), store, MODELS, _no_pause)
 
-    assert outcome.stored is True
+    assert outcome.status == "stored"
     assert outcome.model == MODELS[0]
     chunks = store.rows[("yamz236_rk", PAGE)]
     assert chunks
@@ -123,9 +135,56 @@ def test_second_run_creates_no_duplicates() -> None:
     process_task(_task(), vision, FakeEmbedder(), store, MODELS, _no_pause)
     assert store.rows[("yamz236_rk", PAGE)] == first
 
-    manifest = Manifest(manuals=[_entry()])
-    planned = plan_tasks(manifest, MANUALS_DIR, store)
+    planned = plan_tasks(Manifest(manuals=[_entry()]), MANUALS_DIR, store)
     assert PAGE not in [task.page for task in planned]
+
+
+def test_short_text_is_skipped_drawing_not_failed_and_not_retried() -> None:
+    store = FakeStore()
+    vision = FakeVision({MODELS[0]: ["280"]})
+    outcome = process_task(_task(), vision, FakeEmbedder(), store, MODELS, _no_pause)
+
+    assert outcome.status == "skipped_drawing"
+    assert outcome.error == "распознано слишком мало текста"
+    assert store.status[("yamz236_rk", PAGE)] == "skipped_drawing"
+    assert ("yamz236_rk", PAGE) not in store.rows
+    # Следующий запуск страницу не берёт в работу и модель не вызывает.
+    assert PAGE not in [
+        t.page for t in plan_tasks(Manifest(manuals=[_entry()]), MANUALS_DIR, store)
+    ]
+
+
+def test_failed_page_is_marked_failed_and_retried_next_run() -> None:
+    store = FakeStore()
+    vision = FakeVision({MODELS[0]: [], MODELS[1]: []})
+    outcome = process_task(_task(), vision, FakeEmbedder(), store, MODELS, _no_pause)
+
+    assert outcome.status == "failed"
+    assert store.status[("yamz236_rk", PAGE)] == "failed"
+    assert PAGE in [t.page for t in plan_tasks(Manifest(manuals=[_entry()]), MANUALS_DIR, store)]
+
+
+def test_run_status_separates_skipped_and_failed() -> None:
+    run = OcrRun(run_id=1)
+    run.set_total(3)
+    skipped = process_task(
+        _task(), FakeVision({MODELS[0]: ["280"]}), FakeEmbedder(), FakeStore(), MODELS, _no_pause
+    )
+    failed = process_task(
+        _task(),
+        FakeVision({MODELS[0]: [], MODELS[1]: []}),
+        FakeEmbedder(),
+        FakeStore(),
+        MODELS,
+        _no_pause,
+    )
+    run.record(skipped)
+    run.record(failed)
+    status = run.snapshot()
+
+    assert (status.done, status.stored) == (2, 0)
+    assert [note.pdf_page for note in status.skipped] == [PAGE]
+    assert [note.pdf_page for note in status.failed] == [PAGE]
 
 
 def test_retries_then_fallback_model() -> None:
@@ -139,7 +198,7 @@ def test_retries_then_fallback_model() -> None:
     )
     outcome = process_task(_task(), vision, FakeEmbedder(), store, MODELS, pauses.append)
 
-    assert outcome.stored is True
+    assert outcome.status == "stored"
     assert outcome.model == MODELS[1]
     assert vision.calls == [MODELS[0]] * 3 + [MODELS[1]]
     assert pauses == [5.0, 15.0]
@@ -150,7 +209,7 @@ def test_empty_answer_from_all_models_is_failure() -> None:
     vision = FakeVision({MODELS[0]: ["", "", ""], MODELS[1]: ["  \n", " ", " "]})
     outcome = process_task(_task(), vision, FakeEmbedder(), store, MODELS, _no_pause)
 
-    assert outcome.stored is False
+    assert outcome.status == "failed"
     assert "пустой ответ" in outcome.error
     assert ("yamz236_rk", PAGE) not in store.rows
 
@@ -187,6 +246,5 @@ def test_plan_requires_ingested_manual() -> None:
         def manual_exists(self, manual_id: str) -> bool:
             return False
 
-    manifest = Manifest(manuals=[_entry()])
     with pytest.raises(OcrError, match="сначала запустите ingest"):
-        plan_tasks(manifest, MANUALS_DIR, NoManualStore())
+        plan_tasks(Manifest(manuals=[_entry()]), MANUALS_DIR, NoManualStore())

@@ -105,12 +105,24 @@ STATUS = "/admin/ocr/ingest/status"
 
 
 def _fake_runner(settings, on_total, on_outcome) -> None:  # noqa: ANN001
-    on_total(2)
+    on_total(3)
     on_outcome(
-        PageOutcome(manual_id="yamz236_rk", page=280, stored=True, model="m", chunks=3, tokens_in=1)
+        PageOutcome(
+            manual_id="yamz236_rk", page=280, status="stored", model="m", chunks=3, tokens_in=1
+        )
     )
     on_outcome(
-        PageOutcome(manual_id="yamz236_rk", page=281, stored=False, error=f"сбой {API_KEY} и т.д.")
+        PageOutcome(
+            manual_id="yamz236_rk",
+            page=91,
+            status="skipped_drawing",
+            error="распознано слишком мало текста",
+        )
+    )
+    on_outcome(
+        PageOutcome(
+            manual_id="yamz236_rk", page=281, status="failed", error=f"сбой {API_KEY} и т.д."
+        )
     )
 
 
@@ -148,9 +160,10 @@ def test_ingest_returns_202_and_progress_without_key() -> None:
 
     body = status.json()
     assert body["state"] == "done"
-    assert (body["total"], body["done"], body["stored"], body["chunks"]) == (2, 2, 1, 3)
+    assert (body["total"], body["done"], body["stored"], body["chunks"]) == (3, 3, 1, 3)
     assert body["models"] == {"m": 1}
-    assert [failure["pdf_page"] for failure in body["failed"]] == [281]
+    assert [note["pdf_page"] for note in body["skipped"]] == [91]
+    assert [note["pdf_page"] for note in body["failed"]] == [281]
     assert API_KEY not in status.text
 
 

@@ -34,3 +34,4 @@ rag_eval.json
 # Локальные скрипты и результаты пробы OCR (не коммитим)
 ocr_probe.ps1
 eval/reports/ocr_*
+eval/reports/agent_run_*
