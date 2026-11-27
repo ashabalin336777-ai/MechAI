@@ -105,7 +105,7 @@ def _already_indexed(database_url: str, entry: ManualEntry) -> bool:
         row = conn.execute(
             "SELECT m.sha256, m.chunker_version, "
             "(SELECT count(*) FROM chunks c "
-            "WHERE c.tenant_id = m.tenant_id AND c.manual_id = m.id) "
+            "WHERE c.tenant_id = m.tenant_id AND c.manual_id = m.id AND c.source = 'text') "
             "FROM manuals m WHERE m.tenant_id = %s AND m.id = %s",
             (TENANT_ID, entry.id),
         ).fetchone()
@@ -125,6 +125,7 @@ def _store(
             chunk.section,
             chunk.text,
             vector_literal(vector),
+            chunk.source,
         )
         for chunk, vector in zip(chunks, vectors, strict=True)
     ]
@@ -150,13 +151,15 @@ def _store(
                 CHUNKER_VERSION,
             ),
         )
+        # OCR-чанки (source='ocr') переиндексацией текста не трогаем: их пишет ingest-ocr.
         conn.execute(
-            "DELETE FROM chunks WHERE tenant_id = %s AND manual_id = %s", (TENANT_ID, entry.id)
+            "DELETE FROM chunks WHERE tenant_id = %s AND manual_id = %s AND source = 'text'",
+            (TENANT_ID, entry.id),
         )
         with conn.cursor() as cursor:
             cursor.executemany(
                 "INSERT INTO chunks (tenant_id, manual_id, engine_models, pdf_page, section, text, "
-                "embedding) VALUES (%s, %s, %s, %s, %s, %s, %s::vector)",
+                "embedding, source) VALUES (%s, %s, %s, %s, %s, %s, %s::vector, %s)",
                 rows,
             )
 

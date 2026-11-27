@@ -32,6 +32,7 @@ class ChunkDraft:
     pdf_page: int
     section: str | None
     text: str
+    source: str = "text"  # text — слой PDF; ocr — распознанная страница-рисунок (app/rag/ocr.py)
 
 
 @dataclass(frozen=True)
@@ -89,6 +90,22 @@ def split_lines(
     return chunks, heading
 
 
+def page_text_lines(raw: str) -> list[str]:
+    """Непустые строки текста страницы с одиночными пробелами."""
+    lines = [" ".join(line.split()) for line in raw.splitlines()]
+    return [line for line in lines if line]
+
+
+def image_only_pages(path: Path) -> list[int]:
+    """Страницы «только рисунок»: текста меньше MIN_TEXT_CHARS (тот же порог, что в ingest)."""
+    with pymupdf.open(path) as document:
+        return [
+            index
+            for index, page in enumerate(document, start=1)
+            if len("\n".join(page_text_lines(page.get_text("text")))) < MIN_TEXT_CHARS
+        ]
+
+
 def build_manual_text(path: Path) -> ManualText:
     """Текст постранично (pdf_page с 1). Страницы короче 100 символов — «только рисунок»."""
     chunks: list[ChunkDraft] = []
@@ -98,8 +115,7 @@ def build_manual_text(path: Path) -> ManualText:
         pages_total = document.page_count
         for index, page in enumerate(document, start=1):
             raw = page.get_text("text")
-            lines = [" ".join(line.split()) for line in raw.splitlines()]
-            lines = [line for line in lines if line]
+            lines = page_text_lines(raw)
             if len("\n".join(lines)) < MIN_TEXT_CHARS:
                 image_only.append(index)
                 continue

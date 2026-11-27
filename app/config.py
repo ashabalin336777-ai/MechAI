@@ -17,6 +17,9 @@ class Settings(BaseSettings):
     agent_fallback_model: str = "qwen3.8-flash-next-ru-noreason"
     embed_model: str = "bge-m3"
     rerank_model: str = "bge-reranker"
+    # Vision-модель для OCR страниц-рисунков; запасная — при ошибке или таймауте основной.
+    ocr_model: str = "gemma-4-31b-noreason"
+    ocr_fallback_model: str = "qwen3.6-35b-a3b-noreason"
     stt_model: str = "whisper-1"
     stt_browser_fallback: bool = False
 
