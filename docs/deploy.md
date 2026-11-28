@@ -147,7 +147,8 @@ MOCK_TOIR_URL=http://127.0.0.1:8000/mock/toir
 
 Первая индексация на стенде выполнена 26.11.2026: 6 руководств, 1672 чанка, ошибок нет (версия нарезки 1). Отчёт: [eval/ingest_report.md](../eval/ingest_report.md).
 
-27.11.2026 руководства переиндексированы: `chunker_version` 3 у всех шести (проверено SQL по БД стенда). Временный эндпоинт `POST /admin/ingest` удалён из кода на этапе 10, после деплоя релиза его не будет. Повторная индексация локальная: `python -m app.rag.ingest` с `DATABASE_URL`, `NEURALDEEP_API_KEY` и PDF в `MANUALS_DIR` (PDF докачиваются по `MATERIALS_URL`). Чанки `source='ocr'` при индексации не удаляются.
+27.11.2026 руководства переиндексированы: `chunker_version` 3 у всех шести (проверено SQL по БД стенда). Временный эндпоинт `POST /admin/ingest` был удалён из кода на этапе 10; после деплоя релиза его больше нет. Повторная индексация локальная: `python -m app.rag.ingest` с `DATABASE_URL`, `NEURALDEEP_API_KEY` и PDF в `MANUALS_DIR` (PDF докачиваются по `MATERIALS_URL`). Чанки `source='ocr'` при индексации не удаляются.
+
 ## Проверка поиска и агента (POST /admin/eval)
 
 Админ-прогон проверки, асинхронный. Все три эндпоинта требуют `Authorization: Bearer <ADMIN_TOKEN>`. Без `ADMIN_TOKEN` их нет (404), без верного токена 401.

@@ -182,7 +182,6 @@ docs/       ТЗ, модели, деплой, промпты фаз, стату�
 - **Библиотеки:** FastAPI, Uvicorn, Pydantic, pydantic-settings, httpx, LangGraph, langchain-core, openai SDK, psycopg, pgvector, PyMuPDF, PyYAML, Jinja2, HTMX, Alpine.js. Версии закреплены в `requirements.txt`.
 - **Модели Neuraldeep:** `qwen3.8-flash-next-ru-noreason` (агент), `bge-m3` (эмбеддинги), `bge-reranker` (реранк), `whisper-1` (распознавание речи).
 - **Инфраструктура:** Timeweb App Platform, Timeweb Managed PostgreSQL.
-- **Наработки до спринта:** текстовое ТЗ, правила для Cursor, промпты фаз, макеты экранов (`docs/mobile_design/`, `docs/roadmap/`). Ранняя репетиция на синтетических данных в продукт не вошла.
 - **Инструменты разработки** (не входят в продукт): Cursor.
 
 ## Данные и лицензии
