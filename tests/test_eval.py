@@ -46,10 +46,10 @@ def _question(**overrides) -> EvalQuestion:
     return EvalQuestion(**data)
 
 
-def test_question_file_has_eleven_engine_questions_and_three_no_data() -> None:
-    """10 вопросов по тексту и Q11 — ответ на стр. 280 (скан, проверяется OCR-прогоном)."""
+def test_question_file_has_twelve_engine_questions_and_three_no_data() -> None:
+    """10 вопросов по тексту, Q11 — стр. 280 (скан, OCR-прогон), Q12 — стр. 43 без цифр."""
     questions = load_questions(QUESTIONS_PATH)
-    assert sum(1 for q in questions if not q.no_data) == 11
+    assert sum(1 for q in questions if not q.no_data) == 12
     assert sum(1 for q in questions if q.no_data) == 3
     assert len({q.id for q in questions}) == len(questions)
 
@@ -82,6 +82,18 @@ def test_expected_numbers_are_on_the_expected_pdf_page(question: EvalQuestion) -
     normalized = page_text.lower().replace(",", ".").replace(" ", "")
     for key in question.key_numbers:
         assert key.lower().replace(",", ".").replace(" ", "") in normalized, (question.id, key)
+
+
+@requires_real_materials
+def test_valve_question_page_says_no_clearance_adjustment() -> None:
+    """Q12 без цифр: на стр. 43 сказано, что гидротолкатели исключают регулировку зазоров."""
+    manifest = {entry.id: entry for entry in load_manifest(MANUALS_DIR / "manifest.yaml").manuals}
+    path = MANUALS_DIR / manifest["zmz409_rk"].file
+    if not path.exists():
+        pytest.skip(f"{path.name} нет локально")
+    with pymupdf.open(path) as document:
+        page_text = " ".join(document[42].get_text("text").split()).lower()
+    assert "исключает необходимость регулировки зазоров" in page_text
 
 
 def test_no_data_question_cannot_have_expectation() -> None:
