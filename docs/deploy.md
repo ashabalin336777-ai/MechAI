@@ -74,6 +74,7 @@ python -c "import urllib.parse; print(urllib.parse.quote(input('пароль: ')
 | `EMBED_MODEL` | `bge-m3` | нет | эмбеддинги, 1024 измерения |
 | `RERANK_MODEL` | `bge-reranker` | нет | реранк |
 | `STT_MODEL` | `whisper-1` | нет | распознавание голоса (фаза 08) |
+| `STT_LANGUAGE` | `ru` | нет | язык голоса по умолчанию: `ru`, `uz`, `kk`, `tg`, `ky`, `en`; пусто — автоопределение |
 | `STT_BROWSER_FALLBACK` | `0` | нет | Web Speech API выключен (152-ФЗ) |
 | `MOCK_ML_URL` | `http://mock_ml:8001` | нет | внутренний адрес заглушки ML |
 | `MOCK_TOIR_URL` | `http://mock_toir:8002` | нет | внутренний адрес заглушки ТОиР |

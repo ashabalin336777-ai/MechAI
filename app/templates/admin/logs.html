@@ -31,6 +31,7 @@
         <th>Время</th>
         <th>ТС</th>
         <th>Проверка</th>
+        <th>Ввод</th>
         <th>Статус</th>
         <th>Длительность</th>
         <th>Токены вх / вых</th>
@@ -42,13 +43,14 @@
         <td><a class="table-link" href="/admin/logs/runs/{{ run.id }}">{{ run.started }}</a></td>
         <td>{{ run.vehicle }}</td>
         <td>{{ run.session }}</td>
+        <td>{{ run.input }}</td>
         <td><span class="status-tag status-{{ run.status_key }}">{{ run.status }}</span></td>
         <td>{{ run.duration }}</td>
         <td>{{ run.tokens }}</td>
       </tr>
       {% else %}
       <tr>
-        <td colspan="6">По этому фильтру ходов пока нет.</td>
+        <td colspan="7">По этому фильтру ходов пока нет.</td>
       </tr>
       {% endfor %}
     </tbody>

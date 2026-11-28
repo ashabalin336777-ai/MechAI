@@ -346,6 +346,34 @@ def test_missing_eval_run_is_404() -> None:
     assert client.get("/admin/logs/eval/99", headers=AUTH).status_code == 404
 
 
+def test_runs_list_shows_voice_or_text_input_and_language() -> None:
+    client = _client()
+    _reader(client).runs.insert(
+        0,
+        AgentRunRow(
+            id=3,
+            started_at=STARTED,
+            vehicle_id=None,
+            session_id=None,
+            status="ok",
+            total_ms=1900,
+            prompt_tokens=None,
+            completion_tokens=None,
+            tok_per_s=None,
+            cost_rub=None,
+            lang="uz",
+            input_mode="voice",
+        ),
+    )
+    _login(client)
+
+    response = client.get("/admin/logs")
+
+    assert response.status_code == 200
+    assert "голос · uz" in response.text
+    assert "текст · ru" in response.text
+
+
 def test_steps_helper_keeps_arbitrary_payload_as_text() -> None:
     from app.api.admin_logs import _pretty
 

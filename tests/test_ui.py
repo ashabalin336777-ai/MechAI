@@ -213,6 +213,9 @@ def test_chat_page_has_voice_input_behind_consent(client: TestClient) -> None:
     assert "/api/stt" in script
     assert "MediaRecorder" in script
     assert "MAX_MS = 30000" in script
+    assert "noiseSuppression: true" in script
+    assert "echoCancellation: true" in script
+    assert "autoGainControl: true" in script
     assert "consent_at" in script
 
 

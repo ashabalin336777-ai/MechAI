@@ -43,13 +43,13 @@ def _client_with(fake: FakeTranscriptions) -> SttClient:
     return client
 
 
-def _verbose(text: str, duration: float | None) -> SimpleNamespace:
-    return SimpleNamespace(text=text, duration=duration)
+def _verbose(text: str, duration: float | None, language: str | None = None) -> SimpleNamespace:
+    return SimpleNamespace(text=text, duration=duration, language=language)
 
 
-def test_request_asks_whisper_for_russian_with_terms_prompt() -> None:
-    fake = FakeTranscriptions(result=_verbose(" Проверьте зазор. ", 3.2))
-    result = _client_with(fake).transcribe(b"audio-bytes", filename="voice.webm")
+def test_request_asks_whisper_for_the_given_language_with_terms_prompt() -> None:
+    fake = FakeTranscriptions(result=_verbose(" Проверьте зазор. ", 3.2, "russian"))
+    result = _client_with(fake).transcribe(b"audio-bytes", filename="voice.webm", language="ru")
 
     call = fake.calls[0]
     assert call["model"] == "whisper-1"
@@ -59,17 +59,49 @@ def test_request_asks_whisper_for_russian_with_terms_prompt() -> None:
     assert call["file"] == ("voice.webm", b"audio-bytes")
     assert result.text == "Проверьте зазор."
     assert result.duration_s == pytest.approx(3.2)
+    assert result.language == "ru"
+
+
+def test_no_language_lets_whisper_detect_it() -> None:
+    fake = FakeTranscriptions(result=_verbose("Тест", 1.0, "kazakh"))
+    result = _client_with(fake).transcribe(b"x", filename="voice.webm", language=None)
+
+    assert fake.calls[0]["language"] is openai.NOT_GIVEN
+    assert result.language == "kk"
+
+
+@pytest.mark.parametrize(
+    ("name", "code"),
+    [
+        ("russian", "ru"),
+        ("Uzbek", "uz"),
+        ("kazakh", "kk"),
+        ("tajik", "tg"),
+        ("kyrgyz", "ky"),
+        ("english", "en"),
+        ("uz", "uz"),
+        ("klingon", None),
+        (None, None),
+    ],
+)
+def test_whisper_language_name_becomes_a_code(name: str | None, code: str | None) -> None:
+    fake = FakeTranscriptions(result=_verbose("Тест", 1.0, name))
+    assert (
+        _client_with(fake).transcribe(b"x", filename="voice.webm", language=None).language == code
+    )
 
 
 def test_missing_duration_is_none() -> None:
     fake = FakeTranscriptions(result=_verbose("Тест", None))
-    assert _client_with(fake).transcribe(b"x", filename="voice.webm").duration_s is None
+    assert (
+        _client_with(fake).transcribe(b"x", filename="voice.webm", language="ru").duration_s is None
+    )
 
 
 def test_timeout_becomes_504_with_russian_message() -> None:
     fake = FakeTranscriptions(error=openai.APITimeoutError(request=REQUEST))
     with pytest.raises(SttError) as caught:
-        _client_with(fake).transcribe(b"x", filename="voice.webm")
+        _client_with(fake).transcribe(b"x", filename="voice.webm", language="ru")
     assert caught.value.status_code == 504
     assert "30 секунд" in caught.value.user_message
 
@@ -79,7 +111,7 @@ def test_rejected_audio_becomes_422(status: int) -> None:
     response = httpx.Response(status, request=REQUEST)
     fake = FakeTranscriptions(error=openai.APIStatusError("bad", response=response, body=None))
     with pytest.raises(SttError) as caught:
-        _client_with(fake).transcribe(b"x", filename="voice.webm")
+        _client_with(fake).transcribe(b"x", filename="voice.webm", language="ru")
     assert caught.value.status_code == 422
     assert caught.value.detail == f"HTTP {status}"
 
@@ -90,7 +122,7 @@ def test_server_error_becomes_503_without_trace_or_key() -> None:
         error=openai.InternalServerError("boom", response=response, body=None)
     )
     with pytest.raises(SttError) as caught:
-        _client_with(fake).transcribe(b"x", filename="voice.webm")
+        _client_with(fake).transcribe(b"x", filename="voice.webm", language="ru")
     assert caught.value.status_code == 503
     assert caught.value.user_message == UNAVAILABLE_MESSAGE
     assert SECRET_KEY not in str(caught.value)
@@ -99,7 +131,7 @@ def test_server_error_becomes_503_without_trace_or_key() -> None:
 def test_connection_error_becomes_503() -> None:
     fake = FakeTranscriptions(error=openai.APIConnectionError(request=REQUEST))
     with pytest.raises(SttError) as caught:
-        _client_with(fake).transcribe(b"x", filename="voice.webm")
+        _client_with(fake).transcribe(b"x", filename="voice.webm", language="ru")
     assert caught.value.status_code == 503
     assert caught.value.detail == "APIConnectionError"
 

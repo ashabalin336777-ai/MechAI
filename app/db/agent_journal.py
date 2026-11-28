@@ -18,7 +18,7 @@ READ_ONLY_OPTIONS = "-c default_transaction_read_only=on"
 
 _RUN_COLUMNS = (
     "id, started_at, vehicle_id, session_id, status, total_ms, prompt_tokens, completion_tokens, "
-    "tok_per_s, cost_rub"
+    "tok_per_s, cost_rub, lang, input_mode"
 )
 _STEP_COLUMNS = (
     "n, kind, name, ms, ttft_ms, prompt_tokens, completion_tokens, tok_per_s, model, error, "
@@ -37,6 +37,8 @@ class AgentRunRow(BaseModel):
     completion_tokens: int | None
     tok_per_s: Decimal | None
     cost_rub: Decimal | None
+    lang: str = "ru"
+    input_mode: str = "text"
 
 
 class AgentStepRow(BaseModel):
@@ -112,6 +114,8 @@ def _run(row: tuple[Any, ...]) -> AgentRunRow:
         completion_tokens=row[7],
         tok_per_s=row[8],
         cost_rub=row[9],
+        lang=row[10],
+        input_mode=row[11],
     )
 
 

@@ -2,21 +2,32 @@
 
 Аудио живёт в памяти только на время запроса и нигде не сохраняется (152-ФЗ). В журнал
 пишем ход распознавания (run с input_mode=voice) и шаг stt: модель, язык, размер, длительность,
-₽ и код ошибки. Байтов записи в журнале нет.
+₽ и код ошибки. Байтов записи в журнале нет. Если журнал недоступен, текст всё равно отдаём,
+а ошибку пишем в лог приложения.
 """
 
+import logging
 import time
 from datetime import datetime
 from typing import Annotated
 
+import psycopg
 from fastapi import APIRouter, File, Form, HTTPException, Request, UploadFile
 from pydantic import BaseModel
 
-from app.clients.stt_client import MAX_AUDIO_BYTES, MAX_AUDIO_SECONDS, SttError
-from app.obs.journal import RunSummary, StepRecord
+from app.clients.stt_client import (
+    MAX_AUDIO_BYTES,
+    MAX_AUDIO_SECONDS,
+    STT_LANGUAGES,
+    SttError,
+    Transcript,
+)
+from app.db.database import describe_error
+from app.obs.journal import Journal, RunSummary, StepRecord
 from app.obs.prices import stt_cost_rub
 
 router = APIRouter(prefix="/api", tags=["voice"])
+logger = logging.getLogger("app")
 
 # Типы из MediaRecorder: Chrome/Android — webm/opus, Safari/iOS — mp4 (аас).
 EXTENSIONS: dict[str, str] = {
@@ -34,6 +45,10 @@ EXTENSIONS: dict[str, str] = {
 }
 # Допуск к проверке длительности: клиент обрезает на 30 с, сервер не отвергает округление.
 DURATION_TOLERANCE_S = 1.0
+AUTO_LANGUAGE = "auto"
+UNSUPPORTED_LANGUAGE = (
+    "Этот язык пока не поддерживается. Выберите язык из списка или введите вопрос текстом."
+)
 
 
 class SttResult(BaseModel):
@@ -49,6 +64,7 @@ def transcribe(
     consent_at: Annotated[str | None, Form(max_length=40)] = None,
     vehicle_id: Annotated[str | None, Form(max_length=32)] = None,
     session_id: Annotated[str | None, Form(max_length=64)] = None,
+    lang: Annotated[str | None, Form(max_length=8)] = None,
 ) -> SttResult:
     _check_consent(consent_at)
     mime = (audio.content_type or "").split(";")[0].strip().lower()
@@ -63,17 +79,14 @@ def transcribe(
     if not data:
         raise HTTPException(status_code=422, detail="Запись пустая. Нажмите микрофон и повторите.")
 
-    services = request.app.state.agent
+    settings = request.app.state.settings
     client = request.app.state.stt_client
-    journal = services.journal
-    run_id = journal.start_run(
-        vehicle_id=vehicle_id, session_id=session_id, lang="ru", input_mode="voice"
-    )
+    language = _requested_language(lang, settings.stt_language)
     started = time.monotonic()
     error: SttError | None = None
-    transcript = None
+    transcript: Transcript | None = None
     try:
-        transcript = client.transcribe(data, filename=f"voice.{extension}")
+        transcript = client.transcribe(data, f"voice.{extension}", language)
         if (
             transcript.duration_s is not None
             and transcript.duration_s > MAX_AUDIO_SECONDS + DURATION_TOLERANCE_S
@@ -83,38 +96,28 @@ def transcribe(
         error = exc
     total_ms = int((time.monotonic() - started) * 1000)
 
-    duration = transcript.duration_s if transcript is not None else None
-    journal.add_step(
-        StepRecord(
-            run_id=run_id,
-            n=1,
-            kind="stt",
-            name=client.model,
-            input={"model": client.model, "language": "ru", "bytes": len(data), "mime": mime},
-            output=(
-                {"chars": len(transcript.text), "duration_s": duration}
-                if transcript is not None and error is None
-                else None
-            ),
-            ms=total_ms,
-            model=client.model,
-            error=error.user_message if error is not None else None,
-            error_class=type(error).__name__ if error is not None else None,
-            error_message=error.detail if error is not None else None,
-        )
-    )
-    journal.finish_run(
-        run_id,
-        RunSummary(
-            status="error" if error is not None else "ok",
-            total_ms=total_ms,
-            cost_rub=stt_cost_rub(duration),
-        ),
+    detected = transcript.language if transcript is not None else None
+    result_language = detected or language or AUTO_LANGUAGE
+    _record_voice_run(
+        request.app.state.agent.journal,
+        database_url=settings.database_url,
+        vehicle_id=vehicle_id,
+        session_id=session_id,
+        requested=language or AUTO_LANGUAGE,
+        result_language=result_language,
+        model=client.model,
+        mime=mime,
+        size=len(data),
+        transcript=transcript,
+        error=error,
+        total_ms=total_ms,
     )
     if error is not None:
         raise HTTPException(status_code=error.status_code, detail=error.user_message)
     assert transcript is not None
-    return SttResult(text=transcript.text, duration_s=transcript.duration_s)
+    return SttResult(
+        text=transcript.text, duration_s=transcript.duration_s, language=result_language
+    )
 
 
 def _check_consent(consent_at: str | None) -> None:
@@ -125,3 +128,71 @@ def _check_consent(consent_at: str | None) -> None:
         raise HTTPException(
             status_code=422, detail="Сначала подтвердите согласие на голосовой ввод."
         ) from exc
+
+
+def _requested_language(form_lang: str | None, default: str) -> str | None:
+    """Язык из формы, иначе из STT_LANGUAGE. None — модель определяет язык сама."""
+    if not form_lang:
+        return default or None
+    if form_lang not in STT_LANGUAGES:
+        raise HTTPException(status_code=422, detail=UNSUPPORTED_LANGUAGE)
+    return form_lang
+
+
+def _record_voice_run(
+    journal: Journal,
+    *,
+    database_url: str,
+    vehicle_id: str | None,
+    session_id: str | None,
+    requested: str,
+    result_language: str,
+    model: str,
+    mime: str,
+    size: int,
+    transcript: Transcript | None,
+    error: SttError | None,
+    total_ms: int,
+) -> None:
+    """Ход и шаг stt в журнале. Ошибка записи не ломает распознавание: она уходит в лог."""
+    duration = transcript.duration_s if transcript is not None else None
+    try:
+        run_id = journal.start_run(
+            vehicle_id=vehicle_id,
+            session_id=session_id,
+            lang=result_language,
+            input_mode="voice",
+        )
+        journal.add_step(
+            StepRecord(
+                run_id=run_id,
+                n=1,
+                kind="stt",
+                name=model,
+                input={"model": model, "language": requested, "bytes": size, "mime": mime},
+                output=(
+                    {
+                        "chars": len(transcript.text),
+                        "duration_s": duration,
+                        "language": result_language,
+                    }
+                    if transcript is not None and error is None
+                    else None
+                ),
+                ms=total_ms,
+                model=model,
+                error=error.user_message if error is not None else None,
+                error_class=type(error).__name__ if error is not None else None,
+                error_message=error.detail if error is not None else None,
+            )
+        )
+        journal.finish_run(
+            run_id,
+            RunSummary(
+                status="error" if error is not None else "ok",
+                total_ms=total_ms,
+                cost_rub=stt_cost_rub(duration),
+            ),
+        )
+    except psycopg.Error as exc:
+        logger.error("журнал голоса: ход не записан: %s", describe_error(exc, database_url))

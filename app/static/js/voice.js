@@ -82,7 +82,9 @@
   async function startRecording() {
     say("");
     try {
-      stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      stream = await navigator.mediaDevices.getUserMedia({
+        audio: { noiseSuppression: true, echoCancellation: true, autoGainControl: true },
+      });
     } catch (error) {
       say(
         error && error.name === "NotAllowedError"

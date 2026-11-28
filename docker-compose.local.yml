@@ -28,6 +28,7 @@ services:
       EMBED_MODEL: ${EMBED_MODEL:-bge-m3}
       RERANK_MODEL: ${RERANK_MODEL:-bge-reranker}
       STT_MODEL: ${STT_MODEL:-whisper-1}
+      STT_LANGUAGE: ${STT_LANGUAGE-ru}
       STT_BROWSER_FALLBACK: ${STT_BROWSER_FALLBACK:-0}
       MOCK_ML_URL: http://mock_ml:8001
       MOCK_TOIR_URL: http://mock_toir:8002

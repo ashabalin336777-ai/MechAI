@@ -44,6 +44,7 @@ LIST_LIMIT = 50
 NO_DATABASE = "База данных не настроена: ходы агента и прогоны проверки не записываются."
 DB_UNAVAILABLE = "База данных недоступна. Журнал временно не открывается, обновите страницу позже."
 RUN_STATUS_LABELS = {"ok": "успешно", "error": "ошибка", "running": "идёт"}
+INPUT_LABELS = {"text": "текст", "voice": "голос"}
 EVAL_STATUS_LABELS = {"done": "готово", "error": "ошибка", "running": "идёт"}
 FILTERS = {"all": "Все", "ok": "Успешные", "error": "С ошибкой", "running": "Идут"}
 
@@ -57,6 +58,7 @@ class RunView(BaseModel):
     status_key: str
     duration: str
     tokens: str
+    input: str
 
 
 class StepView(BaseModel):
@@ -108,6 +110,7 @@ def _run_view(row: AgentRunRow) -> RunView:
         status_key=row.status,
         duration=f"{row.total_ms} мс" if row.total_ms is not None else "—",
         tokens=tokens,
+        input=f"{INPUT_LABELS.get(row.input_mode, row.input_mode)} · {row.lang}",
     )
 
 

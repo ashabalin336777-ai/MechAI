@@ -21,6 +21,8 @@ class Settings(BaseSettings):
     ocr_model: str = "gemma-4-31b-noreason"
     ocr_fallback_model: str = "qwen3.6-35b-a3b-noreason"
     stt_model: str = "whisper-1"
+    # Язык по умолчанию для голоса; пусто — модель определяет язык сама (ru, uz, kk, tg, ky, en).
+    stt_language: Literal["", "ru", "uz", "kk", "tg", "ky", "en"] = "ru"
     stt_browser_fallback: bool = False
 
     mock_ml_url: str = "http://mock_ml:8001"
