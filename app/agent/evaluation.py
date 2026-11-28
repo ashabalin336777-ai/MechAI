@@ -78,12 +78,17 @@ def run_agent_result(
 ) -> EvalResult:
     runs = [run_scenario(template, scenario, base_prompt) for scenario in scenarios]
     options = {"generated_at": datetime.now(), "model": model, "min_score": min_score}
+    costs = [run.cost_rub for run in runs]
+    # ₽ прогона — сумма по сценариям; если хотя бы у одного сценария цены нет, прогон без ₽.
+    cost = None if any(item is None for item in costs) else sum(costs, Decimal(0))
     return EvalResult(
         report_md=render_report(runs, details=False, **options),
         report_full_md=render_report(runs, details=True, **options),
         passed=sum(1 for run in runs if run.passed),
         total=len(runs),
         cases=[_run_case(run) for run in runs],
+        model=model,
+        cost_rub=cost,
     )
 
 

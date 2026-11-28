@@ -1,4 +1,8 @@
-"""Прайс Neuraldeep, ₽ за 1 млн токенов (вход, выход). Источник: docs/models.md, 26.11."""
+"""Прайс Neuraldeep, ₽ за 1 млн токенов (вход, выход). Источник: docs/models.md, 26.11.
+
+Модели без выходных токенов (эмбеддинги, реранк) имеют выход 0: в прайсе у них «—».
+Реранк в ₽ не считаем по токенам: сервис не возвращает их число (см. app/rag/rerank.py).
+"""
 
 from decimal import Decimal
 
@@ -6,6 +10,8 @@ PRICES_RUB_PER_MTOK: dict[str, tuple[Decimal, Decimal]] = {
     "qwen3.8-flash-next-ru-noreason": (Decimal("20.36"), Decimal("64.30")),
     "qwen3.6-fp8": (Decimal("9.38"), Decimal("53.58")),
     "qwen3.8-27b": (Decimal("32.15"), Decimal("160.74")),
+    "bge-m3": (Decimal("3.21"), Decimal("0")),
+    "bge-reranker": (Decimal("3.21"), Decimal("0")),
 }
 
 MEGA = Decimal(1_000_000)

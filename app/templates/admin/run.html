@@ -27,6 +27,8 @@
   <dl class="facts">
     <div><dt>Модель</dt><dd>{{ step.model }}</dd></div>
     <div><dt>Токены вх / вых</dt><dd>{{ step.tokens }}</dd></div>
+    <div><dt>Стоимость</dt><dd>{{ step.cost }}</dd></div>
+    <div><dt>Длительность</dt><dd>{{ step.ms }}</dd></div>
     {% if step.error %}<div><dt>Ошибка</dt><dd>{{ step.error }}</dd></div>{% endif %}
   </dl>
   <h3 class="step-label">Вход</h3>

@@ -1,8 +1,12 @@
 """Эмбеддинги через Neuraldeep (openai SDK, модель EMBED_MODEL = bge-m3, размерность 1024)."""
 
+import time
 from collections.abc import Sequence
+from typing import Any
 
 from openai import OpenAI, OpenAIError
+
+from app.obs.usage import record_usage
 
 EMBED_DIM = 1024
 BATCH_SIZE = 32
@@ -12,6 +16,12 @@ TIMEOUT_S = 60.0
 def vector_literal(vector: Sequence[float]) -> str:
     """Текст вектора для приведения к типу vector: "[0.1,0.2,...]"."""
     return "[" + ",".join(repr(float(value)) for value in vector) + "]"
+
+
+def _prompt_tokens(response: Any) -> int | None:
+    """Число входных токенов из usage ответа; None, если сервис его не вернул."""
+    value = getattr(getattr(response, "usage", None), "prompt_tokens", None)
+    return value if isinstance(value, int) else None
 
 
 class EmbeddingError(Exception):
@@ -28,10 +38,17 @@ class EmbeddingClient:
         vectors: list[list[float]] = []
         for start in range(0, len(texts), BATCH_SIZE):
             batch = list(texts[start : start + BATCH_SIZE])
+            started = time.monotonic()
             try:
                 response = self._client.embeddings.create(model=self._model, input=batch)
             except OpenAIError as exc:
                 raise EmbeddingError(f"эмбеддинги недоступны: {type(exc).__name__}") from exc
+            record_usage(
+                "embed",
+                self._model,
+                _prompt_tokens(response),
+                int((time.monotonic() - started) * 1000),
+            )
             ordered = sorted(response.data, key=lambda item: item.index)
             if len(ordered) != len(batch):
                 raise EmbeddingError("эмбеддинги вернулись не полностью")

@@ -7,7 +7,9 @@
   <div><dt>Запуск (НСК)</dt><dd>{{ view.started }}</dd></div>
   <div><dt>Набор</dt><dd>{{ view.suite }}</dd></div>
   <div><dt>Статус</dt><dd>{{ view.status }}</dd></div>
+  <div><dt>Модель агента</dt><dd>{{ view.model }}</dd></div>
   <div><dt>Итог</dt><dd>{{ view.result }}</dd></div>
+  <div><dt>₽ за прогон</dt><dd>{{ view.cost }}</dd></div>
   <div><dt>Коммит</dt><dd>{{ view.commit }}</dd></div>
   {% if view.error != "—" %}<div><dt>Ошибка</dt><dd>{{ view.error }}</dd></div>{% endif %}
 </dl>

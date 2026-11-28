@@ -17,10 +17,53 @@
   <p>{{ error }}</p>
 </section>
 {% elif tab == 'runs' %}
+<nav class="tabs" aria-label="Период сводки">
+  {% for key, label in periods.items() %}
+  <a class="chip{% if period == key %} chip-on{% endif %}"
+     href="/admin/logs?tab=runs&amp;status={{ status }}&amp;period={{ key }}"
+     {% if period == key %}aria-current="true"{% endif %}>{{ label }}</a>
+  {% endfor %}
+</nav>
+
+{% if summary %}
+<section class="panel" aria-label="Сводка за выбранный период">
+  <h2 class="panel-title">Сводка: {{ summary.period_label }}</h2>
+  <dl class="facts">
+    <div><dt>Ходов</dt><dd>{{ summary.runs }}</dd></div>
+    <div><dt>Токены вх / вых</dt><dd>{{ summary.tokens }}</dd></div>
+    <div><dt>Итого ₽</dt><dd>{{ summary.cost }}</dd></div>
+    <div><dt>Средняя ₽ за ход</dt><dd>{{ summary.avg_cost }}</dd></div>
+  </dl>
+  <p class="muted small">{{ summary.note }}</p>
+  {% if summary.models %}
+  <div class="table-wrap" tabindex="0" role="region" aria-label="₽ по моделям: прокрутите вправо, чтобы увидеть все столбцы">
+    <table class="log-table">
+      <thead>
+        <tr>
+          <th>Модель</th>
+          <th>Шагов</th>
+          <th>₽</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for item in summary.models %}
+        <tr>
+          <td>{{ item.model }}</td>
+          <td>{{ item.calls }}</td>
+          <td>{{ item.cost }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% endif %}
+</section>
+{% endif %}
+
 <nav class="tabs" aria-label="Статус хода">
   {% for key, label in filters.items() %}
   <a class="chip{% if status == key %} chip-on{% endif %}"
-     href="/admin/logs?tab=runs&amp;status={{ key }}"
+     href="/admin/logs?tab=runs&amp;status={{ key }}&amp;period={{ period }}"
      {% if status == key %}aria-current="true"{% endif %}>{{ label }}</a>
   {% endfor %}
 </nav>
@@ -32,9 +75,11 @@
         <th>ТС</th>
         <th>Проверка</th>
         <th>Ввод</th>
+        <th>Модель</th>
         <th>Статус</th>
         <th>Длительность</th>
         <th>Токены вх / вых</th>
+        <th>₽</th>
       </tr>
     </thead>
     <tbody>
@@ -44,13 +89,15 @@
         <td>{{ run.vehicle }}</td>
         <td>{{ run.session }}</td>
         <td>{{ run.input }}</td>
+        <td>{{ run.model }}</td>
         <td><span class="status-tag status-{{ run.status_key }}">{{ run.status }}</span></td>
         <td>{{ run.duration }}</td>
         <td>{{ run.tokens }}</td>
+        <td>{{ run.cost }}</td>
       </tr>
       {% else %}
       <tr>
-        <td colspan="7">По этому фильтру ходов пока нет.</td>
+        <td colspan="9">По этому фильтру ходов пока нет.</td>
       </tr>
       {% endfor %}
     </tbody>
@@ -63,8 +110,10 @@
       <tr>
         <th>Запуск</th>
         <th>Набор</th>
+        <th>Модель агента</th>
         <th>Статус</th>
         <th>Итог</th>
+        <th>₽</th>
         <th>Коммит</th>
         <th>Отчёт</th>
       </tr>
@@ -74,17 +123,19 @@
       <tr>
         <td>{{ e.started }}</td>
         <td>{{ e.suite }}</td>
+        <td>{{ e.model }}</td>
         <td>
           {{ e.status }}
           {% if e.error != "—" %}<br><span class="muted small">{{ e.error }}</span>{% endif %}
         </td>
         <td>{{ e.result }}</td>
+        <td>{{ e.cost }}</td>
         <td>{{ e.commit }}</td>
         <td><a class="table-link" href="/admin/logs/eval/{{ e.id }}">Открыть отчёт</a></td>
       </tr>
       {% else %}
       <tr>
-        <td colspan="6">Прогонов проверки пока не было.</td>
+        <td colspan="8">Прогонов проверки пока не было.</td>
       </tr>
       {% endfor %}
     </tbody>

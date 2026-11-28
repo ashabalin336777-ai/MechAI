@@ -16,8 +16,8 @@ from langchain_core.messages import AIMessage, HumanMessage
 from app.agent.graph import AgentDeps, RunStats, build_graph, record_error
 from app.agent.llm import ChatModel, LlmError
 from app.obs.journal import Journal, RunSummary
-from app.obs.prices import cost_rub
 from app.obs.retry import retry_sink
+from app.obs.usage import usage_sink
 from app.tools.registry import ToolSpec
 from app.tools.runtime import ToolDeps, TurnContext
 
@@ -96,7 +96,7 @@ def run_turn(services: AgentServices, request: TurnRequest, base_prompt: str, em
         "started_at": time.monotonic(),
     }
     status = "ok"
-    with retry_sink():
+    with retry_sink(), usage_sink():
         try:
             deps.turn.show_verdict = request.user_action == "get_diagnosis" or _is_first_turn(
                 graph, config
@@ -125,7 +125,7 @@ def run_turn(services: AgentServices, request: TurnRequest, base_prompt: str, em
             prompt_tokens=stats.prompt_tokens,
             completion_tokens=stats.completion_tokens,
             tok_per_s=stats.tok_per_s,
-            cost_rub=_cost(stats),
+            cost_rub=stats.cost_rub(),
         ),
     )
     emit(
@@ -145,12 +145,6 @@ def run_turn(services: AgentServices, request: TurnRequest, base_prompt: str, em
 def _is_first_turn(graph: Any, config: dict[str, Any]) -> bool:
     """В состоянии потока (сессии) ещё нет сообщений: это первый ход сессии."""
     return not graph.get_state(config).values.get("messages")
-
-
-def _cost(stats: RunStats) -> Any:
-    if stats.model is None:
-        return None
-    return cost_rub(stats.model, stats.prompt_tokens, stats.completion_tokens)
 
 
 def _thread_id(request: TurnRequest) -> str:

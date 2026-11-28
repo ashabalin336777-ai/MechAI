@@ -4,7 +4,8 @@
 Настоящий SQL и только чтение проверяются в tests/test_agent_journal_db.py (TEST_DATABASE_URL).
 """
 
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
+from decimal import Decimal
 from typing import Any
 
 import psycopg
@@ -12,8 +13,9 @@ import pytest
 from fastapi.testclient import TestClient
 
 from app.api.admin_auth import ADMIN_COOKIE
+from app.api.admin_logs import LOCAL_TZ, _period_since
 from app.config import Settings
-from app.db.agent_journal import AgentRunRow, AgentStepRow
+from app.db.agent_journal import AgentRunRow, AgentStepRow, ModelCost, PeriodSummary
 from app.db.eval_runs import EvalRunRecord
 from app.main import create_app
 
@@ -102,6 +104,15 @@ class MemoryJournalReader:
             ),
         ]
         self.calls: list[tuple[str | None, int]] = []
+        self.periods: list[datetime | None] = []
+        self.summary = PeriodSummary(
+            runs=2,
+            prompt_tokens=6100,
+            completion_tokens=420,
+            cost_rub=None,
+            priced_runs=0,
+            models=[],
+        )
         self.fail = False
 
     def list_runs(self, status: str | None, limit: int) -> list[AgentRunRow]:
@@ -116,6 +127,10 @@ class MemoryJournalReader:
 
     def list_steps(self, run_id: int) -> list[AgentStepRow]:
         return self.steps if run_id == 2 else []
+
+    def period_summary(self, since: datetime | None) -> PeriodSummary:
+        self.periods.append(since)
+        return self.summary
 
 
 class MemoryEvalStore:
@@ -372,6 +387,169 @@ def test_runs_list_shows_voice_or_text_input_and_language() -> None:
     assert response.status_code == 200
     assert "голос · uz" in response.text
     assert "текст · ru" in response.text
+
+
+def test_summary_shows_totals_average_and_costs_by_model() -> None:
+    client = _client()
+    _reader(client).summary = PeriodSummary(
+        runs=2,
+        prompt_tokens=1000,
+        completion_tokens=200,
+        cost_rub=Decimal("0.5000"),
+        priced_runs=1,
+        models=[
+            ModelCost(model="qwen3.8-flash-next-ru-noreason", calls=3, cost_rub=Decimal("0.5000")),
+            ModelCost(model="bge-reranker", calls=2, cost_rub=None),
+        ],
+    )
+    _login(client)
+
+    response = client.get("/admin/logs?period=week")
+
+    assert response.status_code == 200
+    html = response.text
+    assert "Сводка: последние 7 дней" in html
+    assert "1000 / 200" in html
+    assert html.count("0.5000 ₽") == 2  # итого и средняя за ход
+    assert "Ходов без цены: 1" in html
+    assert "bge-reranker" in html
+    assert "<td>—</td>" in html  # у реранка нет ₽: «—», а не ноль
+
+
+def test_period_selector_passes_period_to_reader_and_keeps_status() -> None:
+    client = _client()
+    _login(client)
+
+    response = client.get("/admin/logs?status=ok&period=today")
+
+    assert response.status_code == 200
+    since = _reader(client).periods[-1]
+    assert since is not None
+    assert since.astimezone(LOCAL_TZ).hour == 0
+    assert "status=error&amp;period=today" in response.text
+    assert "period=week" in response.text
+
+
+def test_all_period_has_no_lower_bound() -> None:
+    client = _client()
+    _login(client)
+
+    client.get("/admin/logs")
+
+    assert _reader(client).periods[-1] is None
+
+
+def test_period_starts_at_novosibirsk_midnight_or_seven_days_back() -> None:
+    now = datetime(2026, 11, 27, 22, 30, tzinfo=UTC)  # 05:30 по Новосибирску, 28.11
+
+    assert _period_since("today", now) == datetime(2026, 11, 28, 0, 0, tzinfo=LOCAL_TZ)
+    assert _period_since("week", now) == now.astimezone(LOCAL_TZ) - timedelta(days=7)
+    assert _period_since("all", now) is None
+
+
+def test_runs_list_shows_model_and_cost_in_rubles() -> None:
+    client = _client()
+    _reader(client).runs.insert(
+        0,
+        AgentRunRow(
+            id=4,
+            started_at=STARTED,
+            vehicle_id="TST-A001",
+            session_id="S-9004",
+            status="ok",
+            total_ms=2100,
+            prompt_tokens=900,
+            completion_tokens=80,
+            tok_per_s=None,
+            cost_rub=Decimal("0.0213"),
+            model="qwen3.8-flash-next-ru-noreason",
+        ),
+    )
+    _login(client)
+
+    response = client.get("/admin/logs")
+
+    assert "qwen3.8-flash-next-ru-noreason" in response.text
+    assert "<td>0.0213</td>" in response.text
+
+
+def test_step_card_shows_model_tokens_cost_and_duration() -> None:
+    client = _client()
+    _reader(client).steps = [
+        AgentStepRow(
+            n=1,
+            kind="embed",
+            name="bge-m3",
+            ms=85,
+            ttft_ms=None,
+            prompt_tokens=42,
+            completion_tokens=None,
+            tok_per_s=None,
+            model="bge-m3",
+            error=None,
+            error_class=None,
+            error_message=None,
+            input=None,
+            output=None,
+            cost_rub=Decimal("0.0001"),
+        )
+    ]
+    _login(client)
+
+    response = client.get("/admin/logs/runs/2")
+
+    assert response.status_code == 200
+    html = response.text
+    assert "embed · bge-m3" in html
+    assert "42 / —" in html
+    assert "0.0001 ₽" in html
+    assert "85 мс" in html
+
+
+def test_eval_tab_shows_agent_model_and_rubles_per_run() -> None:
+    client = _client()
+    store = client.app.state.eval_store
+    store.rows[2] = store.rows[2].model_copy(
+        update={
+            "status": "done",
+            "passed": 6,
+            "total": 6,
+            "commit_sha": "cf8cc6b",
+            "error_message": None,
+            "report_json": {
+                "model": "qwen3.8-flash-next-ru-noreason",
+                "cost_rub": "1.2345",
+                "cases": [],
+            },
+        }
+    )
+    _login(client)
+
+    response = client.get("/admin/logs?tab=eval")
+
+    assert response.status_code == 200
+    html = response.text
+    assert "Модель агента" in html
+    assert "qwen3.8-flash-next-ru-noreason" in html
+    assert "6 из 6" in html
+    assert "<td>1.2345</td>" in html
+    assert "cf8cc6b" in html
+    assert "<td>—</td>" in html  # прогон RAG без модели агента и без ₽
+
+
+def test_eval_run_page_shows_model_and_cost() -> None:
+    client = _client()
+    store = client.app.state.eval_store
+    store.rows[1] = store.rows[1].model_copy(
+        update={"report_json": {"model": "qwen3.8-flash-next-ru-noreason", "cost_rub": "0.9"}}
+    )
+    _login(client)
+
+    response = client.get("/admin/logs/eval/1")
+
+    assert response.status_code == 200
+    assert "₽ за прогон" in response.text
+    assert "0.9" in response.text
 
 
 def test_steps_helper_keeps_arbitrary_payload_as_text() -> None:

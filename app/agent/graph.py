@@ -11,6 +11,7 @@ import time
 from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
+from decimal import Decimal
 from typing import Annotated, Any, TypedDict
 
 from langchain_core.messages import AIMessage, AnyMessage, HumanMessage, SystemMessage, ToolMessage
@@ -33,7 +34,9 @@ from app.agent.llm import ChatModel, root_cause
 from app.agent.no_data import format_no_data, needs_no_data_format
 from app.obs.failure import Failure, describe_failure
 from app.obs.journal import Journal, StepRecord
+from app.obs.prices import cost_rub
 from app.obs.retry import take_retries
+from app.obs.usage import UsageEvent, take_usage
 from app.rag.citations import fix_citations
 from app.rag.search import Fragment
 from app.tools.registry import ToolSpec, openai_tools
@@ -73,6 +76,19 @@ class RunStats:
     ttft_ms: int | None = None
     tok_per_s: float | None = None
     model: str | None = None
+    cost_total: Decimal = Decimal(0)
+    unpriced: bool = False  # есть платный вызов без цены в прайсе: ₽ хода неизвестен
+
+    def add_cost(self, cost: Decimal | None) -> None:
+        """Складывает ₽ платного вызова. None — цены нет: ₽ хода станет неизвестным."""
+        if cost is None:
+            self.unpriced = True
+        else:
+            self.cost_total += cost
+
+    def cost_rub(self) -> Decimal | None:
+        """₽ хода: сумма по шагам; None, если хотя бы один платный шаг без цены."""
+        return None if self.unpriced else self.cost_total
 
 
 @dataclass
@@ -379,7 +395,7 @@ def _finish_tool(
     failure: Failure | None = None,
 ) -> ToolMessage:
     """Журнал и ответ модели: команды из данных вырезаем до показа модели (ТЗ §6.4, п.5)."""
-    _flush_retries(deps)
+    _flush_external(deps)
     name = call["name"]
     payload = json.dumps(result, ensure_ascii=False, default=str)
     markers = find_injection_markers(payload)
@@ -431,7 +447,7 @@ def record_error(
     deps: AgentDeps, name: str, exc: BaseException, output: dict[str, Any] | None = None
 ) -> None:
     """Шаг журнала kind=error: класс и краткий текст исходной ошибки, без секретов."""
-    _flush_retries(deps)
+    _flush_external(deps)
     failure = describe_failure(root_cause(exc))
     deps.record(
         StepRecord(
@@ -446,8 +462,8 @@ def record_error(
     )
 
 
-def _flush_retries(deps: AgentDeps) -> None:
-    """Повторы внешних сервисов, накопленные с прошлого шага, пишем до очередного шага."""
+def _flush_external(deps: AgentDeps) -> None:
+    """Повторы и расход внешних сервисов, накопленные с прошлого шага, пишем до очередного шага."""
     for event in take_retries():
         deps.record(
             StepRecord(
@@ -460,6 +476,28 @@ def _flush_retries(deps: AgentDeps) -> None:
                 error_message=event.error_message,
             )
         )
+    for usage in take_usage():
+        cost = _usage_cost(usage)
+        if usage.kind != "rerank":  # реранк в ₽ не входит: сервис не отдаёт число токенов
+            deps.stats.add_cost(cost)
+        deps.record(
+            StepRecord(
+                run_id=deps.run_id,
+                n=deps.next_step(),
+                kind=usage.kind,
+                name=usage.model,
+                ms=usage.ms,
+                prompt_tokens=usage.prompt_tokens,
+                model=usage.model,
+                cost_rub=cost,
+            )
+        )
+
+
+def _usage_cost(usage: UsageEvent) -> Decimal | None:
+    if usage.prompt_tokens is None:
+        return None
+    return cost_rub(usage.model, usage.prompt_tokens, 0)
 
 
 def _timing(timeout_s: float, elapsed_s: float) -> dict[str, float]:
@@ -519,7 +557,7 @@ def _regenerate(deps: AgentDeps, state: AgentState, problems: list[str]) -> str:
 
 
 def _count_llm(deps: AgentDeps, reply: Any, timeout_s: float, elapsed_s: float) -> None:
-    _flush_retries(deps)
+    _flush_external(deps)
     stats = deps.stats
     stats.prompt_tokens += reply.prompt_tokens
     stats.completion_tokens += reply.completion_tokens
@@ -527,6 +565,8 @@ def _count_llm(deps: AgentDeps, reply: Any, timeout_s: float, elapsed_s: float) 
     if stats.ttft_ms is None:
         stats.ttft_ms = reply.ttft_ms
     stats.tok_per_s = reply.tok_per_s
+    cost = cost_rub(reply.model, reply.prompt_tokens, reply.completion_tokens)
+    stats.add_cost(cost)
     deps.record(
         StepRecord(
             run_id=deps.run_id,
@@ -539,6 +579,7 @@ def _count_llm(deps: AgentDeps, reply: Any, timeout_s: float, elapsed_s: float) 
             completion_tokens=reply.completion_tokens,
             tok_per_s=reply.tok_per_s,
             model=reply.model,
+            cost_rub=cost,
             output={
                 "tool_calls": [call.name for call in reply.tool_calls],
                 **_timing(timeout_s, elapsed_s),

@@ -33,6 +33,7 @@ class StepRecord:
     error: str | None = None
     error_class: str | None = None
     error_message: str | None = None
+    cost_rub: Decimal | None = None
 
 
 @dataclass
@@ -124,8 +125,8 @@ class PgJournal:
             conn.execute(
                 "INSERT INTO agent_steps (run_id, n, kind, name, input, output, ms, ttft_ms, "
                 "prompt_tokens, completion_tokens, tok_per_s, model, error, error_class, "
-                "error_message) "
-                "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",
+                "error_message, cost_rub) "
+                "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",
                 (
                     step.run_id,
                     step.n,
@@ -142,6 +143,7 @@ class PgJournal:
                     step.error,
                     step.error_class,
                     step.error_message,
+                    step.cost_rub,
                 ),
             )
 

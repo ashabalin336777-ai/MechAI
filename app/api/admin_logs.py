@@ -1,9 +1,9 @@
 """Страница /admin/logs: журнал агента и прогоны проверки (ТЗ §14, фаза 06). Только чтение.
 
-GET /admin/logs?tab=runs&status=all|ok|error|running — ходы агента (время, ТС, статус, длительность,
-токены); tab=eval — прогоны проверки (набор, итог, коммит).
-GET /admin/logs/runs/{id} — шаги хода: вызовы инструментов, raw_answer, citation_check,
-conflict_notice, ошибки и повторы.
+GET /admin/logs?tab=runs&status=all|ok|error|running&period=today|week|all — ходы агента (время,
+ТС, проверка, ввод, модель, статус, длительность, токены, ₽) и сводка за период; tab=eval — прогоны
+проверки (набор, модель агента, итог, ₽, коммит).
+GET /admin/logs/runs/{id} — шаги хода: модель, токены, ₽, длительность, вызовы инструментов, ошибки.
 GET /admin/logs/eval/{id} — прогон с текстом отчёта.
 POST /admin/logs/access (поле token) и POST /admin/logs/logout — вход и выход на странице.
 Без ADMIN_TOKEN страницы нет (404). Без входа показывается форма входа. Токен не попадает в
@@ -13,7 +13,8 @@ POST /admin/logs/access (поле token) и POST /admin/logs/logout — вход
 
 import json
 import logging
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta, timezone
+from decimal import Decimal
 from typing import Any, Literal
 from urllib.parse import parse_qs
 
@@ -30,7 +31,7 @@ from app.api.admin_auth import (
     is_admin,
     token_matches,
 )
-from app.db.agent_journal import AgentRunRow, AgentStepRow
+from app.db.agent_journal import AgentRunRow, AgentStepRow, PeriodSummary
 from app.db.eval_runs import EvalRunRecord
 from app.paths import TEMPLATES_DIR
 
@@ -47,6 +48,9 @@ RUN_STATUS_LABELS = {"ok": "успешно", "error": "ошибка", "running":
 INPUT_LABELS = {"text": "текст", "voice": "голос"}
 EVAL_STATUS_LABELS = {"done": "готово", "error": "ошибка", "running": "идёт"}
 FILTERS = {"all": "Все", "ok": "Успешные", "error": "С ошибкой", "running": "Идут"}
+PERIODS = {"today": "сегодня", "week": "7 дней", "all": "всё"}
+PERIOD_LABELS = {"today": "сегодня (с 00:00 НСК)", "week": "последние 7 дней", "all": "всё время"}
+RERANK_NOTE = "Реранк в ₽ не входит: сервис не отдаёт число токенов."
 
 
 class RunView(BaseModel):
@@ -54,11 +58,13 @@ class RunView(BaseModel):
     started: str
     vehicle: str
     session: str
+    input: str
+    model: str
     status: str
     status_key: str
     duration: str
     tokens: str
-    input: str
+    cost: str
 
 
 class StepView(BaseModel):
@@ -67,6 +73,7 @@ class StepView(BaseModel):
     ms: str
     model: str
     tokens: str
+    cost: str
     error: str
     input_text: str
     output_text: str
@@ -79,12 +86,30 @@ class RunDetail(BaseModel):
     steps: list[StepView]
 
 
+class ModelView(BaseModel):
+    model: str
+    calls: int
+    cost: str
+
+
+class SummaryView(BaseModel):
+    period_label: str
+    runs: int
+    tokens: str
+    cost: str
+    avg_cost: str
+    note: str
+    models: list[ModelView]
+
+
 class EvalView(BaseModel):
     id: int
     started: str
     suite: str
+    model: str
     status: str
     result: str
+    cost: str
     commit: str
     error: str
 
@@ -93,8 +118,25 @@ def _dash(value: object) -> str:
     return "—" if value is None or value == "" else str(value)
 
 
+def _rub(value: Decimal | None, *, unit: bool = True) -> str:
+    """₽ с четырьмя знаками; None — «—», а не ноль: цены модели нет (ТЗ, журнал)."""
+    if value is None:
+        return "—"
+    return f"{value:.4f} ₽" if unit else f"{value:.4f}"
+
+
 def _local(moment: datetime) -> str:
     return moment.astimezone(LOCAL_TZ).strftime("%d.%m.%Y %H:%M:%S")
+
+
+def _period_since(period: str, now: datetime | None = None) -> datetime | None:
+    """Начало периода по Новосибирску: сегодня — с полуночи, 7 дней — от текущего момента."""
+    local_now = (now or datetime.now(UTC)).astimezone(LOCAL_TZ)
+    if period == "today":
+        return local_now.replace(hour=0, minute=0, second=0, microsecond=0)
+    if period == "week":
+        return local_now - timedelta(days=7)
+    return None
 
 
 def _run_view(row: AgentRunRow) -> RunView:
@@ -106,11 +148,36 @@ def _run_view(row: AgentRunRow) -> RunView:
         started=_local(row.started_at),
         vehicle=_dash(row.vehicle_id),
         session=_dash(row.session_id),
+        input=f"{INPUT_LABELS.get(row.input_mode, row.input_mode)} · {row.lang}",
+        model=_dash(row.model),
         status=RUN_STATUS_LABELS.get(row.status, row.status),
         status_key=row.status,
         duration=f"{row.total_ms} мс" if row.total_ms is not None else "—",
         tokens=tokens,
-        input=f"{INPUT_LABELS.get(row.input_mode, row.input_mode)} · {row.lang}",
+        cost=_rub(row.cost_rub, unit=False),
+    )
+
+
+def _summary_view(summary: PeriodSummary, period: str) -> SummaryView:
+    average = None
+    if summary.cost_rub is not None and summary.priced_runs:
+        average = summary.cost_rub / summary.priced_runs
+    notes = []
+    unpriced = summary.runs - summary.priced_runs
+    if unpriced:
+        notes.append(f"Ходов без цены: {unpriced}, в ₽ они не входят.")
+    notes.append(RERANK_NOTE)
+    return SummaryView(
+        period_label=PERIOD_LABELS[period],
+        runs=summary.runs,
+        tokens=f"{summary.prompt_tokens} / {summary.completion_tokens}",
+        cost=_rub(summary.cost_rub),
+        avg_cost=_rub(average),
+        note=" ".join(notes),
+        models=[
+            ModelView(model=item.model, calls=item.calls, cost=_rub(item.cost_rub, unit=False))
+            for item in summary.models
+        ],
     )
 
 
@@ -137,6 +204,7 @@ def _step_view(step: AgentStepRow) -> StepView:
         ms=f"{step.ms} мс" if step.ms is not None else "—",
         model=_dash(step.model),
         tokens=tokens,
+        cost=_rub(step.cost_rub),
         error=error,
         input_text=_pretty(step.input),
         output_text=_pretty(step.output),
@@ -147,12 +215,17 @@ def _eval_view(record: EvalRunRecord) -> EvalView:
     result = "—"
     if record.passed is not None and record.total is not None:
         result = f"{record.passed} из {record.total}"
+    report = record.report_json or {}
+    raw_cost = report.get("cost_rub")
+    cost = Decimal(str(raw_cost)) if raw_cost is not None else None
     return EvalView(
         id=record.id,
         started=_local(record.started_at),
         suite=record.suite,
+        model=_dash(report.get("model")),
         status=EVAL_STATUS_LABELS.get(record.status, record.status),
         result=result,
+        cost=_rub(cost, unit=False),
         commit=_dash(record.commit_sha),
         error=_dash(record.error_message),
     )
@@ -193,6 +266,7 @@ def logs_page(
     request: Request,
     tab: Literal["runs", "eval"] = "runs",
     status: Literal["all", "ok", "error", "running"] = "all",
+    period: Literal["today", "week", "all"] = "all",
 ) -> HTMLResponse:
     expected = _expected_token(request)
     if not is_admin(request, expected):
@@ -200,6 +274,7 @@ def logs_page(
     error: str | None = None
     runs: list[RunView] = []
     evals: list[EvalView] = []
+    summary: SummaryView | None = None
     reader = request.app.state.journal_reader
     if reader is None:
         error = NO_DATABASE
@@ -207,6 +282,8 @@ def logs_page(
         try:
             rows = reader.list_runs(None if status == "all" else status, LIST_LIMIT)
             runs = [_run_view(row) for row in rows]
+            period_summary = reader.period_summary(_period_since(period))
+            summary = _summary_view(period_summary, period)
         except psycopg.Error:
             logger.error("журнал агента: база недоступна при открытии списка")
             error = DB_UNAVAILABLE
@@ -223,7 +300,10 @@ def logs_page(
             "title": "Журнал агента",
             "tab": tab,
             "status": status,
+            "period": period,
             "filters": FILTERS,
+            "periods": PERIODS,
+            "summary": summary,
             "runs": runs,
             "evals": evals,
             "error": error,
@@ -250,7 +330,7 @@ def run_page(request: Request, run_id: int) -> HTMLResponse:
     detail = RunDetail(
         run=_run_view(row),
         tok_per_s=f"{row.tok_per_s} ток/с" if row.tok_per_s is not None else "—",
-        cost=f"{row.cost_rub} ₽" if row.cost_rub is not None else "—",
+        cost=_rub(row.cost_rub),
         steps=[_step_view(step) for step in steps],
     )
     return templates.TemplateResponse(

@@ -6,6 +6,7 @@
 """
 
 from datetime import datetime, timedelta
+from decimal import Decimal
 from typing import Any
 
 import psycopg
@@ -41,9 +42,12 @@ class EvalResult(BaseModel):
     passed: int = Field(ge=0)
     total: int = Field(ge=0)
     cases: list[EvalCase] = Field(default_factory=list)
+    # Модель агента и ₽ за весь прогон; None — прогон без агента или у модели нет цены.
+    model: str | None = None
+    cost_rub: Decimal | None = None
 
     def summary(self) -> dict[str, Any]:
-        return self.model_dump(exclude={"report_md", "report_full_md"})
+        return self.model_dump(exclude={"report_md", "report_full_md"}, mode="json")
 
 
 class EvalRunRecord(BaseModel):

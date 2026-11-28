@@ -184,6 +184,7 @@ def _record_voice_run(
                 error=error.user_message if error is not None else None,
                 error_class=type(error).__name__ if error is not None else None,
                 error_message=error.detail if error is not None else None,
+                cost_rub=stt_cost_rub(duration),
             )
         )
         journal.finish_run(
