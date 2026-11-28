@@ -31,7 +31,7 @@ from app.agent.guards import (
     wrap_tool_data,
 )
 from app.agent.llm import ChatModel, root_cause
-from app.agent.no_data import format_no_data, needs_no_data_format
+from app.agent.no_data import FALLBACK_FIRST_LINE_RE, format_no_data, needs_no_data_format
 from app.obs.failure import Failure, describe_failure
 from app.obs.journal import Journal, StepRecord
 from app.obs.prices import cost_rub
@@ -336,11 +336,29 @@ def build_graph(deps: AgentDeps, checkpointer: Any) -> Any:
 
 
 def recent_messages(messages: list[AnyMessage], turns: int = HISTORY_TURNS) -> list[AnyMessage]:
-    """Последние `turns` ходов. Ход начинается с HumanMessage, поэтому пары tool_calls не рвутся."""
+    """Контекст модели: прошлые ходы без заглушек «нет данных», затем последние `turns` ходов.
+
+    Ход — от его HumanMessage до следующего, поэтому пары tool_calls/ToolMessage не рвутся.
+    Текущий (последний) ход не выбрасываем никогда. Состояние в checkpointer не меняется:
+    это только выбор того, что уходит в модель, поэтому залипшие диалоги чинятся сами.
+    """
     starts = [index for index, message in enumerate(messages) if isinstance(message, HumanMessage)]
-    if len(starts) <= turns:
+    if not starts:
         return messages
-    return messages[starts[-turns] :]
+    spans = list(zip(starts, [*starts[1:], len(messages)], strict=True))
+    *past, current = spans
+    remaining = [span for span in past if not _is_fallback_turn(messages[span[0] : span[1]])]
+    chosen = [*remaining, current][-turns:]
+    return [message for start, end in chosen for message in messages[start:end]]
+
+
+def _is_fallback_turn(turn: list[AnyMessage]) -> bool:
+    """Ход закончился заглушкой «нет данных» без вызовов инструментов."""
+    last = turn[-1]
+    if not isinstance(last, AIMessage) or last.tool_calls:
+        return False
+    first_line = str(last.content).split("\n", 1)[0]
+    return FALLBACK_FIRST_LINE_RE.match(first_line) is not None
 
 
 def to_openai(messages: list[AnyMessage]) -> list[dict[str, Any]]:

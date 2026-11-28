@@ -412,3 +412,49 @@ def test_model_context_keeps_only_last_turns_as_whole_units() -> None:
     assert kept[0].content == f"вопрос {total - HISTORY_TURNS}"
     assert len(kept) == HISTORY_TURNS * 4
     assert recent_messages(history[:4]) == history[:4]
+
+
+FALLBACK_ANSWER = "В руководстве на ЯМЗ-236М2 этих данных нет.\nЧто сделать: дефектовка узла."
+
+
+def _turn_messages(number: int, answer: str) -> list[AnyMessage]:
+    return [
+        HumanMessage(content=f"вопрос {number}"),
+        AIMessage(content="", tool_calls=[{"name": "get_vehicle", "args": {}, "id": f"c{number}"}]),
+        ToolMessage(content="данные", tool_call_id=f"c{number}"),
+        AIMessage(content=answer),
+    ]
+
+
+def test_past_fallback_turn_is_dropped_from_model_context() -> None:
+    """Заглушка «нет данных» в прошлом ходе не уходит модели: иначе она копирует её без поиска."""
+    history = [
+        *_turn_messages(1, "Момент затяжки 150 Н·м."),
+        *_turn_messages(2, FALLBACK_ANSWER),
+        *_turn_messages(3, "Давление масла 100 кПа."),
+        *_turn_messages(4, "Текущий вопрос."),
+    ]
+
+    kept = recent_messages(history)
+
+    kept_texts = [str(message.content) for message in kept]
+    assert "вопрос 2" not in kept_texts
+    assert FALLBACK_ANSWER not in kept_texts
+    assert "вопрос 1" in kept_texts
+    assert "вопрос 3" in kept_texts
+    assert kept[-1].content == "Текущий вопрос."
+
+
+def test_current_fallback_turn_is_kept() -> None:
+    """Текущий ход не выбрасываем, даже если его ответ — заглушка: модель должна видеть вопрос."""
+    history = [
+        *_turn_messages(1, "Момент затяжки 150 Н·м."),
+        *_turn_messages(2, FALLBACK_ANSWER),
+    ]
+
+    kept = recent_messages(history)
+
+    kept_texts = [str(message.content) for message in kept]
+    assert "вопрос 2" in kept_texts
+    assert FALLBACK_ANSWER in kept_texts
+    assert "вопрос 1" in kept_texts

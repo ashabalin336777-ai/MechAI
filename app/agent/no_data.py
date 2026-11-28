@@ -18,6 +18,8 @@ GENERAL_TITLE = "Общие сведения (не из руководства)"
 NEXT_STEP_LABEL = "Что сделать"
 DEFAULT_NEXT_STEP = "Что сделать: рекомендуем дефектовку узла по руководству на этот двигатель."
 NO_DATA_PHRASE_RE = re.compile(r"этих данных нет", re.IGNORECASE)
+# Первая строка заглушки «нет данных» (no_data_line). По ней такие ходы не отдаём модели в историю.
+FALLBACK_FIRST_LINE_RE = re.compile(r"^\W*В руководстве на .{1,60}\s+этих данных нет")
 HEADING_LINE_RE = re.compile(r"^\s*(?:#{1,6}\s|\*\*[^*\n]+\*\*\s*$)")
 # Число с единицей измерения: в общих сведениях такого быть не должно.
 NUMBER_WITH_UNIT_RE = re.compile(
