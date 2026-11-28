@@ -2,8 +2,8 @@
 
 Клиенты (эмбеддинги, реранк) не знают о журнале: они вызывают record_usage. Граф агента забирает
 записи через take_usage и пишет шаги kind=embed или kind=rerank с ценой из app/obs/prices.py.
-Вне хода (ингест, OCR) мешка нет: record_usage ничего не делает. Мешок виден потокам инструментов
-через ContextVar и copy_context в графе.
+Вне хода (например, при ингесте) мешка нет: record_usage ничего не делает. Мешок виден
+потокам инструментов через ContextVar и copy_context в графе.
 """
 
 from collections.abc import Iterator

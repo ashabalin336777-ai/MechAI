@@ -13,10 +13,8 @@ from app.agent.runner import load_base_prompt
 from app.agent.services import build_agent_services, use_postgres_checkpointer
 from app.api.admin_eval import EvalJob
 from app.api.admin_eval import router as admin_eval_router
-from app.api.admin_ingest import router as admin_ingest_router
 from app.api.admin_json import use_admin_json_charset
 from app.api.admin_logs import router as admin_logs_router
-from app.api.admin_ocr import router as admin_ocr_router  # TODO: удалить перед финальным коммитом
 from app.api.chat import router as chat_router
 from app.api.health import router as health_router
 from app.api.pages import router as pages_router
@@ -34,9 +32,7 @@ from app.db.eval_runs import PgEvalRunStore
 from app.materials import ensure_runtime_materials
 from app.mocks import mount_mocks
 from app.paths import STATIC_DIR
-from app.rag.ingest import IngestJob
 from app.rag.manifest import Manifest, load_manifest
-from app.rag.ocr_job import OcrJob  # TODO: удалить вместе с admin_ocr
 
 logger = logging.getLogger("app")
 # PWA: браузеры ждут манифест с типом application/manifest+json.
@@ -79,8 +75,6 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     use_admin_json_charset(app)
     app.state.settings = settings
     app.state.migration_failed = False
-    app.state.ingest_job = IngestJob()
-    app.state.ocr_job = OcrJob()  # TODO: удалить вместе с admin_ocr
     app.state.eval_store = PgEvalRunStore(settings.database_url)
     app.state.eval_job = EvalJob(app.state.eval_store)
     app.state.journal_reader = (
@@ -111,8 +105,6 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(pages_router)
     app.include_router(admin_eval_router)
     app.include_router(admin_logs_router)
-    app.include_router(admin_ingest_router)  # временно, см. docs/deploy.md
-    app.include_router(admin_ocr_router)  # TODO: удалить перед финальным коммитом
     app.include_router(chat_router)
     app.include_router(stt_router)
     app.include_router(tickets_router)

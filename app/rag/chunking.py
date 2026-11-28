@@ -32,7 +32,8 @@ class ChunkDraft:
     pdf_page: int
     section: str | None
     text: str
-    source: str = "text"  # text — слой PDF; ocr — распознанная страница-рисунок (app/rag/ocr.py)
+    # text — слой PDF; ocr — текст страницы-рисунка, записанный до удаления OCR
+    source: str = "text"
 
 
 @dataclass(frozen=True)

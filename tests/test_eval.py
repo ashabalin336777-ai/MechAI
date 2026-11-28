@@ -47,7 +47,7 @@ def _question(**overrides) -> EvalQuestion:
 
 
 def test_question_file_has_twelve_engine_questions_and_three_no_data() -> None:
-    """10 вопросов по тексту, Q11 — стр. 280 (скан, OCR-прогон), Q12 — стр. 43 без цифр."""
+    """10 вопросов по тексту, Q11 — стр. 280 (скан), Q12 — стр. 43 без цифр."""
     questions = load_questions(QUESTIONS_PATH)
     assert sum(1 for q in questions if not q.no_data) == 12
     assert sum(1 for q in questions if q.no_data) == 3
@@ -76,7 +76,7 @@ def test_expected_numbers_are_on_the_expected_pdf_page(question: EvalQuestion) -
     if not path.exists():
         pytest.skip(f"{path.name} нет локально")
     if question.expected_page in image_only_pages(path):
-        pytest.skip("страница только рисунок: цифры сверяет OCR-прогон, не текст PDF")
+        pytest.skip("страница только рисунок: текста в PDF нет, сверка по тексту невозможна")
     with pymupdf.open(path) as document:
         page_text = " ".join(document[question.expected_page - 1].get_text("text").split())
     normalized = page_text.lower().replace(",", ".").replace(" ", "")

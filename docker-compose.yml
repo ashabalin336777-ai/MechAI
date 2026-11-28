@@ -16,8 +16,6 @@ services:
       AGENT_FALLBACK_MODEL: ${AGENT_FALLBACK_MODEL:-qwen3.8-flash-next-ru-noreason}
       EMBED_MODEL: ${EMBED_MODEL:-bge-m3}
       RERANK_MODEL: ${RERANK_MODEL:-bge-reranker}
-      OCR_MODEL: ${OCR_MODEL:-gemma-4-31b-noreason}
-      OCR_FALLBACK_MODEL: ${OCR_FALLBACK_MODEL:-qwen3.6-35b-a3b-noreason}
       STT_MODEL: ${STT_MODEL:-whisper-1}
       STT_LANGUAGE: ${STT_LANGUAGE-ru}
       STT_BROWSER_FALLBACK: ${STT_BROWSER_FALLBACK:-0}

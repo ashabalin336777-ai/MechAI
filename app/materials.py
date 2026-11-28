@@ -152,7 +152,7 @@ def ensure_runtime_materials(
 ) -> MaterialsStatus:
     """Для приложения: парк ТС и справочник F01–F14 нужны при каждом запросе.
 
-    PDF руководств здесь не качаются: им нужны только ingest и OCR, а ingest скачивает их сам.
+    PDF руководств здесь не качаются: им нужен только ingest, а ingest скачивает их сам.
     """
     checks = (
         ensure_json_file(vehicles_path, base_url, vehicles_path.name, "vehicles", archive_name),

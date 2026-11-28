@@ -83,7 +83,7 @@ python -c "import urllib.parse; print(urllib.parse.quote(input('пароль: ')
 | `DATABASE_URL` | `postgresql://mechai:<пароль>@<хост>:<порт>/mechai?sslmode=require` | да | строка из панели БД |
 | `VEHICLES_PATH` | `mock/data/vehicles.json` | нет | парк ТС; файл докачивается при старте по `MATERIALS_URL` |
 | `FAULT_TYPES_PATH` | `mock/data/fault_types.json` | нет | справочник F01–F14; докачивается при старте |
-| `MANUALS_DIR` | `data/manuals` | нет | каталог PDF руководств; PDF докачиваются при ingest/OCR |
+| `MANUALS_DIR` | `data/manuals` | нет | каталог PDF руководств; PDF докачиваются при ingest |
 | `MATERIALS_URL` | публичная ссылка на папку Яндекс Диска с материалами задачи | да (для деплоя) | п. 9.1 требований организатора; без неё `/health` покажет `materials: missing` |
 | `MANUALS_URL` | пусто | нет | ссылка на папку с PDF, если они не в `MATERIALS_URL`; пусто — берётся `MATERIALS_URL` |
 | `MOCK_DATA_URL` | пусто | нет | ссылка на папку с JSON заглушек; пусто — берётся `MATERIALS_URL` |
@@ -145,24 +145,9 @@ MOCK_TOIR_URL=http://127.0.0.1:8000/mock/toir
 
 ## Индексация руководств
 
-Первая индексация на стенде выполнена 26.11.2026: 6 руководств, 1672 чанка, ошибок нет. Отчёт: [eval/ingest_report.md](../eval/ingest_report.md). Это была версия нарезки 1.
+Первая индексация на стенде выполнена 26.11.2026: 6 руководств, 1672 чанка, ошибок нет (версия нарезки 1). Отчёт: [eval/ingest_report.md](../eval/ingest_report.md).
 
-Проверено 27.11 `SELECT` по `manuals`: у всех шести руководств `chunker_version = 1`. Правки таблиц (версии 2 и 3) на стенде ещё не применены, нужен повторный ингест.
-
-**Временный эндпоинт** (удалить после индексации): `POST /admin/ingest` запускает индексацию в фоне и отвечает 202, `GET /admin/ingest/status` показывает состояние, по каждому руководству `chunker_version` и число чанков, и отчёт после завершения. Оба требуют `Authorization: Bearer <ADMIN_TOKEN>`, без `ADMIN_TOKEN` отвечают 404. Работает только после деплоя коммита, который содержит этот эндпоинт.
-
-PowerShell (вместо `<ADMIN_TOKEN>` свой токен, значение в чат не присылать):
-
-```powershell
-$h = @{ Authorization = "Bearer <ADMIN_TOKEN>" }
-Invoke-RestMethod -Method Post -Uri https://ashabalin336777-ai-mechai-3580.twc1.net/admin/ingest -Headers $h
-Invoke-RestMethod -Uri https://ashabalin336777-ai-mechai-3580.twc1.net/admin/ingest/status -Headers $h
-```
-
-Статус `running` держится до конца индексации. Во время неё повторный запуск даёт 409. После `done` в поле `manuals` должны быть `chunker_version: 3` у всех руководств. Если `state` равен `error`, текст ошибки очищен от строки подключения и ключа.
-
-Когда ингест прошёл и отчёт сохранён: удалить `app/api/admin_ingest.py`, `IngestJob` в `app/rag/ingest.py`, строку `include_router(admin_ingest_router)` в `app/main.py` и тесты `tests/test_admin_ingest.py`. Переменная `INGEST_TOKEN` не нужна: эндпоинт использует `ADMIN_TOKEN`.
-
+27.11.2026 руководства переиндексированы: `chunker_version` 3 у всех шести (проверено SQL по БД стенда). Временный эндпоинт `POST /admin/ingest` удалён из кода на этапе 10, после деплоя релиза его не будет. Повторная индексация локальная: `python -m app.rag.ingest` с `DATABASE_URL`, `NEURALDEEP_API_KEY` и PDF в `MANUALS_DIR` (PDF докачиваются по `MATERIALS_URL`). Чанки `source='ocr'` при индексации не удаляются.
 ## Проверка поиска и агента (POST /admin/eval)
 
 Админ-прогон проверки, асинхронный. Все три эндпоинта требуют `Authorization: Bearer <ADMIN_TOKEN>`. Без `ADMIN_TOKEN` их нет (404), без верного токена 401.
@@ -206,27 +191,6 @@ $st.report_md | Set-Content -Encoding UTF8 eval\reports\agent_run_$($run.run_id)
 - Без `ADMIN_TOKEN` страницы нет (404). Без `DATABASE_URL` на странице написано, что журнал не записывается.
 
 Мобильная проверка страниц (360, 390, 430 px) и скриншоты: `python scripts/mobile_check.py --base <адрес>` с `ADMIN_TOKEN` в окружении. Отчёт: `docs/mobile_design/check/report.md`.
-
-## OCR страниц-рисунков (временный)
-
-Страницы руководств, где текста меньше 100 символов (сканы, таблицы-картинки), распознаёт vision-модель `OCR_MODEL` (по умолчанию `gemma-4-31b-noreason`, запасная `OCR_FALLBACK_MODEL` — `qwen3.6-35b-a3b-noreason`). Текст пишется в `chunks` с `source='ocr'`. Повторный запуск пропускает уже распознанные страницы и дублей не создаёт. Переиндексация текста (`/admin/ingest`) OCR-чанки не удаляет.
-
-Запуск асинхронный: `POST` отвечает 202 и `run_id`, прогресс — в статусе. Прогресс хранится в памяти процесса: при перезапуске сервиса прогон прерывается, повторный запуск безопасен. Оба эндпоинта требуют Bearer `ADMIN_TOKEN`.
-
-PowerShell (вместо `<ADMIN_TOKEN>` свой токен, в чат не присылать):
-
-```powershell
-$h = @{ Authorization = "Bearer <ADMIN_TOKEN>" }
-$base = "https://ashabalin336777-ai-mechai-3580.twc1.net/admin/ocr"
-$run = Invoke-RestMethod -Method Post -Uri "$base/ingest" -Headers $h
-$st = Invoke-RestMethod -Uri "$base/ingest/status?run_id=$($run.run_id)" -Headers $h
-"$($st.state): $($st.done) из $($st.total), сохранено $($st.stored), чанков $($st.chunks), ошибок $($st.failed.Count)"
-$st.failed | Format-Table pdf_page, manual_id, error -AutoSize
-```
-
-Пока `state` равен `running`, повторять статус. Итог: `models` — сколько страниц распознала каждая модель, `tokens_in` и `tokens_out` — расход токенов.
-
-Удалить перед финальным коммитом: `app/api/admin_ocr.py`, `app/rag/ocr.py`, `app/rag/ocr_job.py`, строки `admin_ocr_router` и `OcrJob` в `app/main.py`, тесты `tests/test_admin_ocr.py`, `tests/test_ocr.py`, `tests/test_ocr_db.py`. Миграция `0008_chunk_source.sql` и поле `source` остаются.
 
 ## Что ещё не сделано
 
