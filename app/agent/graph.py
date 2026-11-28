@@ -37,7 +37,7 @@ from app.obs.journal import Journal, StepRecord
 from app.obs.prices import cost_rub
 from app.obs.retry import take_retries
 from app.obs.usage import UsageEvent, take_usage
-from app.rag.citations import fix_citations
+from app.rag.citations import fix_citations, has_verified_citation
 from app.rag.search import Fragment
 from app.tools.registry import ToolSpec, openai_tools
 from app.tools.runtime import Runtime, ToolDeps, TurnContext
@@ -53,6 +53,9 @@ MIN_CALL_TIMEOUT_S = 15.0  # ниже этого модель не успева�
 PREFETCH_TOOLS = ("get_vehicle", "get_diagnosis", "get_history")
 # Инструмент, который можно вызвать не больше N раз за ход (остальное — текст отказа модели).
 MAX_CALLS_PER_TOOL = {"search_manual": 3}
+# В модель уходят только последние ходы сессии: иначе контекст растёт до ~140k токенов, и старые
+# ответы «нет данных» модель начинает копировать. Полная история остаётся в чекпойнте.
+HISTORY_TURNS = 4
 PREFETCHED_TEXT = "Этот инструмент уже вызван в начале хода: его данные есть в контексте."
 LIMIT_TEXT = "Лимит вызовов этого инструмента в ходе исчерпан: ответь по уже полученным данным."
 
@@ -159,7 +162,7 @@ def build_graph(deps: AgentDeps, checkpointer: Any) -> Any:
         messages = [{"role": "system", "content": deps.system_prompt}]
         if calls >= deps.max_tool_calls:
             messages.append({"role": "system", "content": NO_TOOLS_LEFT_NOTE})
-        messages += to_openai(state["messages"])
+        messages += to_openai(recent_messages(state["messages"]))
         offered = {
             name: spec for name, spec in deps.registry.items() if _refusal(name, usage) is None
         }
@@ -252,7 +255,14 @@ def build_graph(deps: AgentDeps, checkpointer: Any) -> Any:
             )
         text = tidy_answer(text, [conflict.topic for conflict in deps.tools.conflicts])
         no_data_turn = deps.turn.no_data_reported and not deps.turn.retrieved
-        if needs_no_data_format(text, no_data_turn):
+        # Ответ со ссылкой на найденную в этом ходе страницу не переписываем под «нет данных»:
+        # фраза про один подвопрос не отменяет фрагмент, который модель уже процитировала.
+        grounded = (
+            bool(fragments)
+            and has_verified_citation(text, fragments)
+            and check_answer(text, fragments).ok
+        )
+        if needs_no_data_format(text, no_data_turn) and not grounded:
             formatted = format_no_data(text, _engine_model(deps))
             text = formatted.text
             deps.record(
@@ -323,6 +333,14 @@ def build_graph(deps: AgentDeps, checkpointer: Any) -> Any:
     builder.add_edge("tools", "agent")
     builder.add_edge("finalize", END)
     return builder.compile(checkpointer=checkpointer)
+
+
+def recent_messages(messages: list[AnyMessage], turns: int = HISTORY_TURNS) -> list[AnyMessage]:
+    """Последние `turns` ходов. Ход начинается с HumanMessage, поэтому пары tool_calls не рвутся."""
+    starts = [index for index, message in enumerate(messages) if isinstance(message, HumanMessage)]
+    if len(starts) <= turns:
+        return messages
+    return messages[starts[-turns] :]
 
 
 def to_openai(messages: list[AnyMessage]) -> list[dict[str, Any]]:
@@ -541,7 +559,7 @@ def _regenerate(deps: AgentDeps, state: AgentState, problems: list[str]) -> str:
         "у каждой цифры с единицей ставь ссылку [обозначение, стр. N]."
     )
     messages = [{"role": "system", "content": deps.system_prompt}]
-    messages += to_openai(state["messages"])
+    messages += to_openai(recent_messages(state["messages"]))
     messages.append({"role": "user", "content": note})
     # Таймаут — из бюджета хода, но не меньше MIN_CALL_TIMEOUT_S (раньше был фиксированный 5 с).
     elapsed = time.monotonic() - state["started_at"]

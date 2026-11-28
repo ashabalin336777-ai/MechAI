@@ -26,7 +26,7 @@
   var HEADING_RE = /^\s*(#{1,6}\s|\*\*[^*]+\*\*\s*$)/;
 
   function cleanText(line) {
-    return line.replace(/\*\*/g, "").trim();
+    return line.replace(/\*\*/g, "").replace(/`(\[[^\[\]]+?,\s*стр\.\s*\d+\])`/g, "$1").trim();
   }
 
   /* Пункты под заголовком «Этап…»; если заголовка нет — все нумерованные строки ответа. */

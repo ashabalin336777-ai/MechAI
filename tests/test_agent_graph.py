@@ -2,6 +2,9 @@
 
 from typing import Any
 
+from langchain_core.messages import AIMessage, AnyMessage, HumanMessage, ToolMessage
+
+from app.agent.graph import HISTORY_TURNS, recent_messages
 from app.agent.guards import UNCONFIRMED_MARK
 from app.agent.runner import TurnRequest, load_base_prompt, run_turn
 from app.rag.search import Fragment
@@ -340,3 +343,72 @@ def test_fix_is_applied_again_to_regenerated_answer() -> None:
     check = next(s for s in services.journal.steps if s.name == "citation_check")
     assert check.output["ok"] is True
     assert check.output["regenerated"] is True
+
+
+SEARCH_CALL = (
+    "search_manual",
+    {"query": "момент затяжки головки", "vehicle_id": DIAG_VEHICLE, "top_k": 3},
+)
+
+
+def test_grounded_answer_with_no_data_phrase_is_not_reformatted() -> None:
+    """Первый поиск ничего не нашёл, второй нашёл страницу с цифрой и ссылкой. Фраза «этих данных
+    нет» про один подвопрос не должна переписывать ответ под «нет данных» (стенд, С1)."""
+    answer = (
+        "По прогреву этих данных нет. "
+        f"Момент затяжки гаек головки 150 Н·м [{YAMZ236_RK}, стр. 267]."
+    )
+    found = iter([[], [manual_fragment()]])
+    llm = ScriptedChat(
+        [reply(calls=[SEARCH_CALL]), reply(calls=[SEARCH_CALL]), reply(content=answer)]
+    )
+    services = make_services(llm)
+    services.deps.search = lambda query, engine, top_k: next(found)
+
+    events = _run(services, _turn(DIAG_VEHICLE, DIAG_SESSION))
+
+    final = next(data["text"] for name, data in events if name == "answer_final")
+    assert final == answer
+    assert "no_data_format" not in [s.name for s in services.journal.steps]
+    assert len(llm.calls) == 3
+
+
+def test_no_data_phrase_without_found_fragments_is_still_formatted() -> None:
+    """Фрагментов нет совсем: фраза «этих данных нет» остаётся поводом для формата «нет данных»."""
+    llm = ScriptedChat(
+        [
+            reply(calls=[SEARCH_CALL]),
+            reply(content="По прогреву этих данных нет. Что сделать: дефектовка узла."),
+        ]
+    )
+    services = make_services(llm)
+    services.deps.search = lambda query, engine, top_k: []
+
+    events = _run(services, _turn(DIAG_VEHICLE, DIAG_SESSION))
+
+    final = next(data["text"] for name, data in events if name == "answer_final")
+    lines = final.splitlines()
+    assert lines[0].startswith("В руководстве на ") and lines[0].endswith(" этих данных нет.")
+    assert "no_data_format" in [s.name for s in services.journal.steps]
+
+
+def test_model_context_keeps_only_last_turns_as_whole_units() -> None:
+    """В модель уходят последние HISTORY_TURNS ходов целиком, каждый начинается с вопроса."""
+    total = HISTORY_TURNS + 2
+    history: list[AnyMessage] = []
+    for number in range(total):
+        history += [
+            HumanMessage(content=f"вопрос {number}"),
+            AIMessage(
+                content="", tool_calls=[{"name": "get_vehicle", "args": {}, "id": str(number)}]
+            ),
+            ToolMessage(content="данные", tool_call_id=str(number)),
+            AIMessage(content=f"ответ {number}"),
+        ]
+
+    kept = recent_messages(history)
+
+    assert isinstance(kept[0], HumanMessage)
+    assert kept[0].content == f"вопрос {total - HISTORY_TURNS}"
+    assert len(kept) == HISTORY_TURNS * 4
+    assert recent_messages(history[:4]) == history[:4]

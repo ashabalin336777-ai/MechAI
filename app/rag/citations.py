@@ -68,6 +68,13 @@ def check_citations(answer: str, fragments: list[Fragment]) -> CitationCheck:
     return CitationCheck(ok=not problems, problems=problems)
 
 
+def has_verified_citation(answer: str, fragments: list[Fragment]) -> bool:
+    """Есть ли в ответе ссылка на страницу из фрагментов этого хода (без проверки цифр)."""
+    pages = {(_designation(fragment.manual), fragment.pdf_page) for fragment in fragments}
+    cited = {(_designation(desig), int(page)) for desig, page in CITATION_RE.findall(answer)}
+    return bool(cited & pages)
+
+
 class CitationFix(BaseModel):
     old: str
     new: str
