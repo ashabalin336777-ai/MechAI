@@ -234,12 +234,13 @@
     run(Object.assign({ url: url, body: body }, request || {}));
   }
 
-  function askMessage(text) {
+  function askMessage(text, inputMode) {
     send(text, "/api/chat", {
       vehicle_id: vehicle,
       session_id: session,
       message: text,
       ui_mode: MC.currentMode(),
+      input_mode: inputMode || "text",
     }, { message: text });
   }
 
@@ -256,8 +257,11 @@
       event.preventDefault();
       var text = (input.value || "").trim();
       if (!text) return;
+      // Режим ввода: voice, если текст вставлен распознаванием речи (voice.js); затем сбрасываем.
+      var inputMode = MC.inputMode === "voice" ? "voice" : "text";
+      MC.inputMode = "text";
       input.value = "";
-      askMessage(text);
+      askMessage(text, inputMode);
     });
   }
   if (diagBtn) diagBtn.addEventListener("click", askDiagnosis);

@@ -39,6 +39,7 @@ class TurnRequest:
     user_action: str | None
     ui_mode: str
     lang: str
+    input_mode: str = "text"
 
 
 @dataclass
@@ -64,7 +65,10 @@ def run_turn(services: AgentServices, request: TurnRequest, base_prompt: str, em
         emit("done", {})
         return
     run_id = services.journal.start_run(
-        vehicle_id=request.vehicle_id, session_id=request.session_id, lang=request.lang
+        vehicle_id=request.vehicle_id,
+        session_id=request.session_id,
+        lang=request.lang,
+        input_mode=request.input_mode,
     )
     stats = RunStats()
     deps = AgentDeps(

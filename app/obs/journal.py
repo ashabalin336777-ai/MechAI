@@ -46,7 +46,9 @@ class RunSummary:
 
 
 class Journal(Protocol):
-    def start_run(self, *, vehicle_id: str | None, session_id: str | None, lang: str) -> int: ...
+    def start_run(
+        self, *, vehicle_id: str | None, session_id: str | None, lang: str, input_mode: str = "text"
+    ) -> int: ...
 
     def add_step(self, step: StepRecord) -> None: ...
 
@@ -59,7 +61,9 @@ class NullJournal:
     def __init__(self) -> None:
         self._next_run = 0
 
-    def start_run(self, *, vehicle_id: str | None, session_id: str | None, lang: str) -> int:
+    def start_run(
+        self, *, vehicle_id: str | None, session_id: str | None, lang: str, input_mode: str = "text"
+    ) -> int:
         self._next_run += 1
         return self._next_run
 
@@ -76,10 +80,14 @@ class MemoryJournal(NullJournal):
 
     steps: list[StepRecord] = field(default_factory=list)
     runs: dict[int, RunSummary] = field(default_factory=dict)
+    input_modes: dict[int, str] = field(default_factory=dict)
     started: int = 0
 
-    def start_run(self, *, vehicle_id: str | None, session_id: str | None, lang: str) -> int:
+    def start_run(
+        self, *, vehicle_id: str | None, session_id: str | None, lang: str, input_mode: str = "text"
+    ) -> int:
         self.started += 1
+        self.input_modes[self.started] = input_mode
         return self.started
 
     def add_step(self, step: StepRecord) -> None:
@@ -99,12 +107,14 @@ class PgJournal:
     def __init__(self, database_url: str) -> None:
         self._url = database_url
 
-    def start_run(self, *, vehicle_id: str | None, session_id: str | None, lang: str) -> int:
+    def start_run(
+        self, *, vehicle_id: str | None, session_id: str | None, lang: str, input_mode: str = "text"
+    ) -> int:
         with psycopg.connect(self._url, connect_timeout=5, autocommit=True) as conn:
             row = conn.execute(
-                "INSERT INTO agent_runs (tenant_id, vehicle_id, session_id, lang) "
-                "VALUES (%s, %s, %s, %s) RETURNING id",
-                (TENANT_ID, vehicle_id, session_id, lang),
+                "INSERT INTO agent_runs (tenant_id, vehicle_id, session_id, lang, input_mode) "
+                "VALUES (%s, %s, %s, %s, %s) RETURNING id",
+                (TENANT_ID, vehicle_id, session_id, lang, input_mode),
             ).fetchone()
         assert row is not None
         return int(row[0])

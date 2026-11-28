@@ -25,10 +25,22 @@
     <button type="button" class="chip" data-msg="Покажи историю машины">История машины</button>
   </nav>
 
+  <div id="voice-consent" class="voice-consent" role="dialog" aria-labelledby="voice-consent-title" hidden>
+    <p id="voice-consent-title"><strong>Голосовой ввод</strong></p>
+    <p class="muted">Запись речи отправляется на распознавание в сервис Neuraldeep (Россия). Аудио не сохраняется, в журнал попадает только текст.</p>
+    <label class="voice-consent-check">
+      <input type="checkbox" id="voice-consent-check">
+      <span>Согласен(на) на распознавание моей речи</span>
+    </label>
+    <button type="button" class="btn btn-primary" id="voice-consent-btn" disabled>Разрешить микрофон</button>
+  </div>
+
   <form id="composer" class="composer">
     <label class="visually-hidden" for="message">Вопрос механика</label>
     <textarea id="message" name="message" rows="2" maxlength="2000"
               placeholder="Напишите вопрос механика"></textarea>
+    <p id="voice-status" class="voice-status muted" aria-live="polite" hidden></p>
+    <button type="button" class="btn btn-secondary mic-btn" id="mic-btn" aria-pressed="false">Говорить</button>
     <button type="submit" class="btn btn-primary" id="send-btn">Отправить</button>
   </form>
   <div id="glossary-pop" class="glossary-pop" role="dialog" aria-live="polite" hidden></div>
@@ -39,4 +51,5 @@
 <script defer src="/static/js/common.js"></script>
 <script defer src="/static/js/markdown.js"></script>
 <script defer src="/static/js/chat.js"></script>
+<script defer src="/static/js/voice.js"></script>
 {% endblock %}

@@ -21,8 +21,10 @@ from app.api.chat import router as chat_router
 from app.api.health import router as health_router
 from app.api.pages import router as pages_router
 from app.api.ready import router as ready_router
+from app.api.stt import router as stt_router
 from app.api.tickets import router as tickets_router
 from app.clients.ml_client import MlClient
+from app.clients.stt_client import SttClient
 from app.clients.toir_client import ToirClient
 from app.config import Settings, get_settings
 from app.data.vehicles import VehicleStore
@@ -86,6 +88,9 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     )
     app.state.ml_client = MlClient(settings.mock_ml_url)
     app.state.toir_client = ToirClient(settings.mock_toir_url)
+    app.state.stt_client = SttClient(
+        settings.neuraldeep_api_key, settings.neuraldeep_base_url, settings.stt_model
+    )
     app.state.materials = ensure_runtime_materials(
         settings.vehicles_path,
         settings.fault_types_path,
@@ -109,6 +114,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(admin_ingest_router)  # временно, см. docs/deploy.md
     app.include_router(admin_ocr_router)  # TODO: удалить перед финальным коммитом
     app.include_router(chat_router)
+    app.include_router(stt_router)
     app.include_router(tickets_router)
     return app
 

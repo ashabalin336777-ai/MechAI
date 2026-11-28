@@ -25,6 +25,8 @@ class ChatBody(BaseModel):
     message: str = Field(min_length=1, max_length=2000)
     ui_mode: UiMode = "standard"
     lang: Literal["ru"] = "ru"
+    # voice — текст из распознавания речи (POST /api/stt); пишется в журнал хода как режим ввода.
+    input_mode: Literal["text", "voice"] = "text"
 
 
 class DiagnosisBody(BaseModel):
@@ -45,6 +47,7 @@ async def chat(body: ChatBody, request: Request) -> StreamingResponse:
             user_action=None,
             ui_mode=body.ui_mode,
             lang=body.lang,
+            input_mode=body.input_mode,
         ),
     )
 

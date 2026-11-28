@@ -199,12 +199,30 @@ def test_pages_have_no_english_button_labels(client: TestClient) -> None:
         assert not _has_english_label(response.text), page
 
 
+def test_chat_page_has_voice_input_behind_consent(client: TestClient) -> None:
+    response = client.get(f"/vehicles/{DIAG_VEHICLE}/chat", params={"session": DIAG_SESSION})
+
+    assert response.status_code == 200
+    html = response.text
+    assert 'id="mic-btn"' in html
+    assert ">Говорить<" in html
+    assert 'id="voice-consent"' in html and 'id="voice-consent-check"' in html
+    assert "Аудио не сохраняется" in html
+    assert "/static/js/voice.js" in html
+    script = (STATIC_DIR / "js" / "voice.js").read_text(encoding="utf-8")
+    assert "/api/stt" in script
+    assert "MediaRecorder" in script
+    assert "MAX_MS = 30000" in script
+    assert "consent_at" in script
+
+
 def test_static_scripts_are_in_place() -> None:
     for name in (
         "js/common.js",
         "js/markdown.js",
         "js/mode.js",
         "js/chat.js",
+        "js/voice.js",
         "js/steps.js",
         "js/ticket.js",
     ):

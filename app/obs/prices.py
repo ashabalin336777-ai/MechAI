@@ -9,6 +9,8 @@ PRICES_RUB_PER_MTOK: dict[str, tuple[Decimal, Decimal]] = {
 }
 
 MEGA = Decimal(1_000_000)
+# Распознавание речи, whisper-1: 1 ₽ за минуту (docs/models.md).
+STT_RUB_PER_MINUTE = Decimal("1")
 
 
 def cost_rub(model: str, prompt_tokens: int, completion_tokens: int) -> Decimal | None:
@@ -19,3 +21,11 @@ def cost_rub(model: str, prompt_tokens: int, completion_tokens: int) -> Decimal 
     input_rate, output_rate = price
     total = Decimal(prompt_tokens) * input_rate + Decimal(completion_tokens) * output_rate
     return (total / MEGA).quantize(Decimal("0.0001"))
+
+
+def stt_cost_rub(duration_s: float | None) -> Decimal | None:
+    """Стоимость распознавания в ₽ по длительности записи. None, если длительность неизвестна."""
+    if duration_s is None:
+        return None
+    minutes = Decimal(str(duration_s)) / Decimal(60)
+    return (minutes * STT_RUB_PER_MINUTE).quantize(Decimal("0.0001"))
