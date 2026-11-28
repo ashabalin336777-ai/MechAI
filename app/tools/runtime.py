@@ -57,6 +57,8 @@ class TurnContext:
     show_verdict: bool = True
     # Противоречия руководства, найденные в этом ходе: ответ обязан их показать (guards.py).
     conflicts: list[ConflictNotice] = field(default_factory=list)
+    # search_manual не нашёл фрагментов выше порога: ответ оформляем как «нет в руководстве».
+    no_data_reported: bool = False
 
     def remember(self, fragments: list[Fragment]) -> None:
         """Фрагменты диалога копим без дублей: по (руководство, страница, начало текста)."""

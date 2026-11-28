@@ -77,10 +77,10 @@ def run_agent_result(
     min_score: float,
 ) -> EvalResult:
     runs = [run_scenario(template, scenario, base_prompt) for scenario in scenarios]
+    options = {"generated_at": datetime.now(), "model": model, "min_score": min_score}
     return EvalResult(
-        report_md=render_report(
-            runs, generated_at=datetime.now(), model=model, min_score=min_score
-        ),
+        report_md=render_report(runs, details=False, **options),
+        report_full_md=render_report(runs, details=True, **options),
         passed=sum(1 for run in runs if run.passed),
         total=len(runs),
         cases=[_run_case(run) for run in runs],
@@ -129,6 +129,11 @@ def _collect(
     steps = [step for step in journal.steps if step.run_id == run_id]
     outcome.tools = [step.name for step in steps if step.kind == "tool"]
     outcome.journal = [step.name for step in steps]
+    for step in steps:
+        if step.name == "no_data_format":
+            outcome.general_cut += int((step.output or {}).get("general_cut", 0))
+        if step.name == "consult_removed":
+            outcome.consult_removed += len((step.output or {}).get("removed", []))
     outcome.tool_errors = [
         f"{step.name}: {step.error}" for step in steps if step.kind == "tool" and step.error
     ]
@@ -147,9 +152,21 @@ def _collect(
 
 
 def render_report(
-    runs: list[ScenarioRun], *, generated_at: datetime, model: str, min_score: float
+    runs: list[ScenarioRun],
+    *,
+    generated_at: datetime,
+    model: str,
+    min_score: float,
+    details: bool = False,
 ) -> str:
+    """Отчёт по сценариям. details=False — только метрики (для eval/*.md и git, п. 9.1).
+
+    details=True добавляет ответы агента и фрагменты примеров ошибок: такой отчёт хранится
+    только в БД и показывается в /admin/logs.
+    """
     passed = sum(1 for run in runs if run.passed)
+    general_cut = sum(run.outcome.general_cut for run in runs)
+    consult = sum(run.outcome.consult_removed for run in runs)
     lines = [
         "# Отчёт проверки агента на живой модели",
         "",
@@ -161,16 +178,19 @@ def render_report(
         "Заявка не отправлялась: подтверждение в прогоне не вызывается, черновики и журнал "
         "изолированы в памяти прогона.",
         "",
+        f"Общих сведений вырезано кодом: {general_cut}. "
+        f"Фраз про специалиста вырезано кодом: {consult}.",
+        "",
         "## Сводка",
         "",
         "| Сценарий | Вердикт | Вызовы инструментов | Цитаты | ttft, мс | ток/с | ₽ | Результат |",
         "|---|---|---|---|---|---|---|---|",
     ]
     lines += [_summary_row(run) for run in runs]
-    lines += _model_errors_section(runs)
+    lines += _model_errors_section(runs, details)
     lines += ["", "## Детали", ""]
     for run in runs:
-        lines += _details(run)
+        lines += _details(run, details)
     return "\n".join(lines) + "\n"
 
 
@@ -180,7 +200,7 @@ def fixed_by_code(model_problems: list[str], final_problems: list[str]) -> int:
     return len(model_problems) - still_there
 
 
-def _model_errors_section(runs: list[ScenarioRun]) -> list[str]:
+def _model_errors_section(runs: list[ScenarioRun], details: bool) -> list[str]:
     found = sum(len(run.outcome.model_problems) for run in runs)
     fixed = sum(run.outcome.model_fixed for run in runs)
     lines = [
@@ -190,6 +210,8 @@ def _model_errors_section(runs: list[ScenarioRun]) -> list[str]:
         f"Ошибок цитат модели, исправлено кодом: {fixed} (выявлено всего: {found}). "
         "Сценарий эти ошибки не валят: проверка идёт по финальному ответу.",
     ]
+    if not details:
+        return lines
     pairs = [
         (run.scenario.id, pair)
         for run in runs
@@ -219,7 +241,7 @@ def _summary_row(run: ScenarioRun) -> str:
     )
 
 
-def _details(run: ScenarioRun) -> list[str]:
+def _details(run: ScenarioRun, details: bool) -> list[str]:
     scenario = run.scenario
     outcome = run.outcome
     lines = [
@@ -250,6 +272,10 @@ def _details(run: ScenarioRun) -> list[str]:
     if outcome.citation_problems:
         lines += ["", "Нарушения цитат в финальном ответе:"]
         lines += [f"- {problem}" for problem in outcome.citation_problems]
+    if not details:
+        lines += ["", f"Длина ответа: {len(outcome.answer.strip())} символов (текст в БД)."]
+        lines.append("")
+        return lines
     lines += ["", "Ответ агента:", ""]
     answer = outcome.answer.strip() or "_пусто_"
     lines += [f"> {line}" if line else ">" for line in answer.splitlines()]

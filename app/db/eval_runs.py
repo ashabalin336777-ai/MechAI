@@ -29,15 +29,21 @@ class EvalCase(BaseModel):
 
 
 class EvalResult(BaseModel):
-    """Итог прогона: отчёт для человека и сводка для таблицы (report_json)."""
+    """Итог прогона: публичный отчёт (метрики, без текстов), полный отчёт и сводка.
+
+    report_md можно копировать в git (п. 9.1): в нём только метрики, ID, статусы, страницы и
+    стоимость. report_full_md — полный текст с фрагментами руководств и ответами агента; он
+    хранится только в БД и показывается в /admin/logs.
+    """
 
     report_md: str
+    report_full_md: str | None = None
     passed: int = Field(ge=0)
     total: int = Field(ge=0)
     cases: list[EvalCase] = Field(default_factory=list)
 
     def summary(self) -> dict[str, Any]:
-        return self.model_dump(exclude={"report_md"})
+        return self.model_dump(exclude={"report_md", "report_full_md"})
 
 
 class EvalRunRecord(BaseModel):
@@ -52,11 +58,12 @@ class EvalRunRecord(BaseModel):
     error_message: str | None
     report_md: str | None = None
     report_json: dict[str, Any] | None = None
+    report_full_md: str | None = None
 
 
 _COLUMNS = (
     "id, suite, commit_sha, status, started_at, finished_at, passed, total, error_message, "
-    "report_md, report_json"
+    "report_md, report_json, report_full_md"
 )
 
 
@@ -99,13 +106,14 @@ class PgEvalRunStore:
         with self._connect() as conn:
             conn.execute(
                 "UPDATE eval_runs SET status = 'done', finished_at = now(), passed = %s, "
-                "total = %s, report_md = %s, report_json = %s "
+                "total = %s, report_md = %s, report_json = %s, report_full_md = %s "
                 "WHERE tenant_id = %s AND id = %s",
                 (
                     result.passed,
                     result.total,
                     result.report_md,
                     Jsonb(result.summary()),
+                    result.report_full_md,
                     TENANT_ID,
                     run_id,
                 ),
@@ -140,7 +148,7 @@ class PgEvalRunStore:
         with self._connect() as conn:
             rows = conn.execute(
                 "SELECT id, suite, commit_sha, status, started_at, finished_at, passed, total, "
-                "error_message, NULL::text, report_json FROM eval_runs "
+                "error_message, NULL::text, report_json, NULL::text FROM eval_runs "
                 "WHERE tenant_id = %s ORDER BY id DESC LIMIT %s",
                 (TENANT_ID, limit),
             ).fetchall()
@@ -160,4 +168,5 @@ def _record(row: tuple[Any, ...]) -> EvalRunRecord:
         error_message=row[8],
         report_md=row[9],
         report_json=row[10],
+        report_full_md=row[11],
     )

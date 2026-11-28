@@ -277,6 +277,7 @@ def eval_page(request: Request, run_id: int) -> HTMLResponse:
             "view": _eval_view(record),
             "report": record.report_md
             or "Отчёта пока нет: прогон ещё идёт или завершился ошибкой.",
+            "report_full": record.report_full_md,
         },
     )
 

@@ -166,8 +166,20 @@ def test_report_shows_summary_raw_scores_and_expected_mark() -> None:
     assert "| hit@5 по странице (вопросы с эталоном) | 1/1 |" in report
     assert "| цифра найдена на эталонной странице | 1/1 |" in report
     assert "| «нет инструкции»: порог отсёк выдачу | 1/1 |" in report
-    assert "| 1 | yamz236_rk | 286 | — | 0.812 | да | ✓ |" in report
-    assert "| 1 | zmz5234_rk | 9 | — | 0.100 | нет |  |" in report
+    # Публичный отчёт: без раздела и начала фрагмента (п. 9.1), только метрики.
+    assert "| 1 | yamz236_rk | 286 | 0.812 | да | ✓ |" in report
+    assert "| 1 | zmz5234_rk | 9 | 0.100 | нет |  |" in report
+    assert "Начало фрагмента" not in report
+    full = render_report(
+        items,
+        generated_at=datetime(2026, 11, 26, 22, 0),
+        embed_model="bge-m3",
+        rerank_model="bge-reranker",
+        min_score=0.35,
+        details=True,
+    )
+    assert "| 1 | yamz236_rk | 286 | — | 0.812 | да | ✓ |" in full
+    assert "Начало фрагмента" in full
 
 
 def test_missing_page_in_fragments_renders_no_fragments_line() -> None:

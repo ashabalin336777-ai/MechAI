@@ -216,6 +216,30 @@
           "model_version": "mock-v1"
         }
       ]
+    },
+    {
+      "vehicle_id": "TST-E005",
+      "garage_no": "ТЕСТ-005",
+      "make": "ТЕСТ",
+      "model": "ТЕСТ-5",
+      "vehicle_type": "тестовое ТС",
+      "engine_model": "ЗМЗ-5234.10",
+      "fuel": "бензин",
+      "sessions": [
+        {
+          "session_id": "S-9011",
+          "checked_at": "2026-11-17T09:00:00+03:00",
+          "vehicle_id": "TST-E005",
+          "status": "anomaly",
+          "anomaly_type": "F13",
+          "anomaly_title": "Тестовый узел F13",
+          "anomaly_score": 0.9,
+          "confidence": 0.95,
+          "signal_quality": "good",
+          "description": "Тестовая запись: аномалия F13 (бензиновая подача)",
+          "model_version": "mock-v1"
+        }
+      ]
     }
   ]
 }

@@ -14,4 +14,9 @@
 
 <h2 class="panel-title">Отчёт</h2>
 <pre class="raw report">{{ report }}</pre>
+
+{% if report_full %}
+<h2 class="panel-title">Полный отчёт (фрагменты руководств и ответы агента, только в журнале)</h2>
+<pre class="raw report">{{ report_full }}</pre>
+{% endif %}
 {% endblock %}

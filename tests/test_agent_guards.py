@@ -3,13 +3,13 @@
 import pytest
 
 from app.agent.guards import (
-    CONSULT_PHRASE,
     UNCONFIRMED_MARK,
     apply_conflict_block,
     check_answer,
     check_ticket_draft,
     find_injection_markers,
     sanitize_answer,
+    strip_consult,
     wrap_tool_data,
 )
 from app.agent.verdict import Verdict
@@ -247,27 +247,48 @@ def _conflict_notice() -> ConflictNotice:
     )
 
 
-def test_conflict_block_has_code_phrase_once_and_drops_model_consult() -> None:
+def test_conflict_block_drops_model_consult_and_adds_no_phrase_about_specialist() -> None:
     answer = (
         "Регулировать на холодном двигателе, уточните у специалиста.\n"
         "- Уточните у специалиста или производителя.\n"
         "Вывод: мерить после остывания."
     )
     block = apply_conflict_block(answer, [_conflict_notice()])
-    assert block.text.count(CONSULT_PHRASE) == 1
     body = block.text.split("\n\n**В документации противоречие")[0]
     assert body == "Регулировать на холодном двигателе.\nВывод: мерить после остывания."
+    assert "специалист" not in block.text.lower()
     assert block.consult_removed == [
         "уточните у специалиста.",
         "Уточните у специалиста или производителя.",
     ]
 
 
-def test_conflict_block_without_model_consult_adds_phrase_from_code() -> None:
+def test_conflict_block_without_model_consult_has_no_specialist_phrase() -> None:
     block = apply_conflict_block("Регулировать на холодном двигателе.", [_conflict_notice()])
-    assert block.text.count(CONSULT_PHRASE) == 1
+    assert "специалист" not in block.text.lower()
     assert block.consult_removed == []
     assert block.text.startswith("Регулировать на холодном двигателе.")
+
+
+@pytest.mark.parametrize(
+    "phrase",
+    [
+        "Обратитесь к специалисту.",
+        "Рекомендуем обратиться к специалисту по ремонту.",
+        "Проконсультируйтесь со специалистом.",
+        "Уточните у специалиста.",
+    ],
+)
+def test_strip_consult_removes_every_specialist_reference(phrase: str) -> None:
+    text, removed = strip_consult(f"Регулировать на холодном двигателе.\n{phrase}")
+    assert text == "Регулировать на холодном двигателе."
+    assert removed
+
+
+def test_strip_consult_keeps_text_without_references() -> None:
+    text, removed = strip_consult("Момент 150 Н·м [РК, стр. 12].")
+    assert text == "Момент 150 Н·м [РК, стр. 12]."
+    assert removed == []
 
 
 def test_no_notices_leaves_answer_untouched() -> None:

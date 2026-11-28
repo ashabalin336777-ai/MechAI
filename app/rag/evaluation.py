@@ -126,15 +126,15 @@ def run_eval_result(settings: Settings) -> EvalResult:
     )
     with psycopg.connect(settings.database_url, connect_timeout=5) as conn:
         items = run_eval(conn, questions, embedder, reranker, settings.rag_min_score)
-    report_md = render_report(
-        items,
-        generated_at=datetime.now(),
-        embed_model=settings.embed_model,
-        rerank_model=settings.rerank_model,
-        min_score=settings.rag_min_score,
-    )
+    options = {
+        "generated_at": datetime.now(),
+        "embed_model": settings.embed_model,
+        "rerank_model": settings.rerank_model,
+        "min_score": settings.rag_min_score,
+    }
     return EvalResult(
-        report_md=report_md,
+        report_md=render_report(items, details=False, **options),
+        report_full_md=render_report(items, details=True, **options),
         passed=sum(1 for item in items if _item_passed(item)),
         total=len(items),
         cases=[_item_case(item) for item in items],
@@ -164,7 +164,13 @@ def render_report(
     embed_model: str,
     rerank_model: str,
     min_score: float,
+    details: bool = False,
 ) -> str:
+    """Отчёт по набору. details=False — только метрики (для eval/*.md и git, п. 9.1).
+
+    details=True добавляет фрагменты руководств (раздел и начало текста): такой отчёт хранится
+    только в БД и показывается в /admin/logs.
+    """
     page_items = [item for item in items if not item.question.no_data]
     no_data_items = [item for item in items if item.question.no_data]
     hits = sum(1 for item in page_items if item.judgement.hit_at_5)
@@ -189,11 +195,11 @@ def render_report(
         "",
     ]
     for item in items:
-        lines += _render_item(item, min_score)
+        lines += _render_item(item, min_score, details)
     return "\n".join(lines) + "\n"
 
 
-def _render_item(item: EvalItem, min_score: float) -> list[str]:
+def _render_item(item: EvalItem, min_score: float, details: bool) -> list[str]:
     question = item.question
     lines = [f"## {question.id}. {question.question}", "", f"Двигатель: `{question.engine_model}`."]
     if question.no_data:
@@ -211,19 +217,29 @@ def _render_item(item: EvalItem, min_score: float) -> list[str]:
     if not item.fragments:
         lines += ["Фрагментов нет.", ""]
         return lines
-    lines += [
-        "| # | Руководство | Стр. PDF | Раздел | Rerank score | Выше порога | Эталон "
-        "| Начало фрагмента |",
-        "|---|---|---|---|---|---|---|---|",
-    ]
+    if details:
+        lines += [
+            "| # | Руководство | Стр. PDF | Раздел | Rerank score | Выше порога | Эталон "
+            "| Начало фрагмента |",
+            "|---|---|---|---|---|---|---|---|",
+        ]
+    else:
+        lines += [
+            "| # | Руководство | Стр. PDF | Rerank score | Выше порога | Эталон |",
+            "|---|---|---|---|---|---|",
+        ]
     for rank, fragment in enumerate(item.fragments, start=1):
         expected = "✓" if _is_expected_page(question, fragment) else ""
         above = "да" if fragment.score >= min_score else "нет"
-        lines.append(
-            f"| {rank} | {_cell(fragment.manual)} | {fragment.pdf_page} "
-            f"| {_cell(fragment.section or '—')} "
-            f"| {fragment.score:.3f} | {above} | {expected} | {_cell(_snippet(fragment.text))} |"
-        )
+        head = f"| {rank} | {_cell(fragment.manual)} | {fragment.pdf_page} "
+        if details:
+            section = _cell(fragment.section or "—")
+            snippet = _cell(_snippet(fragment.text))
+            lines.append(
+                f"{head}| {section} | {fragment.score:.3f} | {above} | {expected} | {snippet} |"
+            )
+        else:
+            lines.append(f"{head}| {fragment.score:.3f} | {above} | {expected} |")
     lines.append("")
     return lines
 

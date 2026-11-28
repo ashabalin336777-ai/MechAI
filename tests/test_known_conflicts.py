@@ -1,7 +1,8 @@
 """Известные противоречия руководств (правило заказчика X01): обе формулировки, безопасное правило.
 
 Код не выбирает верную формулировку. Блок противоречия собирает код дословно из правила: все
-страницы со ссылками, безопасное правило, совет специалиста. Фразы модели о трактовке убираются.
+страницы со ссылками, безопасное правило. Фразы модели о трактовке и отсылки к специалисту
+убираются.
 """
 
 import pymupdf
@@ -197,7 +198,7 @@ def test_answer_gets_the_verbatim_block_with_all_three_references() -> None:
     for ref in rule.refs:
         assert f"- «{ref.quote}» [{ref.manual}, стр. {ref.pdf_page}]" in answer
     assert "Безопасное правило: на холодном двигателе." in answer
-    assert "Уточните у специалиста или производителя" in answer
+    assert "специалист" not in answer.lower()
     assert any(
         step.name == "conflict_notice" and step.kind == "guardrail"
         for step in services.journal.steps
@@ -335,17 +336,18 @@ def test_real_pages_contain_the_verbatim_quotes_of_the_rule() -> None:
         assert quote_for_ref(conflict, ref, page) == ref.quote, (ref.manual, ref.pdf_page)
 
 
-def test_conflict_notice_records_code_phrase_and_drops_model_consult() -> None:
+def test_conflict_notice_drops_model_consult_and_adds_no_phrase() -> None:
     services = _services("Регулировать на холодном двигателе. Уточните у специалиста.")
     events = _run(services)
 
     answer = next(data["text"] for name, data in events if name == "answer_final")
-    phrase = "Уточните у специалиста или производителя до регулировки."
-    assert answer.count(phrase) == 1
-    assert "Уточните у специалиста." not in answer
+    assert "специалист" not in answer.lower()
+    # Фраза модели вырезается до блока противоречия отдельным шагом (ТЗ, этап 07a).
+    removed = next(step for step in services.journal.steps if step.name == "consult_removed")
+    assert removed.output["removed"] == ["Уточните у специалиста."]
     step = next(step for step in services.journal.steps if step.name == "conflict_notice")
-    assert step.output["phrase"] == phrase
-    assert step.output["consult_removed"] == ["Уточните у специалиста."]
+    assert "phrase" not in step.output
+    assert step.output["consult_removed"] == []
     raw = next(step for step in services.journal.steps if step.name == "raw_answer")
     assert "Уточните у специалиста." in raw.output["text"]
     assert raw.output["truncated"] is False
@@ -353,7 +355,6 @@ def test_conflict_notice_records_code_phrase_and_drops_model_consult() -> None:
 
 PAGES_QUERY = "Порядок регулировки клапанов у ЯМЗ-236М2 по руководству?"
 PAGES_SEARCH = "тепловой зазор клапанов регулировка порядок"
-CONSULT = "Уточните у специалиста или производителя до регулировки."
 
 
 def test_two_pages_in_turn_trigger_the_block_with_the_missing_formulation() -> None:
@@ -369,7 +370,7 @@ def test_two_pages_in_turn_trigger_the_block_with_the_missing_formulation() -> N
     assert "- «Проверить и подрегулировать тепловые зазоры" in answer
     assert "[236.01.01 РК, стр. 276]" in answer
     assert "Формулировки в руководствах расходятся" in answer
-    assert CONSULT in answer
+    assert "специалист" not in answer.lower()
     step = next(step for step in services.journal.steps if step.name == "conflict_notice")
     # Страницы правила в выдаче достаточны; тексты фрагментов дают и совпадение по ключевым словам.
     assert "pages" in step.output["trigger"]["yamz236_valve_clearance_timing"]

@@ -10,8 +10,8 @@ def _store() -> VehicleStore:
 
 def test_loads_fixture_vehicles_and_sessions() -> None:
     store = _store()
-    assert len(store) == 4
-    assert sum(len(v.sessions) for v in store.all()) == 13
+    assert len(store) == 5
+    assert sum(len(v.sessions) for v in store.all()) == 14
 
 
 def test_null_model_shows_make() -> None:
@@ -34,7 +34,7 @@ def test_search_by_garage_number() -> None:
 
 
 def test_search_empty_returns_all() -> None:
-    assert len(_store().search("   ")) == 4
+    assert len(_store().search("   ")) == 5
 
 
 def test_vehicle_with_anomaly_last_has_anomaly_as_last_session() -> None:

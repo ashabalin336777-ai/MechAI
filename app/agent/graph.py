@@ -19,18 +19,18 @@ from langgraph.graph.message import add_messages
 from pydantic import ValidationError
 
 from app.agent.guards import (
-    CONSULT_PHRASE,
-    NO_DATA_ANSWER,
     apply_conflict_block,
     check_answer,
     find_injection_markers,
     raw_answer_snapshot,
     redact_injection,
     sanitize_answer,
+    strip_consult,
     tidy_answer,
     wrap_tool_data,
 )
 from app.agent.llm import ChatModel, root_cause
+from app.agent.no_data import format_no_data, needs_no_data_format
 from app.obs.failure import Failure, describe_failure
 from app.obs.journal import Journal, StepRecord
 from app.obs.retry import take_retries
@@ -223,7 +223,34 @@ def build_graph(deps: AgentDeps, checkpointer: Any) -> Any:
             check = check_answer(text, fragments)
         if not check.ok:
             text = sanitize_answer(text, fragments)
+        text, consult_removed = strip_consult(text)
+        if consult_removed:
+            deps.record(
+                StepRecord(
+                    run_id=deps.run_id,
+                    n=deps.next_step(),
+                    kind="guardrail",
+                    name="consult_removed",
+                    output={"removed": consult_removed},
+                )
+            )
         text = tidy_answer(text, [conflict.topic for conflict in deps.tools.conflicts])
+        no_data_turn = deps.turn.no_data_reported and not deps.turn.retrieved
+        if needs_no_data_format(text, no_data_turn):
+            formatted = format_no_data(text, _engine_model(deps))
+            text = formatted.text
+            deps.record(
+                StepRecord(
+                    run_id=deps.run_id,
+                    n=deps.next_step(),
+                    kind="guardrail",
+                    name="no_data_format",
+                    output={
+                        "general_cut": formatted.general_cut,
+                        "next_step_added": formatted.next_step_added,
+                    },
+                )
+            )
         # Итог — по тексту для механика; блок противоречия собирает код после этой проверки.
         final = check_answer(text, fragments)
         deps.record(
@@ -240,8 +267,6 @@ def build_graph(deps: AgentDeps, checkpointer: Any) -> Any:
                 },
             )
         )
-        if not text:
-            text = NO_DATA_ANSWER
         if deps.turn.conflicts:
             block = apply_conflict_block(text, deps.turn.conflicts)
             text = block.text
@@ -256,7 +281,6 @@ def build_graph(deps: AgentDeps, checkpointer: Any) -> Any:
                         "trigger": {notice.id: notice.trigger for notice in deps.turn.conflicts},
                         "removed": block.removed,
                         "consult_removed": block.consult_removed,
-                        "phrase": CONSULT_PHRASE,
                     },
                 )
             )
@@ -320,6 +344,12 @@ def to_openai(messages: list[AnyMessage]) -> list[dict[str, Any]]:
 
 def _call(name: str, args: dict[str, Any], call_id: str) -> dict[str, Any]:
     return {"name": name, "args": args, "id": call_id}
+
+
+def _engine_model(deps: AgentDeps) -> str:
+    """Двигатель машины диалога для формулировки «нет в руководстве» (запасной вариант — общий)."""
+    vehicle = deps.tools.vehicles.get(deps.turn.vehicle_id)
+    return vehicle.engine_model if vehicle is not None else "этот двигатель"
 
 
 def _refusal(name: str, usage: dict[str, int]) -> str | None:

@@ -21,7 +21,6 @@ from app.rag.conflicts import ConflictNotice
 from app.rag.search import Fragment
 
 UNCONFIRMED_MARK = "(не подтверждено руководством)"
-NO_DATA_ANSWER = "В руководстве на этот двигатель этих данных нет. Рекомендую дефектовку узла."
 
 INJECTION_RE = re.compile(
     r"SYSTEM\s*:"
@@ -250,13 +249,14 @@ class ConflictBlock(BaseModel):
     consult_removed: list[str] = Field(default_factory=list)
 
 
-# Фраза для механика: её добавляет только код, в блоке противоречия.
-CONSULT_PHRASE = "Уточните у специалиста или производителя до регулировки."
-# «уточните у специалиста» из текста модели: вырезаем вместе с разделителем перед ним.
+# Механик сам специалист: отсылки «уточните у специалиста» из текста модели вырезаем везде.
 CONSULT_CLAUSE_RE = re.compile(
-    r"\s*[,;]?\s*(?:уточн\w*\s+у\s+специалист|у\s+специалиста\s+или\s+производител)[^.!?\n]*[.!?]?",
+    r"\s*[,;]?\s*(?:уточн\w*\s+у\s+специалист|у\s+специалиста\s+или\s+производител"
+    r"|обрат\w*\s+к\s+специалист|(?:про)?консульт\w*\s+(?:у|с|со)\s+специалист)[^.!?\n]*[.!?]?",
     re.IGNORECASE,
 )
+# После удаления отсылки в пункте может остаться слово «Рекомендуем.»: такой хвост убираем.
+HANGING_RECOMMEND_RE = re.compile(r"^\s*рекоменду(?:ем|ю|ется)\.?\s*$", re.IGNORECASE)
 BULLET_RE = re.compile(r"^\s*(?:[-*•]|\d+[.)])\s*")
 
 
@@ -275,14 +275,14 @@ def render_conflict_block(notices: list[ConflictNotice]) -> str:
         for quote in notice.quotes:
             lines.append(f"- «{quote.quote}» [{quote.manual}, стр. {quote.pdf_page}]")
         lines.append(f"Безопасное правило: {notice.safe_rule}.")
-        lines.append("Причину расхождения не определяем. " + CONSULT_PHRASE)
+        lines.append("Причину расхождения не определяем.")
         blocks.append("\n".join(lines))
     return "\n\n".join(blocks)
 
 
 def apply_conflict_block(answer: str, notices: list[ConflictNotice]) -> ConflictBlock:
-    """Ответ с противоречием: строки модели о трактовке убираем, её «уточните у специалиста»
-    тоже, блок кода ставим в конец с фразой для механика."""
+    """Ответ с противоречием: строки модели о трактовке убираем, её отсылки к специалисту тоже,
+    блок с формулировками собирает код и ставит в конец ответа."""
     if not notices:
         return ConflictBlock(text=answer, removed=[])
     kept: list[str] = []
@@ -316,3 +316,22 @@ def _drop_consult(line: str) -> tuple[str, list[str]]:
     if ends_sentence and rest and rest[-1] not in ".!?:":
         rest += "."
     return rest, found
+
+
+def strip_consult(text: str) -> tuple[str, list[str]]:
+    """Убирает из ответа отсылки к специалисту (решение заказчика, этап 07a).
+
+    Пункт списка, где осталась только отсылка, удаляется целиком. Возвращает текст и
+    удалённые фрагменты для журнала.
+    """
+    kept: list[str] = []
+    removed: list[str] = []
+    for line in text.split("\n"):
+        rest, found = _drop_consult(line)
+        if not found:
+            kept.append(line)
+            continue
+        removed.extend(found)
+        if BULLET_RE.sub("", rest).strip(" .!?") and not HANGING_RECOMMEND_RE.match(rest):
+            kept.append(rest)
+    return re.sub(r"\n{3,}", "\n\n", "\n".join(kept)).strip(), removed

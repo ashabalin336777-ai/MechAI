@@ -36,6 +36,15 @@ X01_ANSWER = (
 )
 
 
+N01_ANSWER = (
+    "В руководстве на ЗМЗ-5234.10 этих данных нет.\n\n"
+    "Что сделать: рекомендуем дефектовку узла по руководству на этот двигатель.\n\n"
+    "**Общие сведения (не из руководства)**\n"
+    "Гайки крепления турбокомпрессора затягиваются по схеме, "
+    "точные значения в руководстве не найдены."
+)
+
+
 def _fragments(engine: str) -> list[Fragment]:
     """Заглушка поиска: ЯМЗ-236М2 отдаёт фрагменты с нужными страницами, ЯМЗ-536 — пусто."""
     if engine != "ЯМЗ-236М2":
@@ -115,6 +124,21 @@ def _scripted_llm() -> ScriptedChat:
                 "это несоответствие диагноза. Процедуру не подбираю. Рекомендую повторную "
                 "дефектовку топливной системы; заявку по этой проверке не формирую."
             ),
+            # ЗМЗ-5234.10, S-9011: данных в руководстве нет, ответ по формату «Нет данных»
+            reply(calls=[("get_diagnosis", {"vehicle_id": "TST-E005", "session_id": "S-9011"})]),
+            reply(
+                calls=[
+                    (
+                        "search_manual",
+                        {
+                            "query": "момент затяжки гаек турбокомпрессора",
+                            "vehicle_id": "TST-E005",
+                            "top_k": 3,
+                        },
+                    )
+                ]
+            ),
+            reply(content=N01_ANSWER),
             # ЯМЗ-536, S-9010: регресс пути «вердикт → ответ», ход доходит до проверки цитат
             reply(calls=[("get_diagnosis", {"vehicle_id": "TST-C003", "session_id": "S-9010"})]),
             reply(content="Отклонение F05: шум в зоне генератора. Проверьте ремень привода."),
@@ -147,6 +171,7 @@ def test_scenario_file_has_the_four_required_cases_and_s0083_regression() -> Non
         "C1_T792HO98",
         "C3_P456AT178",
         "C_M260EH47",
+        "N01_ZMZ5234_NO_DATA",
         "S0083_C596XT78_GENERATOR",
         "X01_YAMZ236_CONFLICT",
     ]
@@ -236,7 +261,7 @@ def test_full_suite_passes_with_scripted_model() -> None:
         if not run.passed
     ]
     assert failures == []
-    assert len(llm.calls) == 11
+    assert len(llm.calls) == 14
     assert runs[0].ttft_ms == 120
     assert runs[0].tok_per_s == 40.0
 
@@ -267,7 +292,7 @@ def test_agent_report_has_summary_and_pass_marks() -> None:
         min_score=0.80,
     )
 
-    assert "Итог: 5 из 5 PASS." in report
+    assert "Итог: 6 из 6 PASS." in report
     assert "| C1_TST-A001 |" in report
     assert "| X01_YAMZ236_CONFLICT |" in report
     assert "[PASS] обе формулировки со ссылками" in report
@@ -287,10 +312,10 @@ def test_agent_result_has_summary_for_eval_runs() -> None:
         min_score=0.80,
     )
 
-    assert (result.passed, result.total) == (5, 5)
-    assert len(result.cases) == 5
+    assert (result.passed, result.total) == (6, 6)
+    assert len(result.cases) == 6
     assert all(case.passed for case in result.cases)
-    assert "Итог: 5 из 5 PASS." in result.report_md
+    assert "Итог: 6 из 6 PASS." in result.report_md
 
 
 def test_report_marks_failed_scenario() -> None:
@@ -340,8 +365,12 @@ def test_model_citation_errors_are_a_metric_and_do_not_fail_the_scenario() -> No
     assert run.outcome.model_fixed == len(run.outcome.model_problems)
     assert run.passed, [check.detail for check in run.checks if not check.ok]
     report = render_report(
-        [run], generated_at=datetime(2026, 11, 27, 12, 0), model="m", min_score=0.8
+        [run], generated_at=datetime(2026, 11, 27, 12, 0), model="m", min_score=0.8, details=True
     )
     assert f"Ошибок цитат модели, исправлено кодом: {run.outcome.model_fixed}" in report
     assert "стр. 46" in report
     assert "Первые" in report
+    public = render_report(
+        [run], generated_at=datetime(2026, 11, 27, 12, 0), model="m", min_score=0.8
+    )
+    assert "стр. 46" not in public

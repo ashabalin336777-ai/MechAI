@@ -167,7 +167,7 @@ Invoke-RestMethod -Uri https://ashabalin336777-ai-mechai-3580.twc1.net/admin/ing
 Админ-прогон проверки, асинхронный. Все три эндпоинта требуют `Authorization: Bearer <ADMIN_TOKEN>`. Без `ADMIN_TOKEN` их нет (404), без верного токена 401.
 
 - `POST /admin/eval?suite=rag|agent` (по умолчанию `rag`): создаёт строку в таблице `eval_runs` и запускает прогон в фоне. Ответ 202: `{"status": "started", "suite": ..., "run_id": N}`. Пока идёт другой прогон, отвечает 409.
-- `GET /admin/eval/status` возвращает последний прогон; `GET /admin/eval/status?run_id=N` возвращает прогон N. Поля: `id`, `suite`, `commit_sha`, `status` (`running`, `done`, `error`), `started_at`, `finished_at`, `passed`, `total`, `error_message`, `report_md` (отчёт в Markdown), `report_json` (сводка по кейсам). Если прогонов ещё не было, 404.
+- `GET /admin/eval/status` возвращает последний прогон; `GET /admin/eval/status?run_id=N` возвращает прогон N. Поля: `id`, `suite`, `commit_sha`, `status` (`running`, `done`, `error`), `started_at`, `finished_at`, `passed`, `total`, `error_message`, `report_md` (отчёт в Markdown, только метрики без фрагментов и ответов), `report_json` (сводка по кейсам). Полный отчёт с фрагментами и ответами хранится в БД (`report_full_md`) и открывается в `/admin/logs`. Если прогонов ещё не было, 404.
 - `GET /admin/eval/runs?limit=10` (от 1 до 100): список последних прогонов без `report_md`.
 
 Прогон идёт на сервере, поэтому обрыв сети у клиента его не останавливает. Итог лежит в Postgres, поэтому после перезапуска или деплоя результат остаётся доступен. Прогон, который висит дольше 30 минут (сервис упал до записи итога), при следующем запуске помечается `error`.
@@ -192,7 +192,7 @@ $st.report_md | Set-Content -Encoding UTF8 eval\reports\agent_run_$($run.run_id)
 (Invoke-RestMethod -Uri "${base}/runs?limit=10" -Headers $h).runs | Format-Table id, suite, status, passed, total, commit_sha
 ```
 
-Пока `status` равен `running`, повторно опрашивать статус (обычно несколько минут). Когда `status` стал `done`, отчёт в `report_md`. Если `status` равен `error`, причина в `error_message`: короткий текст без строки подключения и ключей.
+Пока `status` равен `running`, повторно опрашивать статус (обычно несколько минут). Когда `status` стал `done`, отчёт в `report_md` (метрики для `eval/*.md`); полный текст — в `/admin/logs`. Если `status` равен `error`, причина в `error_message`: короткий текст без строки подключения и ключей.
 ## Журнал агента: /admin/logs
 
 Страница только для чтения: ходы агента (`agent_runs`), шаги (`agent_steps`) и прогоны проверки (`eval_runs`).

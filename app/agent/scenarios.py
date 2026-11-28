@@ -87,6 +87,9 @@ class TurnOutcome(BaseModel):
     tool_errors: list[str] = Field(default_factory=list)
     draft: bool = False
     error: str | None = None
+    # Метрики кода (этап 07a): блоки с числами вырезаны, фразы про специалиста убраны.
+    general_cut: int = 0
+    consult_removed: int = 0
 
 
 class CheckResult(BaseModel):
