@@ -15,9 +15,16 @@ class ManualEntry(BaseModel):
     title: str
     year: int
     file: str
+    # Имя файла в публичной папке, если оно отличается от file (например, с пробелами и кириллицей).
+    remote_name: str = ""
     sha256: Sha256
     pages: int = Field(ge=1)
     engine_models: list[str] = Field(min_length=1)
+
+    @property
+    def download_name(self) -> str:
+        """Имя в публичной папке: remote_name, если задано, иначе file."""
+        return self.remote_name or self.file
 
 
 class Manifest(BaseModel):

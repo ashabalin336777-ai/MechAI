@@ -86,6 +86,7 @@ python -c "import urllib.parse; print(urllib.parse.quote(input('пароль: ')
 | `MATERIALS_URL` | публичная ссылка на папку Яндекс Диска с материалами задачи | да (для деплоя) | п. 9.1 требований организатора; без неё `/health` покажет `materials: missing` |
 | `MANUALS_URL` | пусто | нет | ссылка на папку с PDF, если они не в `MATERIALS_URL`; пусто — берётся `MATERIALS_URL` |
 | `MOCK_DATA_URL` | пусто | нет | ссылка на папку с JSON заглушек; пусто — берётся `MATERIALS_URL` |
+| `MOCK_ARCHIVE_NAME` | `neurodvs_hackathon_mock_2026-11-16.zip` | нет | архив в той же папке, из которого берутся `data/vehicles.json` и `data/fault_types.json`, если отдельных файлов в папке нет |
 | `CONF_LOW` | `0.60` | нет | порог уверенности (ТЗ §7) |
 | `SCORE_HIGH` | `0.80` | нет | порог приоритета high (ТЗ §7.2) |
 | `RAG_MIN_SCORE` | `0.80` | нет | минимальный rerank score фрагмента (подобран по прогону eval 26.11, см. `eval/rag_report.md`) |

@@ -33,9 +33,9 @@ def ensure_manual_file(entry: ManualEntry, manuals_dir: Path, base_url: str = ""
     target = manuals_dir / entry.file
     downloaded = False
     if not target.exists() and base_url:
-        logger.info("скачиваю %s из публичной папки материалов", entry.file)
+        logger.info("скачиваю %s из публичной папки материалов", entry.download_name)
         try:
-            download_public_file(base_url, entry.file, target)
+            download_public_file(base_url, entry.download_name, target)
         except MaterialsError as exc:
             raise ManualFileError(str(exc)) from exc
         downloaded = True

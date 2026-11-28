@@ -39,6 +39,8 @@ class Settings(BaseSettings):
     materials_url: str = ""
     manuals_url: str = ""
     mock_data_url: str = ""
+    # Архив с заглушками в публичной папке: используется, если отдельного JSON в папке нет.
+    mock_archive_name: str = "neurodvs_hackathon_mock_2026-11-16.zip"
 
     conf_low: float = Field(default=0.60, ge=0, le=1)
     score_medium: float = Field(default=0.60, ge=0, le=1)

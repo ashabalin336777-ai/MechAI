@@ -7,6 +7,7 @@ manuals:
     title: "ЯМЗ-236М2. Руководство по эксплуатации"
     year: 2010
     file: yamz-236_re_2010.pdf
+    remote_name: "ЯМЗ_236_руководство по эксплуатации.pdf"
     sha256: 4268a9519e02a668a826fe6d154de0360f6767015868ca2de7410ba570d73dd1
     pages: 172
     engine_models: ["ЯМЗ-236М2"]
@@ -15,6 +16,7 @@ manuals:
     title: "ЯМЗ-236М2. Руководство по ремонту"
     year: 2014
     file: yamz-236_rk_2014.pdf
+    remote_name: "ЯМЗ_236_руководство по РЕМОНТУ.pdf"
     sha256: 231e067ea9d220dec0ab7629bf19fbbf59d29e01d81e9f3bf5b0b1dee76a141b
     pages: 287
     engine_models: ["ЯМЗ-236М2"]

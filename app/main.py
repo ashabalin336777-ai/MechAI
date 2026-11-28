@@ -87,7 +87,10 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.state.ml_client = MlClient(settings.mock_ml_url)
     app.state.toir_client = ToirClient(settings.mock_toir_url)
     app.state.materials = ensure_runtime_materials(
-        settings.vehicles_path, settings.fault_types_path, settings.mock_data_base_url
+        settings.vehicles_path,
+        settings.fault_types_path,
+        settings.mock_data_base_url,
+        settings.mock_archive_name,
     )
     app.state.vehicles = _load_vehicles(settings.vehicles_path)
     app.state.manifest = _load_manifest(settings)

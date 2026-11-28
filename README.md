@@ -119,7 +119,7 @@ ruff check .
 
 Материалы задачи не лежат в репозитории: требование организатора, п. 9.1. Это заглушки `mock/data/` (`vehicles.json`, `fault_types.json`), PDF руководств в `data/manuals/` и документы заказчика. Ссылка на публичную папку с ними задаётся только в переменных окружения.
 
-- `MATERIALS_URL` — публичная папка с `vehicles.json`, `fault_types.json` и PDF руководств. `MANUALS_URL` и `MOCK_DATA_URL` переопределяют её для PDF и для JSON заглушек.
+- `MATERIALS_URL` — публичная папка с `vehicles.json`, `fault_types.json` и PDF руководств. `MANUALS_URL` и `MOCK_DATA_URL` переопределяют её для PDF и для JSON заглушек. Если отдельных JSON в папке нет, заглушки берут их из архива `MOCK_ARCHIVE_NAME` (по умолчанию `neurodvs_hackathon_mock_2026-11-16.zip`).
 - При старте приложение и заглушки докачивают недостающие JSON. Уже скачанный и читаемый файл не качается повторно. Ошибка пишется в лог, `/health` покажет `materials: missing`, сервис не падает.
 - PDF докачиваются при ingest и OCR, sha256 проверяется по `data/manuals/manifest.yaml`. Для RAG PDF не нужны: фрагменты уже лежат в базе.
 - Локальный запуск: скопировать `.env.example` в `.env`, задать `MATERIALS_URL` и выполнить `docker compose -f docker-compose.local.yml up --build`. Без ссылки приложение стартует, но парк ТС пуст.

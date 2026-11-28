@@ -40,6 +40,7 @@ services:
       MATERIALS_URL: ${MATERIALS_URL:-}
       MANUALS_URL: ${MANUALS_URL:-}
       MOCK_DATA_URL: ${MOCK_DATA_URL:-}
+      MOCK_ARCHIVE_NAME: ${MOCK_ARCHIVE_NAME:-neurodvs_hackathon_mock_2026-11-16.zip}
       CONF_LOW: ${CONF_LOW:-0.60}
       SCORE_HIGH: ${SCORE_HIGH:-0.80}
       RAG_MIN_SCORE: ${RAG_MIN_SCORE:-0.80}
@@ -64,6 +65,7 @@ services:
     environment:
       MATERIALS_URL: ${MATERIALS_URL:-}
       MOCK_DATA_URL: ${MOCK_DATA_URL:-}
+      MOCK_ARCHIVE_NAME: ${MOCK_ARCHIVE_NAME:-neurodvs_hackathon_mock_2026-11-16.zip}
     ports:
       - "8001:8001"
     restart: unless-stopped
@@ -75,6 +77,7 @@ services:
     environment:
       MATERIALS_URL: ${MATERIALS_URL:-}
       MOCK_DATA_URL: ${MOCK_DATA_URL:-}
+      MOCK_ARCHIVE_NAME: ${MOCK_ARCHIVE_NAME:-neurodvs_hackathon_mock_2026-11-16.zip}
     ports:
       - "8002:8002"
     restart: unless-stopped
