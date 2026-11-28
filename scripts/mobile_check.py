@@ -208,14 +208,14 @@ def _write_report(reports: list[PageReport]) -> None:
         "",
         "Ширины 360, 390, 430 px. Цели касания: 48 px, в режиме «Крупный» — 56 px.",
         "",
-        "| Страница | Ширина | Режим | Горизонтальный скролл, px | Мелкие цели | Скриншот |",
+        "| Страница | Ширина | Режим | Горизонтальный скролл, px | Мелкие цели | Файл снимка |",
         "|---|---|---|---|---|---|",
     ]
     for r in reports:
         small = "; ".join(r.small_targets) if r.small_targets else "нет"
         lines.append(
             f"| {r.name} | {r.width} | {r.mode} | {r.overflow_px} | {small} "
-            f"| ![{r.name}]({r.screenshot}) |"
+            f"| `{Path(r.screenshot).name}` |"
         )
     (OUT_DIR / "report.md").write_text("\n".join(lines) + "\n", encoding="utf-8")
 

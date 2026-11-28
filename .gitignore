@@ -35,3 +35,6 @@ rag_eval.json
 ocr_probe.ps1
 eval/reports/ocr_*
 eval/reports/agent_run_*
+
+# Скриншоты мобильной проверки: на них данные ТС и страницы руководств (п. 9.1), в git не нужны
+docs/mobile_design/check/*.png

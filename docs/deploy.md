@@ -190,7 +190,7 @@ $st.report_md | Set-Content -Encoding UTF8 eval\reports\agent_run_$($run.run_id)
 - Для скриптов тот же адрес принимает `Authorization: Bearer <ADMIN_TOKEN>`.
 - Без `ADMIN_TOKEN` страницы нет (404). Без `DATABASE_URL` на странице написано, что журнал не записывается.
 
-Мобильная проверка страниц (360, 390, 430 px) и скриншоты: `python scripts/mobile_check.py --base <адрес>` с `ADMIN_TOKEN` в окружении. Отчёт: `docs/mobile_design/check/report.md`.
+Мобильная проверка страниц (360, 390, 430 px): `python scripts/mobile_check.py --base <адрес>` с `ADMIN_TOKEN` в окружении. Отчёт: `docs/mobile_design/check/report.md`. Скриншоты пишутся локально и в git не попадают.
 
 ## Что ещё не сделано
 
