@@ -3,10 +3,8 @@
 Хакатон «ИИкузница», трек «Цифровой аватар», заказчик ООО «НейроДВС». Участник один: Андрей Шабалин. Репозиторий публичный: https://github.com/ashabalin336777-ai/MechAI (ветка `main`).
 
 **Источники требований (по убыванию приоритета):**
-1. Официальное ТЗ заказчика v6 от 16.11.2026: `docs/customer/ТЗ_хакатон_ИИкузница_НейроДВС_v6_2026-11-16.txt`.
-2. Официальные ответы на вопросы (25 вопросов, правка 25.11): `docs/customer/task_QA_2026-11-26.txt`.
-3. Описание бизнес-процессов v6 и описание кейса v2: `docs/customer/`.
-4. Заглушки и данные заказчика: `mock/` (README, `openapi_ml.json`, `openapi_toir.json`, `data/vehicles.json`, `data/fault_types.json`).
+1. Официальное ТЗ заказчика v6 от 16.11.2026, официальные ответы на вопросы (25 вопросов, правка 25.11), описание бизнес-процессов v6 и описание кейса v2. Документы заказчика не лежат в репозитории (п. 9.1 требований организатора). Выводы по ним своими словами — в `docs/task_notes.md`.
+2. Заглушки и данные заказчика: `mock/` (README, `openapi_ml.json`, `openapi_toir.json`). Данные `mock/data/` (`vehicles.json`, `fault_types.json`) в репозитории нет: докачиваются по `MOCK_DATA_URL` или `MATERIALS_URL`.
 5. Пожелания заказчика со встречи 26.11 (голос, скорость, SaaS, 152-ФЗ, логи, адаптивность, датчики/CAN). Они **не отменяют** официальное ТЗ. При конфликте побеждает официальное ТЗ (см. §17).
 
 > Наши прежние синтетические данные (ГАЗель Next, Cummins ISF 2.8, сценарии S1–S5, схема v1.1, 1С:ТОиР) **устарели и из продукта удалены**. Их нельзя использовать ни в коде, ни в тестах, ни в видео. В форме сдачи они раскрываются как репетиция до спринта.
@@ -100,12 +98,12 @@
 | `zmz5234_rk` | `ЗМЗ-5234.10 со сцеплением. Руководство по ремонту` | ЗМЗ-5234.10 (13 ТС, ПАЗ-3205/3206) | `data/manuals/zmz-5234_rk_2025.pdf` | 158 | 4 |
 | `zmz409_rk` | `ЗМЗ-40904.10 и ЗМЗ-40905.10. Руководство по эксплуатации, техническому обслуживанию и ремонту` | ЗМЗ-40905.10 (8 ТС) и ЗМЗ-40904.10 (4 ТС), УАЗ Патриот | `data/manuals/zmz-40904-40905_rk_2025.pdf` | 238 | 7 |
 
-Реестр хранится в `data/manuals/manifest.yaml` (id, обозначение, название, год, файл, sha256, двигатели, число страниц, URL на Яндекс Диске). Привязка ТС → руководства — **только через `engine_model` из карточки**. Нормализовать имена: `ЗМЗ-40904.10` и `ЗМЗ-40905.10` → оба на `zmz409_rk`.
+Реестр хранится в `data/manuals/manifest.yaml` (id, обозначение, название, год, файл, sha256, двигатели, число страниц; ссылок нет). Привязка ТС → руководства — **только через `engine_model` из карточки**. Нормализовать имена: `ЗМЗ-40904.10` и `ЗМЗ-40905.10` → оба на `zmz409_rk`.
 
-### 3.3. Что лежит в репозитории (основание: ответ заказчика в Q&A, вопрос 18; письменного разрешения на публикацию нет)
-- Заглушки и данные заказчика синтетические, их **кладём в репо**: каталог `mock/` (без изменений, с исходным README; раскрываем как компонент заказчика).
-- Пять PDF кладём в `data/manuals/` (крупнейший — 24,5 МБ, лимит GitHub 100 МБ на файл, предупреждение с 50 МБ). Имена латиницей.
-- `yamz-536_rk_2013.pdf` (99,3 МБ) — у самой границы 100 МБ, push рискован, а App Platform может не подтянуть Git LFS при сборке. Решение: **скачивать при ingest** с публичного Яндекс Диска заказчика (`https://disk.yandex.ru/d/QdAA8p4m0ySe8Q`, API `https://cloud-api.yandex.net/v1/disk/public/resources/download?public_key=<url>&path=/<file>`), проверять sha256 из манифеста. Запасной вариант — копия в Timeweb S3 (`MANUALS_S3_PREFIX`). Git LFS не используем (лимиты бесплатного LFS и риск сборки без LFS-файлов).
+### 3.3. Что лежит в репозитории (требование организатора, п. 9.1: материалы задачи не публикуем)
+- Код `mock/` (без изменений, с исходным README) лежит в репо как компонент заказчика. Данные `mock/data/` в репо не кладём, они докачиваются при старте по `MOCK_DATA_URL` или `MATERIALS_URL`.
+- PDF руководств в репо не кладём. `data/manuals/manifest.yaml` (реестр без ссылок) лежит в репо. PDF докачиваются при ingest и OCR по `MANUALS_URL` или `MATERIALS_URL`, sha256 проверяется по манифесту.
+- Ссылки на публичную папку с материалами задаются только в env (`MATERIALS_URL`, `MANUALS_URL`, `MOCK_DATA_URL`). В коде и в git их нет.
 - Индекс (чанки + эмбеддинги) не коммитим: он строится скриптом `python -m app.rag.ingest` в Postgres в ходе спринта. Номер страницы = номер страницы PDF (с 1).
 
 ### 3.4. Ingest (фаза 03)
@@ -334,7 +332,9 @@ DATABASE_URL=
 VEHICLES_PATH=mock/data/vehicles.json
 FAULT_TYPES_PATH=mock/data/fault_types.json
 MANUALS_DIR=data/manuals
-MANUALS_YADISK_URL=https://disk.yandex.ru/d/QdAA8p4m0ySe8Q
+MATERIALS_URL=
+MANUALS_URL=
+MOCK_DATA_URL=
 CONF_LOW=0.60
 SCORE_HIGH=0.80
 RAG_MIN_SCORE=0.80
@@ -427,11 +427,11 @@ services:
 ```
 README.md  LICENSE  .env.example  .gitignore  Dockerfile  docker-compose.yml  docker-compose.local.yml
 AGENTS.md  .cursor/rules/*.mdc
-docs/TZ.md  docs/models.md  docs/prompts/00…10  docs/customer/ (ТЗ v6, Q&A, БП, кейс — текстом)
+docs/TZ.md  docs/models.md  docs/prompts/00…10  docs/task_notes.md (выводы по задаче своими словами; документы заказчика вне репо)
 mock/                 # заглушки заказчика без изменений + наш mock/Dockerfile; (опц.) mock/mock_sensors/ — наша синтетика
 data/manuals/         # 5 PDF + manifest.yaml (536 РК скачивается при ingest)
 app/  main.py  api/  agent/  tools/  rag/  clients/  obs/  db/  templates/  static/
-scripts/ bench_models.py  fetch_manuals.py
+scripts/ bench_models.py
 eval/  rag_questions.yaml  run_scenarios.py  report.md  bench.md  ingest_report.md
 tests/
 ```

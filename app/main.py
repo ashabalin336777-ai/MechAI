@@ -4,6 +4,7 @@ import logging
 import mimetypes
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
+from pathlib import Path
 
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
@@ -28,6 +29,7 @@ from app.data.vehicles import VehicleStore
 from app.db.agent_journal import PgJournalReader
 from app.db.database import apply_migrations
 from app.db.eval_runs import PgEvalRunStore
+from app.materials import ensure_runtime_materials
 from app.mocks import mount_mocks
 from app.paths import STATIC_DIR
 from app.rag.ingest import IngestJob
@@ -50,6 +52,15 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         if result.state == "ok":
             use_postgres_checkpointer(app.state.agent, settings.database_url)
     yield
+
+
+def _load_vehicles(path: Path) -> VehicleStore:
+    """Парк из файла. Нет файла или он не читается — пустой парк, приложение стартует."""
+    try:
+        return VehicleStore.load(path)
+    except (OSError, ValueError, KeyError) as exc:
+        logger.error("парк ТС не загружен из %s: %s", path, type(exc).__name__)
+        return VehicleStore([])
 
 
 def _load_manifest(settings: Settings) -> Manifest:
@@ -75,7 +86,10 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     )
     app.state.ml_client = MlClient(settings.mock_ml_url)
     app.state.toir_client = ToirClient(settings.mock_toir_url)
-    app.state.vehicles = VehicleStore.load(settings.vehicles_path)
+    app.state.materials = ensure_runtime_materials(
+        settings.vehicles_path, settings.fault_types_path, settings.mock_data_base_url
+    )
+    app.state.vehicles = _load_vehicles(settings.vehicles_path)
     app.state.manifest = _load_manifest(settings)
     app.state.agent = build_agent_services(
         settings, app.state.vehicles, app.state.manifest, app.state.ml_client, app.state.toir_client

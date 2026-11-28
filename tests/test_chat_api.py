@@ -99,7 +99,7 @@ def test_chat_unknown_vehicle_is_not_found(make_app: Any) -> None:
     client = TestClient(make_app(ScriptedChat([])))
     response = client.post(
         "/api/chat",
-        json={"vehicle_id": "X000XX00", "session_id": "S-0001", "message": "Привет"},
+        json={"vehicle_id": "X000XX00", "session_id": "S-9001", "message": "Привет"},
     )
     assert response.status_code == 404
     assert response.json()["detail"] == "Машина не найдена."

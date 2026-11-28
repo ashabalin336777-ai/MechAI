@@ -11,7 +11,7 @@ from app.config import Settings
 from app.main import create_app
 from app.rag.ocr import PageOutcome
 from app.rag.ocr_job import OcrJob
-from tests.helpers import REPO_ROOT, VEHICLES_PATH
+from tests.helpers import REPO_ROOT, VEHICLES_PATH, requires_real_materials
 
 TOKEN = "admin-token-for-ocr-tests-9"
 API_KEY = "test-key-not-real-0123456789"
@@ -68,6 +68,7 @@ def test_vision_detected_from_catalog_modalities_and_id() -> None:
     assert detect_vision({"id": "bge-m3"}) is None
 
 
+@requires_real_materials
 def test_probe_returns_text_and_no_key(fake_vision: None) -> None:
     response = _client().post(PROBE, headers=HEADERS)
     assert response.status_code == 200
@@ -83,12 +84,14 @@ def test_probe_returns_text_and_no_key(fake_vision: None) -> None:
     assert API_KEY not in response.text
 
 
+@requires_real_materials
 def test_probe_rejects_page_out_of_range_and_unknown_manual(fake_vision: None) -> None:
     client = _client()
     assert client.post(PROBE.replace("page=280", "page=9999"), headers=HEADERS).status_code == 422
     assert client.post(PROBE.replace("236.01.01", "999.99"), headers=HEADERS).status_code == 404
 
 
+@requires_real_materials
 def test_probe_without_api_key_is_503(fake_vision: None) -> None:
     client = _client()
     # create_app создаёт клиент агента и требует ключ; сам эндпоинт проверяет ключ отдельно.

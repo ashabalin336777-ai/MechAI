@@ -19,6 +19,7 @@ def test_health_reports_services_ok_with_stubs(app_with_stubs: FastAPI) -> None:
         "mock_ml": "ok",
         "mock_toir": "ok",
         "database": "not_configured",
+        "materials": "ok",
     }
 
 

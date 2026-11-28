@@ -80,10 +80,12 @@ python -c "import urllib.parse; print(urllib.parse.quote(input('пароль: ')
 | `SENSORS_URL` | пусто | нет | датчики, опция; пусто — инструмент не регистрируется |
 | `MOUNT_MOCKS` | `0` | нет | `1` — запасной режим, см. ниже |
 | `DATABASE_URL` | `postgresql://mechai:<пароль>@<хост>:<порт>/mechai?sslmode=require` | да | строка из панели БД |
-| `VEHICLES_PATH` | `mock/data/vehicles.json` | нет | парк ТС, в образе |
-| `FAULT_TYPES_PATH` | `mock/data/fault_types.json` | нет | справочник F01–F14 |
-| `MANUALS_DIR` | `data/manuals` | нет | руководства в образе |
-| `MANUALS_YADISK_URL` | `https://disk.yandex.ru/d/QdAA8p4m0ySe8Q` | нет | для ingest 536 РК (фаза 03) |
+| `VEHICLES_PATH` | `mock/data/vehicles.json` | нет | парк ТС; файл докачивается при старте по `MATERIALS_URL` |
+| `FAULT_TYPES_PATH` | `mock/data/fault_types.json` | нет | справочник F01–F14; докачивается при старте |
+| `MANUALS_DIR` | `data/manuals` | нет | каталог PDF руководств; PDF докачиваются при ingest/OCR |
+| `MATERIALS_URL` | публичная ссылка на папку Яндекс Диска с материалами задачи | да (для деплоя) | п. 9.1 требований организатора; без неё `/health` покажет `materials: missing` |
+| `MANUALS_URL` | пусто | нет | ссылка на папку с PDF, если они не в `MATERIALS_URL`; пусто — берётся `MATERIALS_URL` |
+| `MOCK_DATA_URL` | пусто | нет | ссылка на папку с JSON заглушек; пусто — берётся `MATERIALS_URL` |
 | `CONF_LOW` | `0.60` | нет | порог уверенности (ТЗ §7) |
 | `SCORE_HIGH` | `0.80` | нет | порог приоритета high (ТЗ §7.2) |
 | `RAG_MIN_SCORE` | `0.80` | нет | минимальный rerank score фрагмента (подобран по прогону eval 26.11, см. `eval/rag_report.md`) |
@@ -92,6 +94,8 @@ python -c "import urllib.parse; print(urllib.parse.quote(input('пароль: ')
 | `LOG_RETENTION_DAYS` | `90` | нет | срок хранения журнала агента |
 | `GIT_SHA` | `<полный SHA коммита>` | нет | версия в `/health` (поле `git_sha`); пусто — `unknown` |
 | `COMMIT_SHA` | `<полный SHA коммита>` | нет | SHA в `eval_runs` и отчётах; задаётся тем же значением, что `GIT_SHA` |
+
+**Материалы до деплоя.** Перед первым деплоем положить ссылку `MATERIALS_URL` в панель Timeweb App Platform (раздел переменных, как секрет или обычное значение). Без неё сервисы стартуют, но парк ТС пуст, а `/health` покажет `materials: missing`. Проверка после деплоя: `https://<домен>/health` содержит `"materials":"ok"`. Заглушки `mock_ml` и `mock_toir` докачивают `vehicles.json` сами (по `MOCK_DATA_URL` или `MATERIALS_URL`); если докачка не удалась, сервис пишет причину в лог и завершает запуск с кодом 1.
 
 **Версия стенда.** Образ собирается из GitHub без build-аргументов, поэтому `GIT_SHA` и `COMMIT_SHA` задаются вручную в панели App Platform после каждого деплоя. Значение: полный хэш коммита, который задеплоен (`git rev-parse HEAD` в локальном репозитории, либо `git log -1` для нужной ветки). Пока переменная пуста, `/health` покажет `unknown`. Проверка: `https://<домен>/health` возвращает `git_sha` с тем же хэшем.
 

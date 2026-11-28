@@ -84,8 +84,8 @@ def test_check_failed_turn_keeps_ticket_out_even_if_model_asks() -> None:
                     (
                         "draft_ticket",
                         {
-                            "vehicle_id": "P456AT178",
-                            "session_id": "S-0003",
+                            "vehicle_id": "TST-A001",
+                            "session_id": "S-9003",
                             "conclusion": "Попытка создать заявку при сбое записи",
                             "urgency": "high",
                             "operations": ["Снять головку блока"],
@@ -100,10 +100,10 @@ def test_check_failed_turn_keeps_ticket_out_even_if_model_asks() -> None:
     )
     services = make_services(llm)
 
-    events = _run(services, _turn("P456AT178", "S-0003", "Проверь машину"))
+    events = _run(services, _turn("TST-A001", "S-9003", "Проверь машину"))
 
     assert "ticket_draft" not in _names(events)
-    assert services.deps.store.list_tickets("P456AT178") == []
+    assert services.deps.store.list_tickets("TST-A001") == []
     assert services.journal.chain(_run_id(services)) == [*PREFETCH_CHAIN, "draft_ticket"]
     final = next(data for name, data in events if name == "answer_final")
     assert "Повторите запись" in final["text"]

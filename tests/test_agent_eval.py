@@ -10,7 +10,13 @@ from app.agent.runner import load_base_prompt
 from app.agent.scenarios import Check, Scenario, ScenarioFile, TurnOutcome, judge, load_scenarios
 from app.rag.conflicts import load_conflicts
 from app.rag.search import Fragment
-from tests.agent_helpers import DIAG_VEHICLE, ScriptedChat, make_services, reply
+from tests.agent_helpers import (
+    DIAG_VEHICLE,
+    ScriptedChat,
+    load_fixture_scenarios,
+    make_services,
+    reply,
+)
 from tests.helpers import REPO_ROOT
 
 SCENARIOS_PATH = REPO_ROOT / "eval" / "agent_scenarios.yaml"
@@ -86,31 +92,31 @@ def _scripted_llm() -> ScriptedChat:
     return ScriptedChat(
         [
             # C1: диагностика, этапы, ответ с ссылкой на РК
-            reply(calls=[("get_diagnosis", {"vehicle_id": "T792HO98", "session_id": "S-0043"})]),
+            reply(calls=[("get_diagnosis", {"vehicle_id": "TST-A001", "session_id": "S-9002"})]),
             reply(
                 calls=[
                     (
                         "search_manual",
-                        {"query": "давление масла проверка", "vehicle_id": "T792HO98", "top_k": 3},
+                        {"query": "давление масла проверка", "vehicle_id": "TST-A001", "top_k": 3},
                     )
                 ]
             ),
             reply(content=C1_ANSWER),
             # C3: сбой записи, без заявки
-            reply(calls=[("get_diagnosis", {"vehicle_id": "P456AT178", "session_id": "S-0003"})]),
+            reply(calls=[("get_diagnosis", {"vehicle_id": "TST-A001", "session_id": "S-9003"})]),
             reply(
                 content="Повторите запись: сигнал плохого качества, диагноз не ставлю. "
                 "Заявку не формирую."
             ),
             # ЯМЗ-536: F13 не относится к дизелю — несоответствие, процедуру не ищем, без заявки
-            reply(calls=[("get_diagnosis", {"vehicle_id": "M260EH47", "session_id": "S-0079"})]),
+            reply(calls=[("get_diagnosis", {"vehicle_id": "TST-C003", "session_id": "S-9008"})]),
             reply(
-                content="Код F13 «Подача бензина» не относится к дизельному двигателю ЯМЗ-536: "
+                content="Код F13 «Тестовый узел F13» не относится к дизельному двигателю ЯМЗ-536: "
                 "это несоответствие диагноза. Процедуру не подбираю. Рекомендую повторную "
                 "дефектовку топливной системы; заявку по этой проверке не формирую."
             ),
-            # ЯМЗ-536, S-0083: регресс пути «вердикт → ответ», ход доходит до проверки цитат
-            reply(calls=[("get_diagnosis", {"vehicle_id": "C596XT78", "session_id": "S-0083"})]),
+            # ЯМЗ-536, S-9010: регресс пути «вердикт → ответ», ход доходит до проверки цитат
+            reply(calls=[("get_diagnosis", {"vehicle_id": "TST-C003", "session_id": "S-9010"})]),
             reply(content="Отклонение F05: шум в зоне генератора. Проверьте ремень привода."),
             # X01: обе формулировки со ссылками, противоречие, уточнение
             reply(
@@ -119,7 +125,7 @@ def _scripted_llm() -> ScriptedChat:
                         "search_manual",
                         {
                             "query": "тепловой зазор клапанов холодный двигатель 15 минут",
-                            "vehicle_id": "T792HO98",
+                            "vehicle_id": "TST-A001",
                             "top_k": 4,
                         },
                     )
@@ -135,6 +141,7 @@ def _by_id(scenarios: list[Scenario], scenario_id: str) -> Scenario:
 
 
 def test_scenario_file_has_the_four_required_cases_and_s0083_regression() -> None:
+    """Файл стенда: С1–С3, контрольные случаи и регрессия S0083 (ID — из реального парка стенда)."""
     scenarios = load_scenarios(SCENARIOS_PATH)
     assert [scenario.id for scenario in scenarios] == [
         "C1_T792HO98",
@@ -159,8 +166,8 @@ def test_duplicate_scenario_ids_are_rejected() -> None:
     scenario = {
         "id": "C1",
         "title": "Сценарий",
-        "vehicle_id": "T792HO98",
-        "session_id": "S-0043",
+        "vehicle_id": "TST-A001",
+        "session_id": "S-9002",
         "message": "Что с машиной?",
         "checks": [{"name": "вызван get_diagnosis", "tools_include": ["get_diagnosis"]}],
     }
@@ -169,7 +176,7 @@ def test_duplicate_scenario_ids_are_rejected() -> None:
 
 
 def test_injection_obeyed_by_model_fails_the_check() -> None:
-    scenario = _by_id(load_scenarios(SCENARIOS_PATH), "C1_T792HO98")
+    scenario = _by_id(load_fixture_scenarios(), "C1_TST-A001")
     outcome = TurnOutcome(
         light="red",
         urgency="high",
@@ -185,7 +192,7 @@ def test_injection_obeyed_by_model_fails_the_check() -> None:
 
 
 def test_x01_fails_when_one_of_the_pages_is_missing() -> None:
-    scenario = _by_id(load_scenarios(SCENARIOS_PATH), "X01_YAMZ236_CONFLICT")
+    scenario = _by_id(load_fixture_scenarios(), "X01_YAMZ236_CONFLICT")
     answer = X01_ANSWER.replace("[236.01.01 РК, стр. 276]", "")
     outcome = TurnOutcome(tools=["search_manual"], answer=answer, citation_ok=True)
     results = {result.name: result for result in judge(scenario, outcome)}
@@ -195,7 +202,7 @@ def test_x01_fails_when_one_of_the_pages_is_missing() -> None:
 
 
 def test_draft_in_no_draft_scenario_fails() -> None:
-    scenario = _by_id(load_scenarios(SCENARIOS_PATH), "C3_P456AT178")
+    scenario = _by_id(load_fixture_scenarios(), "C3_TST-A001")
     outcome = TurnOutcome(
         light="grey",
         tools=["get_diagnosis"],
@@ -208,7 +215,7 @@ def test_draft_in_no_draft_scenario_fails() -> None:
 
 
 def test_engine_error_fails_every_check() -> None:
-    scenario = _by_id(load_scenarios(SCENARIOS_PATH), "C_M260EH47")
+    scenario = _by_id(load_fixture_scenarios(), "C_TST-C003")
     outcome = TurnOutcome(error="Модель временно недоступна")
     assert all(not result.ok for result in judge(scenario, outcome))
 
@@ -219,7 +226,7 @@ def test_full_suite_passes_with_scripted_model() -> None:
     template.deps.search = _search
     template.deps.conflicts = load_conflicts(REPO_ROOT / "data" / "known_conflicts.yaml")
     template.deps.fetch_pages = _fetch_pages
-    scenarios = load_scenarios(SCENARIOS_PATH)
+    scenarios = load_fixture_scenarios()
 
     runs = [run_scenario(template, scenario, load_base_prompt()) for scenario in scenarios]
 
@@ -239,7 +246,7 @@ def test_suite_run_is_isolated_from_template_journal_and_store() -> None:
     template = make_services(llm)
     template.deps.search = _search
 
-    for scenario in load_scenarios(SCENARIOS_PATH):
+    for scenario in load_fixture_scenarios():
         run_scenario(template, scenario, load_base_prompt())
 
     assert template.journal.steps == []
@@ -254,14 +261,14 @@ def test_agent_report_has_summary_and_pass_marks() -> None:
 
     report = run_agent_report(
         template,
-        load_scenarios(SCENARIOS_PATH),
+        load_fixture_scenarios(),
         load_base_prompt(),
         model="qwen3.8-flash-next-ru-noreason",
         min_score=0.80,
     )
 
     assert "Итог: 5 из 5 PASS." in report
-    assert "| C1_T792HO98 |" in report
+    assert "| C1_TST-A001 |" in report
     assert "| X01_YAMZ236_CONFLICT |" in report
     assert "[PASS] обе формулировки со ссылками" in report
     assert "Заявка не отправлялась" in report
@@ -274,7 +281,7 @@ def test_agent_result_has_summary_for_eval_runs() -> None:
 
     result = run_agent_result(
         template,
-        load_scenarios(SCENARIOS_PATH),
+        load_fixture_scenarios(),
         load_base_prompt(),
         model="qwen3.8-flash-next-ru-noreason",
         min_score=0.80,
@@ -287,7 +294,7 @@ def test_agent_result_has_summary_for_eval_runs() -> None:
 
 
 def test_report_marks_failed_scenario() -> None:
-    scenario = _by_id(load_scenarios(SCENARIOS_PATH), "C3_P456AT178")
+    scenario = _by_id(load_fixture_scenarios(), "C3_TST-A001")
     run = run_scenario(
         make_services(ScriptedChat([reply(content="Всё в порядке.")])), scenario, load_base_prompt()
     )
@@ -309,12 +316,12 @@ def test_model_citation_errors_are_a_metric_and_do_not_fail_the_scenario() -> No
     """eval run 7: ошибка цитаты сырого ответа исправлена кодом; сценарий PASS, метрика в отчёте."""
     llm = ScriptedChat(
         [
-            reply(calls=[("get_diagnosis", {"vehicle_id": "T792HO98", "session_id": "S-0043"})]),
+            reply(calls=[("get_diagnosis", {"vehicle_id": "TST-A001", "session_id": "S-9002"})]),
             reply(
                 calls=[
                     (
                         "search_manual",
-                        {"query": "давление масла проверка", "vehicle_id": "T792HO98", "top_k": 3},
+                        {"query": "давление масла проверка", "vehicle_id": "TST-A001", "top_k": 3},
                     )
                 ]
             ),
@@ -324,7 +331,7 @@ def test_model_citation_errors_are_a_metric_and_do_not_fail_the_scenario() -> No
     template = make_services(llm)
     template.deps.search = _search
     template.deps.fetch_pages = _fetch_pages
-    scenario = _by_id(load_scenarios(SCENARIOS_PATH), "C1_T792HO98")
+    scenario = _by_id(load_fixture_scenarios(), "C1_TST-A001")
 
     run = run_scenario(template, scenario, load_base_prompt())
 

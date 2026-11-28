@@ -71,7 +71,7 @@ def test_text_stream_collects_tokens_and_estimates_usage() -> None:
 def test_tool_call_arguments_are_joined_across_deltas() -> None:
     chunks = [
         _chunk(tool_calls=[_call(0, "call_a", "get_diagnosis", '{"vehicle_id": ')]),
-        _chunk(tool_calls=[_call(0, None, None, '"T792HO98", "session_id": "S-0043"}')]),
+        _chunk(tool_calls=[_call(0, None, None, '"TST-A001", "session_id": "S-9002"}')]),
     ]
     chat, _ = _chat({"primary": chunks})
 
@@ -83,7 +83,7 @@ def test_tool_call_arguments_are_joined_across_deltas() -> None:
     call = reply.tool_calls[0]
     assert call.id == "call_a"
     assert call.name == "get_diagnosis"
-    assert call.arguments == '{"vehicle_id": "T792HO98", "session_id": "S-0043"}'
+    assert call.arguments == '{"vehicle_id": "TST-A001", "session_id": "S-9002"}'
 
 
 def test_usage_chunk_overrides_estimate() -> None:

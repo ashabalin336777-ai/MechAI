@@ -20,6 +20,7 @@ from app.rag.chunking import split_lines
 from app.rag.embeddings import EMBED_DIM
 from app.rag.search import TENANT_ID, _fulltext_candidates
 from app.tools.search_manual import _build_query
+from tests.helpers import requires_real_materials
 
 TEST_DATABASE_URL = os.environ.get("TEST_DATABASE_URL", "")
 ALLOW_RESET = os.environ.get("TEST_DATABASE_ALLOW_RESET") == "1"
@@ -37,6 +38,9 @@ MANUAL_FILES = [
     ("yamz236_rk", RK_DESIGNATION, "yamz-236_rk_2014.pdf"),
 ]
 F02_TARGETS = {(RE_DESIGNATION, 19), (RK_DESIGNATION, 267)}
+
+
+pytestmark = requires_real_materials
 
 
 def _page_chunks(path: Path) -> list[tuple[int, str]]:
@@ -86,7 +90,7 @@ def _top(conn: psycopg.Connection, query: str, limit: int) -> list[tuple[str, in
     return [(candidate.manual, candidate.pdf_page) for candidate in candidates[:limit]]
 
 
-F02_DIAGNOSIS = {"ml": {"anomaly_title": "Низкое давление масла"}}
+F02_DIAGNOSIS = {"ml": {"anomaly_title": "Тестовый узел F02"}}
 
 
 @needs_db
@@ -99,6 +103,6 @@ def test_f02_query_puts_re_page_19_or_rk_page_267_in_top_3(database: psycopg.Con
 def test_f02_query_has_no_engine_name_and_has_norm_terms() -> None:
     query = _build_query("давление масла", F02_DIAGNOSIS)
     assert "ЯМЗ" not in query.upper()
-    assert "Низкое давление масла" in query
+    assert "Тестовый узел F02" in query
     assert "номинальной частоте" in query
     assert "минимальной холостого хода" in query

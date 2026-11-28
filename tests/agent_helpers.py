@@ -7,12 +7,14 @@
 import json
 from typing import Any
 
+import yaml
 from fastapi.testclient import TestClient
 from mock_ml.app import app as ml_stub
 from mock_toir.app import app as toir_stub
 
 from app.agent.llm import LlmReply, ToolCall
 from app.agent.runner import AgentServices
+from app.agent.scenarios import Scenario, ScenarioFile
 from app.agent.services import build_agent_services
 from app.clients.ml_client import MlClient
 from app.clients.toir_client import Reference, ToirClient
@@ -26,10 +28,34 @@ from app.tools.runtime import Runtime, TurnContext
 from tests.helpers import REPO_ROOT, STUB_BASE, VEHICLES_PATH
 
 MANIFEST_PATH = REPO_ROOT / "data" / "manuals" / "manifest.yaml"
-DIAG_VEHICLE = "T792HO98"  # ЯМЗ-236М2, F02 при оценке 0,85 и уверенности 0,91 → приоритет high
-DIAG_SESSION = "S-0043"
+STAND_SCENARIOS_PATH = REPO_ROOT / "eval" / "agent_scenarios.yaml"
+# Сценарии стенда (eval/agent_scenarios.yaml) ссылаются на реальный парк заказчика. В юнит-тестах
+# идентификаторы подменяются на синтетические из tests/fixtures (тот же сюжет, данные придуманы).
+_STAND_TO_FIXTURE = {
+    "T792HO98": "TST-A001",
+    "P456AT178": "TST-A001",
+    "M333YK47": "TST-B002",
+    "M260EH47": "TST-C003",
+    "C596XT78": "TST-C003",
+    "S-0043": "S-9002",
+    "S-0001": "S-9001",
+    "S-0003": "S-9003",
+    "S-0079": "S-9008",
+    "S-0082": "S-9009",
+    "S-0083": "S-9010",
+}
+DIAG_VEHICLE = "TST-A001"  # ЯМЗ-236М2, F02 при оценке 0,85 и уверенности 0,91 → приоритет high
+DIAG_SESSION = "S-9002"
 YAMZ236_RK = "236.01.01 РК"
 YAMZ536_RE = "536.3902150 РЭ"
+
+
+def load_fixture_scenarios() -> list[Scenario]:
+    """Сценарии стенда с идентификаторами синтетического парка. Файл в репозитории не меняется."""
+    text = STAND_SCENARIOS_PATH.read_text(encoding="utf-8")
+    for stand_id, fixture_id in _STAND_TO_FIXTURE.items():
+        text = text.replace(stand_id, fixture_id)
+    return ScenarioFile.model_validate(yaml.safe_load(text)).scenarios
 
 
 class ScriptedChat:

@@ -65,11 +65,11 @@ def test_no_vehicle_in_the_fleet_shows_the_make_twice() -> None:
 def test_vehicle_header_on_pages_does_not_repeat_the_make(app_with_stubs: FastAPI) -> None:
     client = TestClient(app_with_stubs)
     store = VehicleStore.load(VEHICLES_PATH)
-    maz = next(
-        vehicle for vehicle in store.all() if vehicle.make == "МАЗ" and vehicle.model == "МАЗ"
+    same_name = next(
+        vehicle for vehicle in store.all() if vehicle.make == "ТЕСТ" and vehicle.model == "ТЕСТ"
     )
-    dashboard_html = client.get(f"/dashboard/{maz.vehicle_id}").text
-    assert f"{maz.vehicle_id} · МАЗ</h1>" in dashboard_html
-    assert "МАЗ МАЗ" not in dashboard_html
-    assert "МАЗ МАЗ" not in client.get("/dashboard").text
-    assert "МАЗ МАЗ" not in client.get("/vehicles").text
+    dashboard_html = client.get(f"/dashboard/{same_name.vehicle_id}").text
+    assert f"{same_name.vehicle_id} · ТЕСТ</h1>" in dashboard_html
+    assert "ТЕСТ ТЕСТ" not in dashboard_html
+    assert "ТЕСТ ТЕСТ" not in client.get("/dashboard").text
+    assert "ТЕСТ ТЕСТ" not in client.get("/vehicles").text

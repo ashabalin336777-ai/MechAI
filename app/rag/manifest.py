@@ -18,7 +18,6 @@ class ManualEntry(BaseModel):
     sha256: Sha256
     pages: int = Field(ge=1)
     engine_models: list[str] = Field(min_length=1)
-    yandex_url: str = ""
 
 
 class Manifest(BaseModel):

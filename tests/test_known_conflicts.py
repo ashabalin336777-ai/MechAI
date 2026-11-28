@@ -18,7 +18,7 @@ from app.rag.conflicts import (
 )
 from app.rag.search import Fragment
 from tests.agent_helpers import DIAG_SESSION, DIAG_VEHICLE, ScriptedChat, make_services, reply
-from tests.helpers import REPO_ROOT
+from tests.helpers import REPO_ROOT, requires_real_materials
 
 CONFLICTS_PATH = REPO_ROOT / "data" / "known_conflicts.yaml"
 RE_31 = "236-3902150-Б РЭ"
@@ -278,6 +278,7 @@ def test_rule_quote_is_refused_when_its_numbers_are_missing_on_the_page() -> Non
     assert quote_for_ref(conflict, conflict.refs[0], fragment) is None
 
 
+@requires_real_materials
 def test_real_pages_give_both_oil_pressure_formulations() -> None:
     conflict = _conflict(OIL_ID)
     page_12 = _real_page_fragment("yamz-236_rk_2014.pdf", "236.01.01 РК", 12)
@@ -318,6 +319,7 @@ def test_verbatim_quote_survives_line_breaks_and_hyphenation_of_the_page() -> No
     assert quote_for_ref(conflict, conflict.refs[1], fragment) == conflict.refs[1].quote
 
 
+@requires_real_materials
 def test_real_pages_contain_the_verbatim_quotes_of_the_rule() -> None:
     conflict = _conflict()
     pages = {

@@ -1,6 +1,6 @@
 # AGENTS.md — MechAI («Цифровой механик»)
 
-Регламент для Cursor Agent. Полное ТЗ: `docs/TZ.md` (редакция 26.11 v2). Промпты фаз: `docs/prompts/00…10`. Модели: `docs/models.md`. Требования заказчика: `docs/customer/`, заглушки и данные: `mock/`.
+Регламент для Cursor Agent. Полное ТЗ: `docs/TZ.md` (редакция 26.11 v2). Промпты фаз: `docs/prompts/00…10`. Модели: `docs/models.md`. Выводы по задаче своими словами: `docs/task_notes.md`. Материалы задачи (заглушки, PDF, документы заказчика) вне репозитория, см. раздел «Данные».
 
 ## Сроки
 - Спринт идёт: до **28.11 12:00 МСК (16:00 Нск)**. Оценивается последний коммит до этого времени. Наша заморозка — **15:30 Нск**.
@@ -14,8 +14,11 @@
 Не начинать пункт ниже, пока выше не работает на стенде.
 
 ## Данные
-- ТС и проверки: `mock/data/vehicles.json` (50 ТС, 195 проверок). Справочник F01–F14: `mock/data/fault_types.json`. Код в `mock/` **не менять** (это компонент заказчика).
-- Руководства: `data/manuals/*.pdf` + `data/manuals/manifest.yaml`. `yamz-536_rk_2013.pdf` (99 МБ) в git не кладём — ingest скачивает его с Яндекс Диска заказчика (`app/rag/manuals.py`).
+- PDF, данные заглушек и документы заказчика не коммитить. Материалы задачи не публикуем, требование организатора, п. 9.1. В git: `data/manuals/manifest.yaml` без ссылок; `mock/data/` и `docs/customer/` игнорируются, `.gitignore` и `.dockerignore` это задают.
+- Ссылки на материалы только из env: `MATERIALS_URL` (общая публичная папка), при необходимости `MANUALS_URL` (PDF) и `MOCK_DATA_URL` (JSON заглушек). Файлы докачиваются при старте (`app/materials.py`), `/health` показывает `materials: ok|missing`.
+- Тесты не читают материалы: синтетический fixture в `tests/fixtures/mock_data/`, тесты с настоящими PDF помечены `requires_real_materials` и запускаются с `MECHAI_REAL_MATERIALS=1`.
+- ТС и справочник F01–F14: `mock/data/vehicles.json` и `mock/data/fault_types.json` (локально, из `MATERIALS_URL`). Код в `mock/` **не менять** (это компонент заказчика).
+- Руководства: `data/manuals/*.pdf` (локально, из `MANUALS_URL` или `MATERIALS_URL`) + `data/manuals/manifest.yaml` (file, sha256, двигатели).
 - Старые данные (Cummins ISF 2.8, ГАЗель, S1–S5, схема v1.1, 1С) **не использовать**.
 
 ## Контракты (точно по `mock/openapi_ml.json` и `mock/openapi_toir.json`)

@@ -18,6 +18,8 @@ class ServicesHealth(BaseModel):
     mock_ml: Literal["ok", "unavailable"]
     mock_toir: Literal["ok", "unavailable"]
     database: DatabaseState
+    # ok — парк ТС и справочник читаются; missing — нет файла или докачка не сработала.
+    materials: Literal["ok", "missing"]
 
 
 class HealthResponse(BaseModel):
@@ -44,8 +46,11 @@ def health(request: Request) -> HealthResponse:
         mock_ml="ok" if ml_ok else "unavailable",
         mock_toir="ok" if toir_ok else "unavailable",
         database=current_database_state(request),
+        materials="ok" if state.materials.ok else "missing",
     )
-    all_ok = ml_ok and toir_ok and services.database in ("ok", "not_configured")
+    all_ok = (
+        ml_ok and toir_ok and services.database in ("ok", "not_configured") and state.materials.ok
+    )
     return HealthResponse(
         status="ok" if all_ok else "degraded",
         git_sha=state.settings.git_sha or "unknown",

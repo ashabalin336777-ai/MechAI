@@ -59,17 +59,17 @@ def test_search_manual_keeps_own_engine_fragment() -> None:
 
 def test_check_failed_never_gets_ticket_draft() -> None:
     services = make_services(ScriptedChat([]))
-    runtime = _runtime(services, "P456AT178", "S-0003")
+    runtime = _runtime(services, "TST-A001", "S-9003")
     diagnosis = get_diagnosis.run(
-        runtime, get_diagnosis.Args(vehicle_id="P456AT178", session_id="S-0003")
+        runtime, get_diagnosis.Args(vehicle_id="TST-A001", session_id="S-9003")
     )
     assert diagnosis["verdict"]["code"] == "check_failed"
     runtime.turn.remember([manual_fragment()])
     result = draft_ticket.run(
         runtime,
         draft_ticket.Args(
-            vehicle_id="P456AT178",
-            session_id="S-0003",
+            vehicle_id="TST-A001",
+            session_id="S-9003",
             conclusion="Попытка создать заявку при сбое записи",
             urgency="high",
             operations=["Снять головку блока"],

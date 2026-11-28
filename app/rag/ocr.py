@@ -215,10 +215,12 @@ def pending_pages(candidates: list[int], done: set[int]) -> list[int]:
     return [page for page in candidates if page not in done]
 
 
-def plan_tasks(manifest: Manifest, manuals_dir: Path, store: OcrStore) -> list[OcrTask]:
+def plan_tasks(
+    manifest: Manifest, manuals_dir: Path, store: OcrStore, base_url: str = ""
+) -> list[OcrTask]:
     tasks: list[OcrTask] = []
     for entry in manifest.manuals:
-        path = ensure_manual_file(entry, manuals_dir)
+        path = ensure_manual_file(entry, manuals_dir, base_url)
         if not store.manual_exists(entry.id):
             raise OcrError(f"руководство {entry.id} не проиндексировано: сначала запустите ingest")
         done = store.done_pages(entry.id)
@@ -354,7 +356,7 @@ def run_ocr_pages(
         raise OcrError("ключ Neuraldeep не задан")
     manifest = load_manifest(settings.manuals_dir / "manifest.yaml")
     store = PgOcrStore(settings.database_url)
-    tasks = plan_tasks(manifest, settings.manuals_dir, store)
+    tasks = plan_tasks(manifest, settings.manuals_dir, store, settings.manuals_base_url)
     on_total(len(tasks))
     models = tuple(dict.fromkeys(m for m in (settings.ocr_model, settings.ocr_fallback_model) if m))
     client = VisionClient(settings.neuraldeep_api_key, settings.neuraldeep_base_url)

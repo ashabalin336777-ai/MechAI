@@ -1,6 +1,5 @@
 """Эталоны и судейка: набор валиден, эталонные цифры есть на страницах PDF, отчёт и метрики."""
 
-import json
 from datetime import datetime
 
 import pymupdf
@@ -17,7 +16,7 @@ from app.rag.evaluation import (
 )
 from app.rag.manifest import load_manifest
 from app.rag.search import Fragment
-from tests.helpers import REPO_ROOT, VEHICLES_PATH
+from tests.helpers import REPO_ROOT, requires_real_materials
 
 QUESTIONS_PATH = REPO_ROOT / "eval" / "questions.yaml"
 MANUALS_DIR = REPO_ROOT / "data" / "manuals"
@@ -57,8 +56,7 @@ def test_question_file_has_eleven_engine_questions_and_three_no_data() -> None:
 
 def test_question_file_points_to_known_manuals_and_engines() -> None:
     manifest = {entry.id: entry for entry in load_manifest(MANUALS_DIR / "manifest.yaml").manuals}
-    vehicles = json.loads(VEHICLES_PATH.read_text(encoding="utf-8"))["vehicles"]
-    known_engines = {vehicle["engine_model"] for vehicle in vehicles}
+    known_engines = {engine for entry in manifest.values() for engine in entry.engine_models}
     for question in load_questions(QUESTIONS_PATH):
         assert question.engine_model in known_engines
         if question.no_data:
@@ -68,6 +66,7 @@ def test_question_file_points_to_known_manuals_and_engines() -> None:
         assert question.engine_model in entry.engine_models
 
 
+@requires_real_materials
 @pytest.mark.parametrize(
     "question", [q for q in load_questions(QUESTIONS_PATH) if not q.no_data], ids=lambda q: q.id
 )

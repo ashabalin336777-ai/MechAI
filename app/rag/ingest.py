@@ -56,7 +56,9 @@ def run_ingest(settings: Settings) -> str:
         settings.neuraldeep_api_key, settings.neuraldeep_base_url, settings.embed_model
     )
     results = [
-        _ingest_manual(entry, manuals_dir, settings.database_url, embedder)
+        _ingest_manual(
+            entry, manuals_dir, settings.database_url, embedder, settings.manuals_base_url
+        )
         for entry in manifest.manuals
     ]
     return render_report(
@@ -65,12 +67,16 @@ def run_ingest(settings: Settings) -> str:
 
 
 def _ingest_manual(
-    entry: ManualEntry, manuals_dir: Path, database_url: str, embedder: EmbeddingClient
+    entry: ManualEntry,
+    manuals_dir: Path,
+    database_url: str,
+    embedder: EmbeddingClient,
+    base_url: str,
 ) -> ManualResult:
     began = time.monotonic()
     result = ManualResult(manual_id=entry.id, designation=entry.designation, status="error")
     try:
-        path = ensure_manual_file(entry, manuals_dir)
+        path = ensure_manual_file(entry, manuals_dir, base_url)
         if _already_indexed(database_url, entry):
             result.status = "skipped"
             return result

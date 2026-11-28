@@ -69,8 +69,8 @@ def test_repeated_turns_keep_one_recommendation_per_kind() -> None:
     llm = ScriptedChat([reply(content="Повторите запись."), reply(content="Повторите запись.")])
     services = make_services(llm)
     request = TurnRequest(
-        vehicle_id="P456AT178",
-        session_id="S-0003",
+        vehicle_id="TST-A001",
+        session_id="S-9003",
         message="Что показала проверка?",
         user_action=None,
         ui_mode="standard",
@@ -81,4 +81,4 @@ def test_repeated_turns_keep_one_recommendation_per_kind() -> None:
     run_turn(services, request, load_base_prompt(), lambda name, data: None)
 
     recommendations = services.deps.store.recommendations
-    assert list(recommendations) == [("P456AT178", "S-0003", "repeat_recording")]
+    assert list(recommendations) == [("TST-A001", "S-9003", "repeat_recording")]

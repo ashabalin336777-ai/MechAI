@@ -1,6 +1,6 @@
 # Реестр руководств (ТЗ §3.2). Привязка ТС к руководству — только через engine_model из карточки ТС.
-# yandex_url пуст там, где файл лежит в репозитории и копируется в образ.
-# yamz-536_rk_2013.pdf (99 МБ) в git и в образ не входит: ingest скачивает его с Яндекс Диска и проверяет sha256.
+# PDF в git не лежат (п. 9.1 требований организатора). Ссылка на публичную папку — в env (MATERIALS_URL,
+# MANUALS_URL). Имя файла в папке — поле file, проверка — sha256. Недостающий файл докачивается при ingest/OCR.
 manuals:
   - id: yamz236_re
     designation: "236-3902150-Б РЭ"
@@ -10,7 +10,6 @@ manuals:
     sha256: 4268a9519e02a668a826fe6d154de0360f6767015868ca2de7410ba570d73dd1
     pages: 172
     engine_models: ["ЯМЗ-236М2"]
-    yandex_url: ""
   - id: yamz236_rk
     designation: "236.01.01 РК"
     title: "ЯМЗ-236М2. Руководство по ремонту"
@@ -19,7 +18,6 @@ manuals:
     sha256: 231e067ea9d220dec0ab7629bf19fbbf59d29e01d81e9f3bf5b0b1dee76a141b
     pages: 287
     engine_models: ["ЯМЗ-236М2"]
-    yandex_url: ""
   - id: yamz536_re
     designation: "536.3902150 РЭ"
     title: "ЯМЗ-536. Руководство по эксплуатации"
@@ -28,7 +26,6 @@ manuals:
     sha256: 402bc070b9f63d9aab3058e44e8418fcfaf5b9198f7a22a4cc93d9bbef94a7c3
     pages: 285
     engine_models: ["ЯМЗ-536"]
-    yandex_url: ""
   - id: yamz536_rk
     designation: "536.01.02 РК"
     title: "ЯМЗ-536. Руководство по ремонту"
@@ -37,7 +34,6 @@ manuals:
     sha256: 9b8b920c6757ee2492d97d0d29159507219997ba05678d835d778ba25e402828
     pages: 603
     engine_models: ["ЯМЗ-536"]
-    yandex_url: "https://disk.yandex.ru/d/QdAA8p4m0ySe8Q"
   - id: zmz5234_rk
     designation: "ЗМЗ-5234.10 со сцеплением. Руководство по ремонту"
     title: "ЗМЗ-5234.10 со сцеплением. Руководство по ремонту"
@@ -46,7 +42,6 @@ manuals:
     sha256: 1abd24d9c7f81167a895bec4372bc439e85995aa6207349d8b6e8edb4eac9c09
     pages: 158
     engine_models: ["ЗМЗ-5234.10"]
-    yandex_url: ""
   - id: zmz409_rk
     designation: "ЗМЗ-40904.10 и ЗМЗ-40905.10. Руководство по эксплуатации, техническому обслуживанию и ремонту"
     title: "ЗМЗ-40904.10 и ЗМЗ-40905.10. Руководство по эксплуатации, ТО и ремонту"
@@ -55,4 +50,3 @@ manuals:
     sha256: 99cf64334c578d668ce67bc4c9a1d7b0bb1e9c59ddac982b6061ea18533a7147
     pages: 238
     engine_models: ["ЗМЗ-40904.10", "ЗМЗ-40905.10"]
-    yandex_url: ""

@@ -3,12 +3,16 @@
 Без сети и БД: модель и хранилище подменены. Страница 280 рендерится из настоящего PDF.
 """
 
+import tempfile
+from pathlib import Path
+
 import pytest
 
 from app.clients.vision_client import VisionError, VisionResult
 from app.rag.chunking import ChunkDraft, image_only_pages
 from app.rag.citations import check_citations
-from app.rag.manifest import Manifest, ManualEntry, load_manifest
+from app.rag.manifest import Manifest, ManualEntry
+from app.rag.manuals import sha256_of
 from app.rag.ocr import (
     DONE_STATUSES,
     OcrError,
@@ -20,10 +24,13 @@ from app.rag.ocr import (
 )
 from app.rag.ocr_job import OcrRun
 from app.rag.search import Fragment
-from tests.helpers import REPO_ROOT
+from tests.helpers import make_scan_pdf, requires_real_materials
 
-MANUALS_DIR = REPO_ROOT / "data" / "manuals"
 PAGE = 280
+# Синтетический скан: 280 страниц, страница 280 — только рисунок. Настоящих PDF тесты не читают.
+MANUALS_DIR = Path(tempfile.mkdtemp(prefix="mechai-ocr-test-"))
+SCAN_FILE = "synthetic_scan.pdf"
+_SCAN_PATH = make_scan_pdf(MANUALS_DIR / SCAN_FILE, pages=PAGE, scan_page=PAGE)
 TABLE = (
     "Таблица 6.12 - ЯМЗ-236М2\n"
     "| Частота | Нагрузка, кВт | Время, мин |\n"
@@ -33,8 +40,16 @@ MODELS = ("gemma-test", "qwen-test")
 
 
 def _entry() -> ManualEntry:
-    manifest = load_manifest(MANUALS_DIR / "manifest.yaml")
-    return next(entry for entry in manifest.manuals if entry.id == "yamz236_rk")
+    return ManualEntry(
+        id="yamz236_rk",
+        designation="236.01.01 РК",
+        title="Синтетический скан для тестов OCR",
+        year=2014,
+        file=SCAN_FILE,
+        sha256=sha256_of(_SCAN_PATH),
+        pages=PAGE,
+        engine_models=["ЯМЗ-236М2"],
+    )
 
 
 class FakeStore:
@@ -108,8 +123,14 @@ def test_pending_pages_skip_done() -> None:
     assert pending_pages([10], set()) == [10]
 
 
+@requires_real_materials
 def test_scan_page_is_image_only_in_real_pdf() -> None:
-    assert PAGE in image_only_pages(MANUALS_DIR / _entry().file)
+    real = Path(__file__).resolve().parent.parent / "data" / "manuals" / "yamz-236_rk_2014.pdf"
+    assert PAGE in image_only_pages(real)
+
+
+def test_scan_page_is_image_only_in_synthetic_pdf() -> None:
+    assert PAGE in image_only_pages(MANUALS_DIR / SCAN_FILE)
 
 
 def test_process_stores_ocr_chunks_with_source_and_page() -> None:

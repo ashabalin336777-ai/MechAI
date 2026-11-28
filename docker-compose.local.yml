@@ -37,7 +37,9 @@ services:
       VEHICLES_PATH: ${VEHICLES_PATH:-mock/data/vehicles.json}
       FAULT_TYPES_PATH: ${FAULT_TYPES_PATH:-mock/data/fault_types.json}
       MANUALS_DIR: ${MANUALS_DIR:-data/manuals}
-      MANUALS_YADISK_URL: ${MANUALS_YADISK_URL:-https://disk.yandex.ru/d/QdAA8p4m0ySe8Q}
+      MATERIALS_URL: ${MATERIALS_URL:-}
+      MANUALS_URL: ${MANUALS_URL:-}
+      MOCK_DATA_URL: ${MOCK_DATA_URL:-}
       CONF_LOW: ${CONF_LOW:-0.60}
       SCORE_HIGH: ${SCORE_HIGH:-0.80}
       RAG_MIN_SCORE: ${RAG_MIN_SCORE:-0.80}
@@ -56,17 +58,23 @@ services:
     restart: unless-stopped
   mock_ml:
     build:
-      context: ./mock
-      dockerfile: Dockerfile
-    command: uvicorn mock_ml.app:app --host 0.0.0.0 --port 8001
+      context: .
+      dockerfile: mock/Dockerfile
+    command: sh -c "python /opt/mechai/materials.py --target /app/data/vehicles.json --list-key vehicles && uvicorn mock_ml.app:app --host 0.0.0.0 --port 8001"
+    environment:
+      MATERIALS_URL: ${MATERIALS_URL:-}
+      MOCK_DATA_URL: ${MOCK_DATA_URL:-}
     ports:
       - "8001:8001"
     restart: unless-stopped
   mock_toir:
     build:
-      context: ./mock
-      dockerfile: Dockerfile
-    command: uvicorn mock_toir.app:app --host 0.0.0.0 --port 8002
+      context: .
+      dockerfile: mock/Dockerfile
+    command: sh -c "python /opt/mechai/materials.py --target /app/data/vehicles.json --list-key vehicles && uvicorn mock_toir.app:app --host 0.0.0.0 --port 8002"
+    environment:
+      MATERIALS_URL: ${MATERIALS_URL:-}
+      MOCK_DATA_URL: ${MOCK_DATA_URL:-}
     ports:
       - "8002:8002"
     restart: unless-stopped

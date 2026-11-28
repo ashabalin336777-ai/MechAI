@@ -1,4 +1,7 @@
-"""Манифест руководств: соответствие ТЗ §3.2, двигатели из заглушки ТС, sha256 локальных файлов."""
+"""Манифест руководств: соответствие ТЗ §3.2, двигатели из fixture парка, sha256 локальных PDF.
+
+Ссылок на материалы в манифесте нет (п. 9.1): их задаёт env (MATERIALS_URL, MANUALS_URL).
+"""
 
 import json
 from pathlib import Path
@@ -7,7 +10,7 @@ import pytest
 
 from app.rag.manifest import Manifest, load_manifest
 from app.rag.manuals import sha256_of
-from tests.helpers import REPO_ROOT, VEHICLES_PATH
+from tests.helpers import REPO_ROOT, VEHICLES_PATH, requires_real_materials
 
 MANIFEST_PATH = REPO_ROOT / "data" / "manuals" / "manifest.yaml"
 MANUALS_DIR = REPO_ROOT / "data" / "manuals"
@@ -24,7 +27,7 @@ def test_manifest_lists_six_manuals_with_total_pages_from_tz() -> None:
     assert sum(entry.pages for entry in manifest.manuals) == 1743
 
 
-def test_every_vehicle_engine_has_a_manual() -> None:
+def test_every_fixture_vehicle_engine_has_a_manual() -> None:
     vehicles = json.loads(VEHICLES_PATH.read_text(encoding="utf-8"))["vehicles"]
     engines = {vehicle["engine_model"] for vehicle in vehicles}
     covered = {engine for entry in _manifest().manuals for engine in entry.engine_models}
@@ -37,11 +40,14 @@ def test_zmz_40904_and_40905_share_one_manual() -> None:
     assert set(matches[0].engine_models) == {"ЗМЗ-40904.10", "ЗМЗ-40905.10"}
 
 
-def test_only_536_rk_is_downloaded_from_yandex() -> None:
-    with_url = [entry.id for entry in _manifest().manuals if entry.yandex_url]
-    assert with_url == ["yamz536_rk"]
+def test_manifest_has_no_download_links() -> None:
+    """Публичные ссылки не хранятся в git: их задаёт env (п. 9.1 требований организатора)."""
+    text = MANIFEST_PATH.read_text(encoding="utf-8")
+    assert "yandex" not in text.lower()
+    assert "http" not in text.lower()
 
 
+@requires_real_materials
 @pytest.mark.parametrize("entry_id", [entry.id for entry in _manifest().manuals])
 def test_local_file_matches_sha256_when_present(entry_id: str) -> None:
     entry = next(item for item in _manifest().manuals if item.id == entry_id)

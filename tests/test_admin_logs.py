@@ -29,8 +29,8 @@ class MemoryJournalReader:
             AgentRunRow(
                 id=2,
                 started_at=STARTED,
-                vehicle_id="P456AT178",
-                session_id="S-0003",
+                vehicle_id="TST-A001",
+                session_id="S-9003",
                 status="error",
                 total_ms=5300,
                 prompt_tokens=6100,
@@ -41,8 +41,8 @@ class MemoryJournalReader:
             AgentRunRow(
                 id=1,
                 started_at=STARTED,
-                vehicle_id="M260EH47",
-                session_id="S-0001",
+                vehicle_id="TST-C003",
+                session_id="S-9001",
                 status="ok",
                 total_ms=2100,
                 prompt_tokens=None,
@@ -188,7 +188,7 @@ def test_without_access_shows_login_form_not_data() -> None:
     response = client.get("/admin/logs")
     assert response.status_code == 200
     assert "Вход в журнал агента" in response.text
-    assert "P456AT178" not in response.text
+    assert "TST-A001" not in response.text
     assert _reader(client).calls == []
 
 
@@ -217,7 +217,7 @@ def test_login_cookie_opens_runs_list() -> None:
     _login(client)
     response = client.get("/admin/logs")
     assert response.status_code == 200
-    assert "P456AT178" in response.text
+    assert "TST-A001" in response.text
     assert "/admin/logs/runs/2" in response.text
 
 
@@ -225,7 +225,7 @@ def test_bearer_token_opens_page_without_login() -> None:
     client = _client()
     response = client.get("/admin/logs", headers=AUTH)
     assert response.status_code == 200
-    assert "M260EH47" in response.text
+    assert "TST-C003" in response.text
 
 
 def test_forged_cookie_is_rejected() -> None:
@@ -262,8 +262,8 @@ def test_unknown_status_filter_is_rejected() -> None:
 def test_error_filter_shows_only_error_runs() -> None:
     client = _client()
     response = client.get("/admin/logs?status=error", headers=AUTH)
-    assert "P456AT178" in response.text
-    assert "M260EH47" not in response.text
+    assert "TST-A001" in response.text
+    assert "TST-C003" not in response.text
 
 
 def test_run_page_lists_steps_errors_and_raw_answer() -> None:

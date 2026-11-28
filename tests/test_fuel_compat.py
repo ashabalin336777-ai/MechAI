@@ -1,7 +1,7 @@
 """Совместимость кода неисправности с топливом (ТЗ §17.1): F13 у дизеля — «нет инструкции».
 
 Процедуру не подбираем (search_manual отказывает), заявку не формируем (draft_ticket отказывает),
-рекомендация «повторная дефектовка» сохраняется. Проверяется на машине M260EH47 (ЯМЗ-536, дизель).
+рекомендация «повторная дефектовка» сохраняется. Проверяется на машине TST-C003 (ЯМЗ-536, дизель).
 """
 
 import pytest
@@ -12,8 +12,8 @@ from app.tools import draft_ticket, get_diagnosis, search_manual
 from app.tools.runtime import Runtime, TurnContext
 from tests.agent_helpers import ScriptedChat, make_services, reply
 
-MISMATCH_VEHICLE = "M260EH47"
-MISMATCH_SESSION = "S-0079"
+MISMATCH_VEHICLE = "TST-C003"
+MISMATCH_SESSION = "S-9008"
 MANUAL_536 = "536.3902150 РЭ"
 
 

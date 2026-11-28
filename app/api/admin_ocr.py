@@ -77,7 +77,8 @@ def ocr_probe(
     check_admin(request)
     entry = _find_manual(request, manual)
     try:
-        path = ensure_manual_file(entry, request.app.state.settings.manuals_dir)
+        settings = request.app.state.settings
+        path = ensure_manual_file(entry, settings.manuals_dir, settings.manuals_base_url)
     except ManualFileError as exc:
         raise HTTPException(status_code=503, detail=str(exc)) from exc
     total = page_count(path)

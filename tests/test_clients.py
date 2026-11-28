@@ -9,7 +9,7 @@ from app.clients.toir_client import Reference, TicketRequest, ToirClient
 from tests.helpers import STUB_BASE, FailingHttp
 
 
-def _ticket(vehicle_id: str = "M333YK47", session_id: str = "S-0005") -> TicketRequest:
+def _ticket(vehicle_id: str = "TST-B002", session_id: str = "S-9005") -> TicketRequest:
     return TicketRequest(
         vehicle_id=vehicle_id,
         session_id=session_id,
@@ -26,7 +26,7 @@ def _ticket(vehicle_id: str = "M333YK47", session_id: str = "S-0005") -> TicketR
 
 
 def test_diagnose_returns_validated_model(ml_client: MlClient) -> None:
-    result = ml_client.diagnose("M333YK47", "S-0005")
+    result = ml_client.diagnose("TST-B002", "S-9005")
     assert isinstance(result, DiagnoseResponse)
     assert result.status == "anomaly"
     assert result.anomaly_type == "F08"
@@ -34,7 +34,7 @@ def test_diagnose_returns_validated_model(ml_client: MlClient) -> None:
 
 
 def test_diagnose_check_failed_has_nulls(ml_client: MlClient) -> None:
-    result = ml_client.diagnose("P456AT178", "S-0003")
+    result = ml_client.diagnose("TST-A001", "S-9003")
     assert result.status == "check_failed"
     assert result.signal_quality == "bad"
     assert result.anomaly_type is None
@@ -44,18 +44,18 @@ def test_diagnose_check_failed_has_nulls(ml_client: MlClient) -> None:
 
 def test_diagnose_unknown_vehicle_is_not_found(ml_client: MlClient) -> None:
     with pytest.raises(NotFound) as exc:
-        ml_client.diagnose("X000XX00", "S-0005")
+        ml_client.diagnose("X000XX00", "S-9005")
     assert "не найдена" in exc.value.user_message
 
 
 def test_diagnose_session_of_other_vehicle_is_not_found(ml_client: MlClient) -> None:
     with pytest.raises(NotFound):
-        ml_client.diagnose("P456AT178", "S-0005")
+        ml_client.diagnose("TST-A001", "S-9005")
 
 
 def test_diagnose_rejects_empty_ids_before_sending(ml_client: MlClient) -> None:
     with pytest.raises(ValueError):
-        ml_client.diagnose("", "S-0005")
+        ml_client.diagnose("", "S-9005")
 
 
 def test_ml_health_is_true_for_stub(ml_client: MlClient) -> None:
@@ -108,7 +108,7 @@ def test_network_error_retries_once_then_unavailable() -> None:
     http = FailingHttp()
     client = MlClient(STUB_BASE, http=http)  # type: ignore[arg-type]
     with pytest.raises(Unavailable):
-        client.diagnose("M333YK47", "S-0005")
+        client.diagnose("TST-B002", "S-9005")
     assert http.calls == 2
 
 

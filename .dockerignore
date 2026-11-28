@@ -9,5 +9,7 @@ venv
 .ruff_cache
 docs
 tests
-# 536 РК (99 МБ) не нужен в образе: ingest пишет индекс в Postgres (фаза 03)
-data/manuals/yamz-536_rk_2013.pdf
+# Материалы задачи не входят в образ (п. 9.1): докачка при старте по MATERIALS_URL
+data/manuals/*.pdf
+mock/data
+docs/customer

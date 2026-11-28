@@ -26,8 +26,8 @@ from app.obs.retry import retry_sink
 from tests.helpers import STUB_BASE
 
 DIAG_OK = {
-    "vehicle_id": "M333YK47",
-    "session_id": "S-0005",
+    "vehicle_id": "TST-B002",
+    "session_id": "S-9005",
     "status": "normal",
     "anomaly_type": None,
     "anomaly_title": None,
@@ -196,8 +196,8 @@ class _Scripted:
 
 def _ticket() -> TicketRequest:
     return TicketRequest(
-        vehicle_id="M333YK47",
-        session_id="S-0005",
+        vehicle_id="TST-B002",
+        session_id="S-9005",
         anomaly_type="F08",
         conclusion="Тестовая заявка",
         urgency="medium",
@@ -212,7 +212,7 @@ def test_diagnose_retries_once_on_503(sleeps: list[float]) -> None:
     client = MlClient(STUB_BASE, http=http)  # type: ignore[arg-type]
 
     with retry_sink() as events:
-        result = client.diagnose("M333YK47", "S-0005")
+        result = client.diagnose("TST-B002", "S-9005")
 
     assert result.status == "normal"
     assert http.calls == 2
@@ -224,7 +224,7 @@ def test_diagnose_retries_on_timeout(sleeps: list[float]) -> None:
     http = _Scripted([httpx.ReadTimeout("медленно"), httpx.Response(200, json=DIAG_OK)])
     client = MlClient(STUB_BASE, http=http)  # type: ignore[arg-type]
 
-    client.diagnose("M333YK47", "S-0005")
+    client.diagnose("TST-B002", "S-9005")
 
     assert http.calls == 2
 
@@ -234,7 +234,7 @@ def test_diagnose_gives_up_after_two_server_errors(sleeps: list[float]) -> None:
     client = MlClient(STUB_BASE, http=http)  # type: ignore[arg-type]
 
     with pytest.raises(Unavailable):
-        client.diagnose("M333YK47", "S-0005")
+        client.diagnose("TST-B002", "S-9005")
     assert http.calls == 2
 
 
@@ -246,7 +246,7 @@ def test_diagnose_client_errors_are_not_retried(
     client = MlClient(STUB_BASE, http=http)  # type: ignore[arg-type]
 
     with pytest.raises(error):
-        client.diagnose("M333YK47", "S-0005")
+        client.diagnose("TST-B002", "S-9005")
     assert http.calls == 1
     assert sleeps == []
 

@@ -1,6 +1,7 @@
-# Образ приложения. Руководства из data/manuals и заглушки из mock/ копируются при сборке (тома в App Platform запрещены).
+# Образ приложения. Руководства из data/manuals (только манифест) и заглушки из mock/ — код, без данных.
+# Данные заказчика (vehicles.json, fault_types.json, PDF) в образ не входят: скачиваются при старте по
+# MATERIALS_URL (п. 9.1 требований организатора). Тома в App Platform запрещены, поэтому пути внутри образа.
 # mock/ нужен для запасного режима MOUNT_MOCKS=1; в обычном режиме заглушки живут в своих сервисах compose.
-# Копируем только data/manuals, а не весь data/: остальное в data/ в образ не нужно.
 FROM python:3.12-slim
 
 # Хэш коммита передаётся при сборке (build-аргумент GIT_SHA) и виден в /health.
@@ -23,8 +24,10 @@ COPY eval/questions.yaml ./eval/questions.yaml
 COPY eval/agent_scenarios.yaml ./eval/agent_scenarios.yaml
 COPY mock ./mock
 
+# Каталоги для докачки материалов должны быть записываемы пользователем приложения.
 RUN useradd --create-home --uid 10001 appuser \
-    && chown appuser:appuser /app/data/manuals
+    && mkdir -p /app/mock/data \
+    && chown appuser:appuser /app/data/manuals /app/mock/data
 USER appuser
 
 EXPOSE 8000

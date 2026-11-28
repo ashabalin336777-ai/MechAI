@@ -15,6 +15,7 @@ from app.rag.chunking import (
     split_lines,
     table_lines,
 )
+from tests.helpers import requires_real_materials
 
 
 def test_short_page_is_one_chunk_with_given_section() -> None:
@@ -95,6 +96,7 @@ def test_table_row_binds_value_to_engine_column_and_section_unit() -> None:
     ]
 
 
+@requires_real_materials
 def test_real_page_gives_oil_capacity_with_its_unit() -> None:
     if not RE_236.exists():
         pytest.skip("руководство ЯМЗ-236М2 (РЭ) не найдено в data/manuals")
@@ -141,33 +143,39 @@ def _real_page_lines(manual: str, page_number: int) -> list[str]:
         return table_lines(page, page.get_text("text"))
 
 
+@requires_real_materials
 def test_regression_oil_system_capacity_stays_in_re_page_11() -> None:
     lines = _real_page_lines("yamz-236_re_2010.pdf", 11)
     assert any(line.startswith("Система смазки (без радиатора): ЯМЗ–236М2 21 л") for line in lines)
 
 
+@requires_real_materials
 def test_regression_size_table_stays_in_rk_page_35() -> None:
     lines = _real_page_lines("yamz-236_rk_2014.pdf", 35)
     assert any(line.startswith("Диаметр описанной окружности, мм: 10 10,5") for line in lines)
 
 
 @pytest.mark.parametrize("page_number", [279, 281, 282])  # стр. 280 — без текстового слоя
+@requires_real_materials
 def test_regression_test_modes_stay_in_rk_pages_279_282(page_number: int) -> None:
     lines = _real_page_lines("yamz-236_rk_2014.pdf", page_number)
     assert any("Частота вращения, мин-1" in line for line in lines)
 
 
 @pytest.mark.parametrize("page_number", [117, 160])
+@requires_real_materials
 def test_bare_numbers_without_column_caption_are_not_output(page_number: int) -> None:
     lines = _real_page_lines("yamz-236_re_2010.pdf", page_number)
     assert not any(": 24 " in line or "181 182" in line for line in lines)
 
 
+@requires_real_materials
 def test_prose_lines_of_re_page_7_are_not_output() -> None:
     lines = _real_page_lines("yamz-236_re_2010.pdf", 7)
     assert not any("Зубчатые передачи, подшипники качения" in line for line in lines)
 
 
+@requires_real_materials
 def test_rotated_table_with_reversed_text_is_not_linearized() -> None:
     if not RK_236.exists():
         pytest.skip("руководство ЯМЗ-236М2 (РК) не найдено в data/manuals")

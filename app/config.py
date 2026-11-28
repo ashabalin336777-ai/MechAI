@@ -33,7 +33,12 @@ class Settings(BaseSettings):
     fault_types_path: Path = Path("mock/data/fault_types.json")
     manuals_dir: Path = Path("data/manuals")
     known_conflicts_path: Path = Path("data/known_conflicts.yaml")
-    manuals_yadisk_url: str = "https://disk.yandex.ru/d/QdAA8p4m0ySe8Q"
+    # Материалы задачи не лежат в git (п. 9.1 требований организатора). Ссылки только из env.
+    # MATERIALS_URL — публичная папка с vehicles.json, fault_types.json и PDF руководств.
+    # MANUALS_URL и MOCK_DATA_URL переопределяют её для PDF и для JSON заглушек.
+    materials_url: str = ""
+    manuals_url: str = ""
+    mock_data_url: str = ""
 
     conf_low: float = Field(default=0.60, ge=0, le=1)
     score_medium: float = Field(default=0.60, ge=0, le=1)
@@ -55,6 +60,16 @@ class Settings(BaseSettings):
     commit_sha: str = ""
     # Хэш коммита образа: Dockerfile получает ARG GIT_SHA. Пусто — в /health будет unknown.
     git_sha: str = ""
+
+    @property
+    def manuals_base_url(self) -> str:
+        """Публичная папка для PDF руководств: MANUALS_URL, иначе MATERIALS_URL."""
+        return self.manuals_url or self.materials_url
+
+    @property
+    def mock_data_base_url(self) -> str:
+        """Публичная папка для JSON заглушек: MOCK_DATA_URL, иначе MATERIALS_URL."""
+        return self.mock_data_url or self.materials_url
 
 
 @lru_cache

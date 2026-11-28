@@ -16,8 +16,8 @@ from app.agent.verdict import Verdict
 from app.paths import STATIC_DIR, TEMPLATES_DIR
 from app.ui.views import dashboard, status_of, trend_points
 
-DIAG_VEHICLE = "T792HO98"
-DIAG_SESSION = "S-0043"
+DIAG_VEHICLE = "TST-A001"
+DIAG_SESSION = "S-9002"
 ENGLISH_LABELS = re.compile(r"\b(Submit|Login|Cancel|Sign in|Sign up)\b", re.IGNORECASE)
 HTML_SUBMIT_TYPE = re.compile(r'type="submit"|\.submit\(\)')
 
@@ -117,7 +117,7 @@ def test_steps_and_ticket_pages_render_with_session_data(client: TestClient) -> 
     ticket = client.get(f"/vehicles/{DIAG_VEHICLE}/ticket", params={"session": DIAG_SESSION})
 
     assert steps.status_code == 200
-    assert 'data-session="S-0043"' in steps.text
+    assert 'data-session="S-9002"' in steps.text
     assert "Готово → далее" in steps.text
     assert ticket.status_code == 200
     assert "Состав проверил" in ticket.text
